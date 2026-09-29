@@ -5,6 +5,7 @@ import { getEffectiveLimits } from '../../domain/constraints';
 import { findStandardSize, getHandleVariantDefinition, getStandardSizeViolations } from '../../domain/handleVariants';
 import type { StandardSize } from '../../domain/config/productCatalog';
 import type { Dimensions } from '../../domain/types';
+import { getDimensionWarnings, getMinTrapezoidWidth } from '../../domain/validation/bottom';
 import { validateDimensionValue } from '../../domain/validation/dimensions';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { DimensionIcon } from './DimensionIcon';
@@ -37,6 +38,7 @@ export function DimensionsForm() {
   const { standardSizes } = getHandleVariantDefinition(definition, handle);
   const matchedSize = findStandardSize(dimensions, standardSizes);
   const sizeOptions = standardSizes.map((size) => ({ size, violations: getStandardSizeViolations(size, limits) }));
+  const warnings = getDimensionWarnings(dimensions);
   const unavailableSizes = sizeOptions.filter(({ violations }) => violations.length > 0);
   const sizeSelectId = `${idPrefix}-standardSize`;
 
@@ -175,6 +177,11 @@ export function DimensionsForm() {
           </div>
         );
       })}
+      {warnings.map((warning) => (
+        <p key={warning} className="warning" role="status" data-warning={warning}>
+          {t(`dimensions.warnings.${warning}`, { minWidth: getMinTrapezoidWidth(dimensions.depth) })}
+        </p>
+      ))}
     </fieldset>
   );
 }

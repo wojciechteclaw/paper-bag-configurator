@@ -237,3 +237,16 @@ describe('DimensionsForm — info tooltip', () => {
     expect(document.getElementById(tip.getAttribute('aria-describedby')!)).toHaveTextContent('min. = depth (150 mm)');
   });
 });
+
+describe('DimensionsForm — bottom trapezoid warning (W < D + 30)', () => {
+  it('warns (without blocking) when the bottom trapezoid degenerates into a triangle', () => {
+    render(<DimensionsForm />);
+    expect(document.querySelector('[data-warning]')).toBeNull();
+    fireEvent.change(depthInput(), { target: { value: '180' } }); // W 200 < D + 30 = 210
+    expect(dims().depth).toBe(180);
+    const warning = document.querySelector('[data-warning="BOTTOM_TRAPEZOID_DEGENERATE"]');
+    expect(warning).toHaveTextContent('210 mm');
+    fireEvent.change(depthInput(), { target: { value: '170' } }); // W = D + 30: fine
+    expect(document.querySelector('[data-warning]')).toBeNull();
+  });
+});

@@ -9,6 +9,8 @@
 // helpers exist so a future custom allowance / overlap is validated in one place.
 
 import { BOTTOM_ALLOWANCE_EXTRA_MM } from '../config/productionRules';
+import { isBottomTrapezoidDegenerate } from '../geometry/blockBottom';
+import type { Dimensions } from '../types';
 
 export type BottomFlapIssue =
   /** E < D/2: the side triangle (apex D/2 below the bottom line) does not fit into the allowance. */
@@ -45,4 +47,23 @@ export function validateBottomFlaps(depth: number, allowance: number = getAllowa
   if (allowance < apexDepth - 1e-9) issues.push('ALLOWANCE_BELOW_HALF_DEPTH');
   if (overlap <= 1e-9) issues.push('NO_FLAP_OVERLAP');
   return issues;
+}
+
+/**
+ * Soft dimension warnings of the block bottom (docs/PRODUCTION.md §3.4.1, §10.7). BOTTOM_TRAPEZOID_DEGENERATE: W < 2E =
+ * D + 30 — the 45° creases of the FRONT / BACK bottom zones meet before the zone end, so the trapezoid becomes a
+ * triangle and the side flaps overlap. The geometry degrades gracefully (no NaN); the client has not decided yet
+ * whether this becomes a hard limit, so it is a warning only.
+ */
+export type DimensionWarning = 'BOTTOM_TRAPEZOID_DEGENERATE';
+
+/** Smallest width with a proper bottom trapezoid: 2E = D + 30 mm. */
+export function getMinTrapezoidWidth(depth: number): number {
+  return 2 * getAllowanceForOverlap(depth);
+}
+
+export function getDimensionWarnings(dimensions: Pick<Dimensions, 'width' | 'depth'>): DimensionWarning[] {
+  const { width, depth } = dimensions;
+  if (!Number.isFinite(width) || !Number.isFinite(depth) || width <= 0 || depth <= 0) return [];
+  return isBottomTrapezoidDegenerate(dimensions) ? ['BOTTOM_TRAPEZOID_DEGENERATE'] : [];
 }

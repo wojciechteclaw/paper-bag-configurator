@@ -8,7 +8,7 @@
     "preview": "Podgląd 3D",
     "demo": "Demo",
     "demoBusy": "Wczytywanie…",
-    "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt płaski, grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
+    "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt skręcany (sznurek), grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
     "demoError": "Nie udało się wczytać grafik demo."
   },
   "steps": {
@@ -63,6 +63,9 @@
       "unavailableInfo": "Wyszarzone rozmiary przekraczają obecne limity konfiguratora:",
       "violation": "{{size}}: {{dimension}} {{value}} mm poza zakresem {{min}}–{{max}} mm",
       "none": "Dla wybranego uchwytu nie ma rozmiarów standardowych — podaj wymiary własne."
+    },
+    "warnings": {
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Szerokość poniżej {{minWidth}} mm (głębokość + 30 mm): klapy przodu i tyłu dna nie tworzą trapezu, tylko trójkąt, a boki dna nachodzą na siebie. Sprawdź wykonalność z produkcją."
     }
   },
   "handle": {
@@ -186,9 +189,9 @@
     "phase": {
       "SHEET": "Płaski arkusz",
       "TUBE": "A: formowanie rękawa",
-      "TRIANGLES": "B: trójkąty boków do środka",
-      "FRONT_FLAP": "C1: klapa przednia na dno",
-      "BACK_FLAP": "C2: klapa tylna na wierzch (klej)",
+      "SIDES": "B: boki dna do środka (całe)",
+      "FRONT_TRAPEZOID": "C1: trapez przedni na dno",
+      "BACK_TRAPEZOID": "C2: trapez tylny na wierzch (klej)",
       "FORMED": "Torba uformowana",
       "FOLD": "Składanie na płasko"
     },

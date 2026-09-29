@@ -1,5 +1,5 @@
 // Assembly from the sheet (docs/SPEC.md §4a/§4c, docs/PRODUCTION.md §10.8): the flat dieline in 3D folding into the
-// open bag. One mesh per rigid piece of `getAssemblyPieces` (walls, flaps, side triangles, ears, chamfered glue flap);
+// open bag. One mesh per rigid piece of `getAssemblyPieces` (walls, trapezoids, ear parts, side flaps, glue flap);
 // every vertex is placed per frame by `assemblyPoint` (domain, mm) plus a render-only paper-layer offset, then moved
 // into scene units around the view centre suggested by the pose.
 //
@@ -13,7 +13,6 @@ import { DIELINE_RULES } from '../domain/config/productionRules';
 import { buildDieline } from '../domain/dieline';
 import {
   assemblyInwardNormal,
-  EAR_BEND_ANGLE,
   assemblyPoint,
   findAssemblyPiece,
   getAssemblyPieces,
@@ -28,7 +27,7 @@ import type { Point2 } from '../domain/geometry/sideGusset';
 import { getBottomAllowance } from '../domain/geometry/tube';
 import { getPanelSize } from '../domain/panels';
 import type { Dimensions, PanelPosition } from '../domain/types';
-import { ASSEMBLY_LAYER_GAP_MM, MM_TO_SCENE } from './constants';
+import { ASSEMBLY_LAYER_GAP_MM, BOTTOM_LAYER_OFFSET_MM, getBottomLayerOffsetMm, MM_TO_SCENE } from './constants';
 
 export type AssemblyMesh = {
   piece: AssemblyPiece;
@@ -39,11 +38,11 @@ export type AssemblyMesh = {
   local: Float32Array;
 };
 
-/** One assembly pose plus the render-only offsets (mm), computed once per frame. */
+/** One assembly pose plus the render-only offsets, computed once per frame. */
 export type AssemblyFrame = {
   pose: AssemblyPose;
-  /** Paper-layer offset per layer, mm (fades in while the glue flap closes, so the flat sheet stays exactly flat). */
-  layerShift: number;
+  /** 0..1 scale of the paper-layer offsets (fades in while the glue flap closes, so the flat sheet stays exactly flat). */
+  layerFade: number;
 };
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
@@ -54,16 +53,27 @@ const smoothstep = (a: number, b: number, x: number) => {
 
 export function getAssemblyFrame(dimensions: Dimensions, assemblyProgress: number): AssemblyFrame {
   const pose = getAssemblyPose(dimensions, assemblyProgress);
-  return { pose, layerShift: ASSEMBLY_LAYER_GAP_MM * smoothstep(0.3, 0.4, pose.assemblyProgress) };
+  return { pose, layerFade: smoothstep(0.3, 0.4, pose.assemblyProgress) };
+}
+
+/**
+ * Render-only offset of a piece along its host's inward normal at full fade, mm: the glue flap inside LEFT
+ * (+ASSEMBLY_LAYER_GAP_MM on the wall, half a bottom step inside LEFT's side flap in the bottom), and the bottom pieces
+ * OUTWARDS from the side flaps by `getBottomLayerOffsetMm` (client rule [K]: FRONT trapezoid −0.1 mm, BACK −0.2 mm).
+ */
+export function getAssemblyInwardOffsetMm(piece: Pick<AssemblyPiece, 'id' | 'bottomPiece'>): number {
+  if (piece.id === 'GLUE_WALL') return ASSEMBLY_LAYER_GAP_MM;
+  if (piece.id === 'GLUE_BOTTOM') return BOTTOM_LAYER_OFFSET_MM / 2;
+  return piece.bottomPiece ? 0 - getBottomLayerOffsetMm(piece.bottomPiece) : 0;
 }
 
 const scratch: Vec3 = { x: 0, y: 0, z: 0 };
 
 /** Scene-space position of a piece point (with the layer offset along the piece's inward normal). */
 function place(frame: AssemblyFrame, piece: AssemblyPiece, u: number, v: number, inward: Vec3, out: Float32Array, o: number) {
-  const { pose, layerShift } = frame;
+  const { pose, layerFade } = frame;
   const w = assemblyPoint(pose, piece, u, v, scratch);
-  const shift = piece.layer * layerShift;
+  const shift = getAssemblyInwardOffsetMm(piece) * layerFade;
   out[o] = (w.x + inward.x * shift - pose.view.centreX) * MM_TO_SCENE;
   out[o + 1] = (w.y + inward.y * shift + pose.view.lift) * MM_TO_SCENE;
   out[o + 2] = (w.z + inward.z * shift - pose.view.centreZ) * MM_TO_SCENE;
@@ -114,11 +124,10 @@ export type AssemblyLineSpec = { piece: AssemblyPiece; from: [number, number]; t
 type SheetSegment = { from: Point2; to: Point2 };
 
 /**
- * Splits sheet segments at the column boundaries, the side centre lines and the bottom-line / glue-chamfer levels,
- * and attaches every part to the piece under its midpoint (panel-local coordinates of its column).
+ * Splits sheet segments wherever they cross a piece edge and attaches every part to the first piece under its midpoint
+ * (panel-local coordinates of its column; walls come first, so a line on a wall / zone boundary rides on the wall).
  */
 function toPieceLines(segments: readonly SheetSegment[], dimensions: Dimensions, pieces: readonly AssemblyPiece[]): AssemblyLineSpec[] {
-  const { width: W, depth: D } = dimensions;
   const a = getBottomAllowance(dimensions);
   const s = DIELINE_RULES.glueFlapWidth;
   const origins = getAssemblySheetOrigins(dimensions);
@@ -129,18 +138,32 @@ function toPieceLines(segments: readonly SheetSegment[], dimensions: Dimensions,
     { panel: 'BACK', x0: origins.BACK, x1: origins.GLUE },
     { panel: 'GLUE', x0: origins.GLUE, x1: origins.GLUE + s },
   ];
-  // Column edges, side centres, ear bend lines at the tube end; bottom line, glue triangle and glue-ear bend levels.
-  const bend = Math.min(D / 2, a * Math.tan(EAR_BEND_ANGLE));
-  const xs = [bend, D / 2, D - bend, D, W + D, W + D + bend, W + 1.5 * D, W + 2 * D - bend, W + 2 * D, 2 * W + 2 * D];
-  const ys = [a, a - s, a - Math.min(a - s, s / Math.tan(EAR_BEND_ANGLE))];
+  // Every piece edge in sheet mm.
+  const edges = pieces.flatMap((piece) =>
+    piece.polygon.map((p, i) => {
+      const q = piece.polygon[(i + 1) % piece.polygon.length];
+      const ox = origins[piece.panel];
+      return { from: { x: ox + p.x, y: p.y + a }, to: { x: ox + q.x, y: q.y + a } };
+    }),
+  );
   const specs: AssemblyLineSpec[] = [];
   for (const { from, to } of segments) {
-    const ts = [0, 1];
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    for (const x of xs) if (Math.abs(dx) > 1e-9) ts.push((x - from.x) / dx);
-    for (const y of ys) if (Math.abs(dy) > 1e-9) ts.push((y - from.y) / dy);
-    const cuts = [...new Set(ts.filter((t) => t >= 0 && t <= 1).map((t) => Math.round(t * 1e9) / 1e9))].sort((p, q) => p - q);
+    const ts = [0, 1];
+    for (const e of edges) {
+      // Segment–segment intersection (parameters t on the line, u on the edge); parallel edges add nothing.
+      const ex = e.to.x - e.from.x;
+      const ey = e.to.y - e.from.y;
+      const den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = e.from.x - from.x;
+      const wy = e.from.y - from.y;
+      const t = (wx * ey - wy * ex) / den;
+      const u = (wx * dy - wy * dx) / den;
+      if (t > 0 && t < 1 && u >= -1e-9 && u <= 1 + 1e-9) ts.push(t);
+    }
+    const cuts = [...new Set(ts.map((t) => Math.round(t * 1e9) / 1e9))].sort((p, q) => p - q);
     for (let i = 0; i < cuts.length - 1; i++) {
       const [t0, t1] = [cuts[i], cuts[i + 1]];
       if (t1 - t0 < 1e-9) continue;

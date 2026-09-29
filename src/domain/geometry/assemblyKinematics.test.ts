@@ -5,11 +5,10 @@ import {
   ASSEMBLY_TIMELINE_SHARE,
   assemblyInwardNormal,
   assemblyPoint,
-  findAssemblyPiece,
   EAR_BEND_ANGLE,
+  findAssemblyPiece,
   getAssemblyAngles,
   getAssemblyPhase,
-  getMinFlapAngle,
   getAssemblyPieces,
   getAssemblyPose,
   getAssemblySheetOrigins,
@@ -23,18 +22,19 @@ import {
 import { foldPoint, getFoldPose, type Vec3 } from './foldKinematics';
 import { polygonArea } from './sideGusset';
 
-const dims = { width: 200, height: 400, depth: 150 }; // a = 90, h = 75, s = 10 → sheet 710 × 490
-const a = 90;
+const dims = { width: 200, height: 400, depth: 150 }; // E = 90, s = 10 → sheet 710 × 490
+const E = 90;
 const s = 10;
 const pieces = getAssemblyPieces(dims);
 const byId = Object.fromEntries(pieces.map((p) => [p.id, p])) as Record<AssemblyPieceId, AssemblyPiece>;
 const dist = (p: Vec3, q: Vec3) => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
 const at = (pose: AssemblyPose, id: AssemblyPieceId, u: number, v: number) => assemblyPoint(pose, byId[id], u, v);
-const SAMPLES = [0, 0.1, 0.25, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+const SAMPLES = [0, 0.1, 0.25, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.8, 0.9, 0.95, 1];
 const lerp = (from: number, to: number, n: number) => Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
+const bend = E * Math.tan(EAR_BEND_ANGLE);
 
 describe('assembly pieces', () => {
-  it('tile the sheet exactly (walls + allowances + chamfered glue flap)', () => {
+  it('tile the sheet exactly (walls + bottom zones + chamfered glue flap)', () => {
     const area = pieces.reduce((sum, p) => sum + polygonArea(p.polygon), 0);
     expect(area).toBeCloseTo(710 * 490 - s * s); // two 45° chamfers of s²/2 at the glue-flap ends
     pieces.forEach((p) => expect(polygonArea(p.polygon)).toBeGreaterThan(0)); // counter-clockwise, non-degenerate
@@ -42,44 +42,99 @@ describe('assembly pieces', () => {
       pieces.filter((p) => p.panel === panel).reduce((sum, p) => sum + polygonArea(p.polygon), 0);
     expect(perPanel('LEFT')).toBeCloseTo(150 * 490);
     expect(perPanel('FRONT')).toBeCloseTo(200 * 490);
+    expect(perPanel('BACK')).toBeCloseTo(200 * 490);
     expect(perPanel('GLUE')).toBeCloseTo(s * (490 - s));
   });
 
-  it('split each side allowance into the middle triangle (apex D/2 deep) and two ears', () => {
-    expect(byId.LEFT_TRIANGLE.polygon).toContainEqual({ x: 75, y: -75 });
-    expect(Math.abs(polygonArea(byId.LEFT_TRIANGLE.polygon))).toBeCloseTo(150 * 75 / 2);
-    // Each ear = corner part (on the flap's corner line) + diagonal part (on the triangle), split by its bend line.
-    expect(findAssemblyPiece(pieces, 'LEFT', { x: 5, y: -80 })?.id).toBe('LEFT_EAR_BACK_CORNER');
-    expect(findAssemblyPiece(pieces, 'LEFT', { x: 70, y: -80 })?.id).toBe('LEFT_EAR_BACK_DIAGONAL');
-    expect(findAssemblyPiece(pieces, 'RIGHT', { x: 5, y: -80 })?.id).toBe('RIGHT_EAR_FRONT_CORNER');
-    expect(findAssemblyPiece(pieces, 'RIGHT', { x: 145, y: -80 })?.id).toBe('RIGHT_EAR_BACK_CORNER');
-    const ear = (id: string) =>
-      pieces.filter((p) => p.id.startsWith(id)).reduce((sum, p) => sum + polygonArea(p.polygon), 0);
-    expect(ear('LEFT_EAR_BACK')).toBeCloseTo(75 * 90 - (75 * 75) / 2); // D/2 × a minus half the triangle
-    expect(ear('GLUE_EAR')).toBeCloseTo(s * (a - s)); // strip s × a − chamfer s²/2 − glue triangle s²/2
-    expect(pieces.filter((p) => p.allowance).length).toBe(15); // 2 flaps + 3 triangles + 4 × 2 ear parts + 2 glue-ear parts
+  it('keeps the side zones whole and splits FRONT / BACK zones into trapezoid + corner triangles (client model [K])', () => {
+    expect(byId.LEFT_SIDE_FLAP.polygon).toEqual([
+      { x: 0, y: -90 },
+      { x: 150, y: -90 },
+      { x: 150, y: 0 },
+      { x: 0, y: 0 },
+    ]);
+    expect(pieces.filter((p) => p.panel === 'LEFT' && p.allowance)).toHaveLength(1);
+    expect(byId.FRONT_TRAPEZOID.polygon).toEqual([
+      { x: 0, y: 0 },
+      { x: 90, y: -90 },
+      { x: 110, y: -90 },
+      { x: 200, y: 0 },
+    ]);
+    // Each corner triangle = CORNER part (on the tube corner edge) + DIAGONAL part (on the 45° crease), split by its bend.
+    expect(findAssemblyPiece(pieces, 'FRONT', { x: 5, y: -80 })?.id).toBe('FRONT_EAR_LEFT_CORNER');
+    expect(findAssemblyPiece(pieces, 'FRONT', { x: 70, y: -85 })?.id).toBe('FRONT_EAR_LEFT_DIAGONAL');
+    expect(findAssemblyPiece(pieces, 'BACK', { x: 5, y: -80 })?.id).toBe('BACK_EAR_RIGHT_CORNER');
+    expect(findAssemblyPiece(pieces, 'BACK', { x: 195, y: -80 })?.id).toBe('BACK_EAR_LEFT_CORNER');
+    const ear = (id: string) => pieces.filter((p) => p.id.startsWith(id)).reduce((sum, p) => sum + polygonArea(p.polygon), 0);
+    expect(ear('FRONT_EAR_LEFT')).toBeCloseTo((E * E) / 2);
+    expect(ear('BACK_EAR_LEFT')).toBeCloseTo((E * E) / 2);
+    expect(pieces.filter((p) => p.allowance)).toHaveLength(13); // 2 trapezoids + 4 × 2 ear parts + 2 side flaps + glue
   });
 
-  it('stacks the BACK flap outermost and the FRONT flap under it (client rule)', () => {
-    expect(byId.BACK_FLAP.layer).toBe(0);
-    expect(byId.FRONT_FLAP.layer).toBeGreaterThan(byId.BACK_FLAP.layer);
-    expect(byId.LEFT_TRIANGLE.layer).toBeGreaterThan(byId.FRONT_FLAP.layer);
-    expect(byId.LEFT_EAR_BACK_CORNER.host).toBe('BACK_FLAP');
-    expect(byId.RIGHT_EAR_FRONT_DIAGONAL.host).toBe('FRONT_FLAP');
+  it('links every zone piece to its piece of the formed bottom, with its layer', () => {
+    const bottom = Object.fromEntries(getBottomPieces(dims).map((p) => [p.id, p])) as Record<string, { layer: number }>;
+    for (const piece of pieces.filter((p) => p.allowance && p.panel !== 'GLUE')) {
+      expect(piece.bottomPiece).toBeDefined();
+      expect(piece.layer).toBe(bottom[piece.bottomPiece!].layer);
+    }
+    expect(byId.FRONT_EAR_LEFT_DIAGONAL.host).toBe('FRONT_TRAPEZOID');
+    expect(byId.BACK_EAR_LEFT_CORNER.host).toBe('BACK_TRAPEZOID');
+  });
+
+  it('stacks side flaps innermost, then FRONT ears, FRONT trapezoid, BACK ears, BACK trapezoid outermost [K]', () => {
+    const order: AssemblyPieceId[] = [
+      'BACK_TRAPEZOID',
+      'BACK_EAR_LEFT_CORNER',
+      'FRONT_TRAPEZOID',
+      'FRONT_EAR_LEFT_CORNER',
+      'LEFT_SIDE_FLAP',
+      'GLUE_BOTTOM',
+    ];
+    const layers = order.map((id) => byId[id].layer);
+    expect(layers).toEqual([...layers].sort((a, b) => a - b));
+    expect(new Set(layers).size).toBe(layers.length);
+    expect(byId.RIGHT_SIDE_FLAP.layer).toBe(byId.LEFT_SIDE_FLAP.layer);
+  });
+
+  it('degrades a narrow bag (W < D + 30) without NaN: trapezoid → triangle, ears → quadrilaterals', () => {
+    const narrow = { width: 120, height: 300, depth: 110 };
+    const ps = getAssemblyPieces(narrow);
+    expect(ps.find((p) => p.id === 'FRONT_TRAPEZOID')!.polygon).toHaveLength(3);
+    const total = ps.reduce((sum, p) => sum + polygonArea(p.polygon), 0);
+    expect(total).toBeCloseTo((2 * 120 + 2 * 110 + 10) * (300 + 70) - 100, 6);
+    for (const q of [0, 0.3, 0.5, 0.7, 0.9, 1]) {
+      const pose = getAssemblyPose(narrow, q);
+      for (const piece of ps) {
+        for (const p of piece.polygon) {
+          const w = assemblyPoint(pose, piece, p.x, p.y);
+          expect(Number.isFinite(w.x) && Number.isFinite(w.y) && Number.isFinite(w.z)).toBe(true);
+        }
+      }
+    }
   });
 });
 
 describe('phases and timeline', () => {
-  it('uses the client phase ranges A 0–0.4, B 0.4–0.6, C1 0.6–0.8, C2 0.8–1', () => {
-    expect(ASSEMBLY_PHASES).toEqual({ TUBE: [0, 0.4], TRIANGLES: [0.4, 0.6], FRONT_FLAP: [0.6, 0.8], BACK_FLAP: [0.8, 1] });
+  it('runs the client order A tube, B sides, C1 front trapezoid, C2 back trapezoid', () => {
+    expect(ASSEMBLY_PHASES).toEqual({ TUBE: [0, 0.4], SIDES: [0.4, 0.6], FRONT_TRAPEZOID: [0.6, 0.8], BACK_TRAPEZOID: [0.8, 1] });
     expect([0, 0.3, 0.5, 0.7, 0.9, 1].map(getAssemblyPhase)).toEqual([
       'TUBE',
       'TUBE',
-      'TRIANGLES',
-      'FRONT_FLAP',
-      'BACK_FLAP',
-      'BACK_FLAP',
+      'SIDES',
+      'FRONT_TRAPEZOID',
+      'BACK_TRAPEZOID',
+      'BACK_TRAPEZOID',
     ]);
+  });
+
+  it('turns strictly one phase after the other (sides in before either trapezoid leaves the vertical)', () => {
+    for (const q of lerp(0, 1, 100)) {
+      const { tube, sides, frontTrapezoid, backTrapezoid } = getAssemblyAngles(q);
+      if (sides > 0) expect(tube).toBeCloseTo(Math.PI / 2, 12);
+      if (frontTrapezoid > 0) expect(sides).toBeCloseTo(Math.PI / 2, 12);
+      if (backTrapezoid > 0) expect(frontTrapezoid).toBeCloseTo(Math.PI / 2, 12);
+    }
+    expect(getAssemblyAngles(1)).toEqual({ tube: Math.PI / 2, sides: Math.PI / 2, frontTrapezoid: Math.PI / 2, backTrapezoid: Math.PI / 2 });
   });
 
   it('maps one timeline onto assembly (sheet → BOX) and fold (BOX → flat)', () => {
@@ -104,16 +159,14 @@ describe('flat sheet (q = 0)', () => {
     for (const piece of pieces) {
       for (const p of piece.polygon) {
         const w = assemblyPoint(pose, piece, p.x, p.y);
-        const sheetX = origins[piece.panel] + p.x;
-        const sheetY = p.y + a;
-        expect(w.x).toBeCloseTo(sheetX - dims.depth, 9);
-        expect(w.y).toBeCloseTo(sheetY - a, 9);
+        expect(w.x).toBeCloseTo(origins[piece.panel] + p.x - dims.depth, 9);
+        expect(w.y).toBeCloseTo(p.y, 9);
         expect(w.z).toBeCloseTo(0, 9);
       }
       expect(assemblyInwardNormal(pose, { host: piece.id }).z).toBeCloseTo(-1, 9);
     }
-    // Sheet centre in view, standing on the floor with the allowance.
-    expect(pose.view).toEqual({ centreX: 710 / 2 - 150, centreZ: 0, lift: a });
+    // Sheet centre in view, standing on the floor with the zones.
+    expect(pose.view).toEqual({ centreX: 710 / 2 - 150, centreZ: 0, lift: E });
   });
 });
 
@@ -134,76 +187,73 @@ describe('formed bag (q = 1) = the BOX pose of the fold kinematics', () => {
     }
   });
 
-  it('lays every allowance piece onto the W × D bottom like getBottomPieces (tucks, ears, flaps)', () => {
-    for (const piece of getBottomPieces(dims)) {
+  it('lays every zone piece onto the W × D bottom exactly where getBottomPieces puts it', () => {
+    const bottom = Object.fromEntries(getBottomPieces(dims).map((p) => [p.id, p]));
+    for (const piece of pieces.filter((p) => p.bottomPiece)) {
+      const target = bottom[piece.bottomPiece!];
       for (const p of piece.polygon) {
-        const onPanel = piece.toPanel(p);
-        const inner = { x: onPanel.x, y: Math.min(onPanel.y, -1e-7) };
-        // Nudge onto the piece interior side to pick the right assembly piece at shared boundaries.
-        const candidates = pieces.filter(
-          (q) => q.panel === piece.panel && q.allowance && findAssemblyPiece([q], piece.panel, inner, 1e-6),
-        );
-        expect(candidates.length).toBeGreaterThan(0);
-        const expected = foldPoint(box, 'BOTTOM', 'BOTTOM', p.x, p.y);
-        const ok = candidates.some((q) => dist(assemblyPoint(pose, q, onPanel.x, onPanel.y), expected) < 1e-9);
-        expect(ok).toBe(true);
+        const b = target.fromPanel(p);
+        expect(dist(assemblyPoint(pose, piece, p.x, p.y), foldPoint(box, 'BOTTOM', 'BOTTOM', b.x, b.y))).toBeLessThan(1e-9);
       }
     }
   });
 
-  it('lays the glue flap on the inside of LEFT’s back strip (wall and bottom)', () => {
+  it('lays the glue flap on the inside of LEFT (wall strip and side flap)', () => {
     for (const u of lerp(0, s, 4)) {
       for (const v of lerp(0, 390, 6)) expect(dist(at(pose, 'GLUE_WALL', u, v), at(pose, 'LEFT_WALL', u, v))).toBeLessThan(1e-9);
-      expect(dist(at(pose, 'GLUE_TRIANGLE', u, -u / 2), at(pose, 'LEFT_TRIANGLE', u, -u / 2))).toBeLessThan(1e-9);
-      expect(dist(at(pose, 'GLUE_EAR_CORNER', u / 2, -60), at(pose, 'LEFT_EAR_BACK_CORNER', u / 2, -60))).toBeLessThan(1e-9);
+      for (const v of lerp(-80, 0, 4)) expect(dist(at(pose, 'GLUE_BOTTOM', u, v), at(pose, 'LEFT_SIDE_FLAP', u, v))).toBeLessThan(1e-9);
     }
   });
 
-  it('turns the bottom inside faces up: BACK flap outermost, then FRONT flap, ears, triangles', () => {
-    const up = (id: AssemblyPieceId) => assemblyInwardNormal(pose, byId[id]).y;
-    for (const id of ['BACK_FLAP', 'FRONT_FLAP', 'LEFT_TRIANGLE', 'RIGHT_TRIANGLE', 'LEFT_EAR_BACK_CORNER', 'RIGHT_EAR_FRONT_DIAGONAL'] as const) {
-      expect(up(id)).toBeCloseTo(1, 9);
+  it('turns the bottom inside up; the corner triangles lie turned over (print side up, inside the bag)', () => {
+    for (const id of ['BACK_TRAPEZOID', 'FRONT_TRAPEZOID', 'LEFT_SIDE_FLAP', 'RIGHT_SIDE_FLAP', 'GLUE_BOTTOM', 'FRONT_EAR_LEFT_CORNER'] as const) {
+      expect(assemblyInwardNormal(pose, byId[id]).y).toBeCloseTo(1, 9);
+    }
+    for (const id of ['FRONT_EAR_LEFT_CORNER', 'FRONT_EAR_RIGHT_DIAGONAL', 'BACK_EAR_LEFT_CORNER', 'BACK_EAR_RIGHT_DIAGONAL'] as const) {
+      expect(assemblyInwardNormal(pose, { host: id }).y).toBeCloseTo(-1, 9); // own inside faces down: turned over
     }
     expect(pose.view).toEqual({ centreX: 100, centreZ: -75, lift: 0 });
   });
 });
 
-describe('hinge continuity during the assembly (paper never cut, client: "one corner line pulls two walls")', () => {
-  type Hinge = { name: string; a: AssemblyPieceId; b: AssemblyPieceId; points: [number, number, number, number][] };
+describe('hinge continuity during the assembly (paper never cut)', () => {
+  type Hinge = { name: string; a: AssemblyPieceId; b: AssemblyPieceId; points: [number, number, number, number][]; from?: number };
   const along = (n: number, f: (t: number) => [number, number, number, number]) => lerp(0, 1, n).map(f);
-  const bend = a * Math.tan(EAR_BEND_ANGLE);
   const hinges: Hinge[] = [
     // Tube edges C2 / C3 (wall | wall).
     { name: 'FRONT|LEFT', a: 'FRONT_WALL', b: 'LEFT_WALL', points: along(4, (t) => [0, 400 * t, 150, 400 * t]) },
     { name: 'FRONT|RIGHT', a: 'FRONT_WALL', b: 'RIGHT_WALL', points: along(4, (t) => [200, 400 * t, 0, 400 * t]) },
     { name: 'RIGHT|BACK', a: 'RIGHT_WALL', b: 'BACK_WALL', points: along(4, (t) => [150, 400 * t, 0, 400 * t]) },
-    { name: 'BACK|GLUE (C3)', a: 'BACK_WALL', b: 'GLUE_WALL', points: along(4, (t) => [200, 400 * t, 0, 400 * t]) },
-    // Bottom line C1 (wall | flap / triangle).
-    { name: 'FRONT C1', a: 'FRONT_WALL', b: 'FRONT_FLAP', points: along(4, (t) => [200 * t, 0, 200 * t, 0]) },
-    { name: 'BACK C1', a: 'BACK_WALL', b: 'BACK_FLAP', points: along(4, (t) => [200 * t, 0, 200 * t, 0]) },
-    { name: 'LEFT C1', a: 'LEFT_WALL', b: 'LEFT_TRIANGLE', points: along(4, (t) => [150 * t, 0, 150 * t, 0]) },
-    { name: 'RIGHT C1', a: 'RIGHT_WALL', b: 'RIGHT_TRIANGLE', points: along(4, (t) => [150 * t, 0, 150 * t, 0]) },
-    { name: 'GLUE C1', a: 'GLUE_WALL', b: 'GLUE_TRIANGLE', points: along(2, (t) => [s * t, 0, s * t, 0]) },
-    // Corner lines in the allowance (flap | ear), the continuation of the tube edges.
-    { name: 'FRONT flap|LEFT ear', a: 'FRONT_FLAP', b: 'LEFT_EAR_FRONT_CORNER', points: along(4, (t) => [0, -a * t, 150, -a * t]) },
-    { name: 'FRONT flap|RIGHT ear', a: 'FRONT_FLAP', b: 'RIGHT_EAR_FRONT_CORNER', points: along(4, (t) => [200, -a * t, 0, -a * t]) },
-    { name: 'BACK flap|RIGHT ear', a: 'BACK_FLAP', b: 'RIGHT_EAR_BACK_CORNER', points: along(4, (t) => [0, -a * t, 150, -a * t]) },
-    { name: 'BACK flap|glue ear (C3)', a: 'BACK_FLAP', b: 'GLUE_EAR_CORNER', points: along(4, (t) => [200, -a * t, 0, -a * t]) },
-    // Lower diamond diagonals C7 (triangle | ear).
-    { name: 'LEFT C7 back', a: 'LEFT_TRIANGLE', b: 'LEFT_EAR_BACK_DIAGONAL', points: along(4, (t) => [75 * t, -75 * t, 75 * t, -75 * t]) },
-    { name: 'LEFT C7 front', a: 'LEFT_TRIANGLE', b: 'LEFT_EAR_FRONT_DIAGONAL', points: along(4, (t) => [150 - 75 * t, -75 * t, 150 - 75 * t, -75 * t]) },
-    { name: 'RIGHT C7 front', a: 'RIGHT_TRIANGLE', b: 'RIGHT_EAR_FRONT_DIAGONAL', points: along(4, (t) => [75 * t, -75 * t, 75 * t, -75 * t]) },
-    { name: 'RIGHT C7 back', a: 'RIGHT_TRIANGLE', b: 'RIGHT_EAR_BACK_DIAGONAL', points: along(4, (t) => [150 - 75 * t, -75 * t, 150 - 75 * t, -75 * t]) },
+    { name: 'BACK|GLUE (C3)', a: 'BACK_WALL', b: 'GLUE_WALL', points: along(4, (t) => [200, 390 * t, 0, 390 * t]) },
+    // Bottom line C1 (wall | zone).
+    { name: 'FRONT C1', a: 'FRONT_WALL', b: 'FRONT_TRAPEZOID', points: along(4, (t) => [200 * t, 0, 200 * t, 0]) },
+    { name: 'BACK C1', a: 'BACK_WALL', b: 'BACK_TRAPEZOID', points: along(4, (t) => [200 * t, 0, 200 * t, 0]) },
+    { name: 'LEFT C1', a: 'LEFT_WALL', b: 'LEFT_SIDE_FLAP', points: along(4, (t) => [150 * t, 0, 150 * t, 0]) },
+    { name: 'RIGHT C1', a: 'RIGHT_WALL', b: 'RIGHT_SIDE_FLAP', points: along(4, (t) => [150 * t, 0, 150 * t, 0]) },
+    { name: 'GLUE C1', a: 'GLUE_WALL', b: 'GLUE_BOTTOM', points: along(2, (t) => [s * t, 0, s * t, 0]) },
+    // 45° creases C9 (trapezoid | corner triangle).
+    { name: 'FRONT C9 left', a: 'FRONT_TRAPEZOID', b: 'FRONT_EAR_LEFT_DIAGONAL', points: along(4, (t) => [E * t, -E * t, E * t, -E * t]) },
+    { name: 'FRONT C9 right', a: 'FRONT_TRAPEZOID', b: 'FRONT_EAR_RIGHT_DIAGONAL', points: along(4, (t) => [200 - E * t, -E * t, 200 - E * t, -E * t]) },
+    { name: 'BACK C9 right', a: 'BACK_TRAPEZOID', b: 'BACK_EAR_RIGHT_DIAGONAL', points: along(4, (t) => [E * t, -E * t, E * t, -E * t]) },
+    { name: 'BACK C9 left', a: 'BACK_TRAPEZOID', b: 'BACK_EAR_LEFT_DIAGONAL', points: along(4, (t) => [200 - E * t, -E * t, 200 - E * t, -E * t]) },
+    // Tube corner edges in the zone (corner triangle | side flap): C2 / C3 continued below the bottom line.
+    { name: 'FRONT ear|LEFT flap', a: 'FRONT_EAR_LEFT_CORNER', b: 'LEFT_SIDE_FLAP', points: along(4, (t) => [0, -E * t, 150, -E * t]) },
+    { name: 'FRONT ear|RIGHT flap', a: 'FRONT_EAR_RIGHT_CORNER', b: 'RIGHT_SIDE_FLAP', points: along(4, (t) => [200, -E * t, 0, -E * t]) },
+    { name: 'BACK ear|RIGHT flap', a: 'BACK_EAR_RIGHT_CORNER', b: 'RIGHT_SIDE_FLAP', points: along(4, (t) => [0, -E * t, 150, -E * t]) },
+    { name: 'BACK ear|glue flap (C3)', a: 'BACK_EAR_LEFT_CORNER', b: 'GLUE_BOTTOM', points: along(4, (t) => [200, -E * t, 0, -E * t]) },
+    // Seam: once the tube is closed, the BACK ear also meets LEFT's side flap (through the glue flap).
+    { name: 'BACK ear|LEFT flap (seam)', a: 'BACK_EAR_LEFT_CORNER', b: 'LEFT_SIDE_FLAP', points: along(4, (t) => [200, -E * t, 0, -E * t]), from: 0.4 },
     // Ear bends (corner part | diagonal part).
-    { name: 'LEFT back ear bend', a: 'LEFT_EAR_BACK_CORNER', b: 'LEFT_EAR_BACK_DIAGONAL', points: along(4, (t) => [bend * t, -a * t, bend * t, -a * t]) },
-    { name: 'LEFT front ear bend', a: 'LEFT_EAR_FRONT_CORNER', b: 'LEFT_EAR_FRONT_DIAGONAL', points: along(4, (t) => [150 - bend * t, -a * t, 150 - bend * t, -a * t]) },
-    { name: 'RIGHT front ear bend', a: 'RIGHT_EAR_FRONT_CORNER', b: 'RIGHT_EAR_FRONT_DIAGONAL', points: along(4, (t) => [bend * t, -a * t, bend * t, -a * t]) },
-    { name: 'RIGHT back ear bend', a: 'RIGHT_EAR_BACK_CORNER', b: 'RIGHT_EAR_BACK_DIAGONAL', points: along(4, (t) => [150 - bend * t, -a * t, 150 - bend * t, -a * t]) },
+    { name: 'FRONT left ear bend', a: 'FRONT_EAR_LEFT_CORNER', b: 'FRONT_EAR_LEFT_DIAGONAL', points: along(4, (t) => [bend * t, -E * t, bend * t, -E * t]) },
+    { name: 'FRONT right ear bend', a: 'FRONT_EAR_RIGHT_CORNER', b: 'FRONT_EAR_RIGHT_DIAGONAL', points: along(4, (t) => [200 - bend * t, -E * t, 200 - bend * t, -E * t]) },
+    { name: 'BACK right ear bend', a: 'BACK_EAR_RIGHT_CORNER', b: 'BACK_EAR_RIGHT_DIAGONAL', points: along(4, (t) => [bend * t, -E * t, bend * t, -E * t]) },
+    { name: 'BACK left ear bend', a: 'BACK_EAR_LEFT_CORNER', b: 'BACK_EAR_LEFT_DIAGONAL', points: along(4, (t) => [200 - bend * t, -E * t, 200 - bend * t, -E * t]) },
   ];
 
   it.each(SAMPLES)('keeps every hinge closed at q = %s', (q) => {
     const pose = getAssemblyPose(dims, q);
     for (const hinge of hinges) {
+      if (hinge.from !== undefined && q < hinge.from) continue;
       for (const [ua, va, ub, vb] of hinge.points) {
         const gap = dist(at(pose, hinge.a, ua, va), at(pose, hinge.b, ub, vb));
         expect(gap, `${hinge.name} at q = ${q}`).toBeLessThan(1e-9);
@@ -211,27 +261,25 @@ describe('hinge continuity during the assembly (paper never cut, client: "one co
     }
   });
 
-  it.each([75, 150, 40])('keeps the hinges closed for other depths (D = %s)', (depth) => {
-    const d = { width: 200, height: 300, depth };
+  it.each([
+    { width: 200, height: 300, depth: 75 },
+    { width: 200, height: 300, depth: 150 },
+    { width: 200, height: 300, depth: 40 },
+    { width: 120, height: 300, depth: 110 }, // degenerate: W < D + 30
+  ])('keeps the zone hinges closed for other sizes (%o)', (d) => {
     const ps = getAssemblyPieces(d);
     const find = (id: AssemblyPieceId) => ps.find((p) => p.id === id)!;
-    const e = d.depth / 2;
-    for (const q of [0.45, 0.7, 0.95]) {
+    const e = (d.depth + 30) / 2;
+    const m = Math.min(e, d.width / 2);
+    for (const q of lerp(0.4, 1, 12)) {
       const pose = getAssemblyPose(d, q);
       for (const t of lerp(0, 1, 4)) {
-        const tri = assemblyPoint(pose, find('LEFT_TRIANGLE'), e * t, -e * t);
-        expect(dist(tri, assemblyPoint(pose, find('LEFT_EAR_BACK_DIAGONAL'), e * t, -e * t))).toBeLessThan(1e-9);
-        const flap = assemblyPoint(pose, find('FRONT_FLAP'), 0, -pose.allowance * t);
-        expect(dist(flap, assemblyPoint(pose, find('LEFT_EAR_FRONT_CORNER'), depth, -pose.allowance * t))).toBeLessThan(1e-9);
-      }
-    }
-  });
-
-  it('keeps the LEFT back ear on the BACK flap corner once the tube is closed (seam)', () => {
-    for (const q of SAMPLES.filter((x) => x >= 0.4)) {
-      const pose = getAssemblyPose(dims, q);
-      for (const t of lerp(0, 1, 4)) {
-        expect(dist(at(pose, 'LEFT_EAR_BACK_CORNER', 0, -a * t), at(pose, 'BACK_FLAP', 200, -a * t))).toBeLessThan(1e-9);
+        const trap = assemblyPoint(pose, find('FRONT_TRAPEZOID'), m * t, -m * t);
+        expect(dist(trap, assemblyPoint(pose, find('FRONT_EAR_LEFT_DIAGONAL'), m * t, -m * t))).toBeLessThan(1e-9);
+        const flap = assemblyPoint(pose, find('LEFT_SIDE_FLAP'), d.depth, -e * t);
+        expect(dist(flap, assemblyPoint(pose, find('FRONT_EAR_LEFT_CORNER'), 0, -e * t))).toBeLessThan(1e-9);
+        const seam = assemblyPoint(pose, find('LEFT_SIDE_FLAP'), 0, -e * t);
+        expect(dist(seam, assemblyPoint(pose, find('BACK_EAR_LEFT_CORNER'), d.width, -e * t))).toBeLessThan(1e-9);
       }
     }
   });
@@ -240,24 +288,11 @@ describe('hinge continuity during the assembly (paper never cut, client: "one co
     for (const q of SAMPLES.filter((x) => x >= 0.4)) {
       const pose = getAssemblyPose(dims, q);
       expect(dist(at(pose, 'GLUE_WALL', 5, 200), at(pose, 'LEFT_WALL', 5, 200))).toBeLessThan(1e-9);
-      expect(dist(at(pose, 'GLUE_TRIANGLE', 8, -3), at(pose, 'LEFT_TRIANGLE', 8, -3))).toBeLessThan(1e-9);
-      expect(dist(at(pose, 'GLUE_EAR_CORNER', 5, -50), at(pose, 'LEFT_EAR_BACK_CORNER', 5, -50))).toBeLessThan(1e-9);
-      expect(dist(at(pose, 'GLUE_EAR_DIAGONAL', 9, -15), at(pose, 'LEFT_EAR_BACK_DIAGONAL', 9, -15))).toBeLessThan(1e-9);
+      expect(dist(at(pose, 'GLUE_BOTTOM', 8, -30), at(pose, 'LEFT_SIDE_FLAP', 8, -30))).toBeLessThan(1e-9);
     }
     // While the tube forms, the flap swings in with BACK (it only meets LEFT at the end of phase A).
     const mid = getAssemblyPose(dims, 0.2);
     expect(dist(at(mid, 'GLUE_WALL', 5, 200), at(mid, 'LEFT_WALL', 5, 200))).toBeGreaterThan(10);
-  });
-
-  it('only opens the short ear centre crease C5 (at most 2 · (a − D/2) = 30 mm, closed until the bottom starts)', () => {
-    const slit = (q: number) => {
-      const pose = getAssemblyPose(dims, q);
-      return Math.max(
-        ...lerp(-a, -75, 4).map((v) => dist(at(pose, 'LEFT_EAR_BACK_DIAGONAL', 75, v), at(pose, 'LEFT_EAR_FRONT_DIAGONAL', 75, v))),
-      );
-    };
-    for (const q of [0, 0.2, 0.4]) expect(slit(q)).toBeLessThan(1e-9);
-    for (const q of SAMPLES) expect(slit(q)).toBeLessThanOrEqual(2 * (a - 75) + 1e-9);
   });
 
   it('moves smoothly (no jumps between neighbouring timeline samples)', () => {
@@ -275,7 +310,7 @@ describe('hinge continuity during the assembly (paper never cut, client: "one co
   });
 
   it('moves each piece rigidly (edge lengths preserved)', () => {
-    for (const q of [0.3, 0.55, 0.63, 0.9]) {
+    for (const q of [0.3, 0.45, 0.5, 0.55, 0.63, 0.9]) {
       const pose = getAssemblyPose(dims, q);
       for (const piece of pieces) {
         const flat = piece.polygon;
@@ -288,23 +323,49 @@ describe('hinge continuity during the assembly (paper never cut, client: "one co
     }
   });
 
-  it('closes the bottom with the triangles, the FRONT flap leading and the BACK flap last (on top)', () => {
-    for (const q of SAMPLES) {
-      const { triangles, frontFlap, backFlap } = getAssemblyAngles(q);
-      expect(frontFlap).toBeLessThanOrEqual(triangles + 1e-12); // never passes through the triangle
-      expect(backFlap).toBeLessThanOrEqual(frontFlap + 1e-12);
-      // The 45° corner of the ear is never over-stretched: cos β cos δ + sin δ ≥ 1 for both flaps.
-      for (const flap of [frontFlap, backFlap]) {
-        expect(Math.cos(triangles) * Math.cos(flap) + Math.sin(flap)).toBeGreaterThanOrEqual(1 - 1e-9);
+  it('turns the corner triangles over their 45° crease, bending OUTWARDS while the sides go in (client [K])', () => {
+    // Mid phase B (β = 45°): the tube corner edge lies along the crease; the triangle is folded double on its bend,
+    // bulging away from the bag (z > 0 in front of FRONT, z < −D behind BACK) — never into the side flap.
+    for (const q of [0.45, 0.5, 0.55]) {
+      const pose = getAssemblyPose(dims, q);
+      expect(at(pose, 'FRONT_EAR_LEFT_CORNER', bend, -E).z).toBeGreaterThan(1);
+      expect(at(pose, 'FRONT_EAR_RIGHT_CORNER', 200 - bend, -E).z).toBeGreaterThan(1);
+      expect(at(pose, 'BACK_EAR_RIGHT_CORNER', bend, -E).z).toBeLessThan(-150 - 1);
+      expect(at(pose, 'BACK_EAR_LEFT_CORNER', 200 - bend, -E).z).toBeLessThan(-150 - 1);
+    }
+    // End of phase B: the triangle lies flat on the inside of its (still vertical) trapezoid, turned over its diagonal.
+    const sidesIn = getAssemblyPose(dims, 0.6);
+    const corner = at(sidesIn, 'FRONT_EAR_LEFT_CORNER', 0, -E);
+    expect(corner.x).toBeCloseTo(E, 9); // tube corner edge point at depth E → on the bottom line at x = E
+    expect(corner.y).toBeCloseTo(0, 9);
+    expect(corner.z).toBeCloseTo(0, 9);
+  });
+});
+
+describe('bottom layer order through the timeline (client rule [K]: side flaps under both trapezoids)', () => {
+  const ys = (pose: AssemblyPose, id: AssemblyPieceId) => byId[id].polygon.map((p) => at(pose, id, p.x, p.y).y);
+  const zoneIds = pieces.filter((p) => p.allowance).map((p) => p.id);
+
+  it('keeps every trapezoid and corner triangle at or below the side flaps once the sides are in', () => {
+    for (const q of lerp(0.6, 1, 16)) {
+      const pose = getAssemblyPose(dims, q);
+      for (const id of ['LEFT_SIDE_FLAP', 'RIGHT_SIDE_FLAP'] as const) ys(pose, id).forEach((y) => expect(y).toBeCloseTo(0, 9));
+      for (const id of zoneIds.filter((x) => !x.endsWith('SIDE_FLAP') && x !== 'GLUE_BOTTOM')) {
+        ys(pose, id).forEach((y) => expect(y, `${id} at q = ${q}`).toBeLessThanOrEqual(1e-9));
       }
     }
-    expect(getMinFlapAngle(0)).toBeCloseTo(0, 12);
-    expect(getMinFlapAngle(Math.PI / 2)).toBeCloseTo(Math.PI / 2, 12);
-    const tip = (q: number, id: 'FRONT_FLAP' | 'BACK_FLAP') => at(getAssemblyPose(dims, q), id, 100, -a).y;
-    expect(tip(0.4, 'FRONT_FLAP')).toBeCloseTo(-a, 9);
-    expect(tip(0.7, 'FRONT_FLAP')).toBeGreaterThan(tip(0.7, 'BACK_FLAP') + 2);
-    expect(tip(0.9, 'BACK_FLAP')).toBeLessThan(tip(0.9, 'FRONT_FLAP'));
-    expect(tip(1, 'FRONT_FLAP')).toBeCloseTo(0, 9);
-    expect(tip(1, 'BACK_FLAP')).toBeCloseTo(0, 9);
+  });
+
+  it('keeps both trapezoids vertical while the sides go in, and the BACK trapezoid below the FRONT one after', () => {
+    for (const q of lerp(0.4, 0.6, 8)) {
+      const pose = getAssemblyPose(dims, q);
+      expect(at(pose, 'FRONT_TRAPEZOID', 100, -E).y).toBeCloseTo(-E, 9);
+      expect(at(pose, 'BACK_TRAPEZOID', 100, -E).y).toBeCloseTo(-E, 9);
+    }
+    const tip = (q: number, id: 'FRONT_TRAPEZOID' | 'BACK_TRAPEZOID') => at(getAssemblyPose(dims, q), id, 100, -E).y;
+    expect(tip(0.7, 'FRONT_TRAPEZOID')).toBeGreaterThan(tip(0.7, 'BACK_TRAPEZOID') + 10);
+    expect(tip(0.9, 'FRONT_TRAPEZOID')).toBeCloseTo(0, 9);
+    expect(tip(0.9, 'BACK_TRAPEZOID')).toBeLessThan(-10);
+    expect(tip(1, 'BACK_TRAPEZOID')).toBeCloseTo(0, 9);
   });
 });

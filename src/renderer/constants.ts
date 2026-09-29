@@ -1,4 +1,5 @@
 import { PAPER_PREVIEW_COLORS } from '../domain/config/productCatalog';
+import type { BottomPieceId } from '../domain/geometry/blockBottom';
 import type { PaperColor } from '../domain/types';
 
 /** The only mm → scene-unit conversion factor (1 scene unit = 100 mm). */
@@ -13,15 +14,44 @@ export const MM_TO_SCENE = 0.01;
 export const PAPER_LAYER_GAP_MM = 1.2;
 
 /**
- * Paper-thickness offset per layer during the assembly from the sheet (docs/PRODUCTION.md §10.8), mm: the glue flap
- * inside LEFT, and the formed bottom (BACK flap outermost, then glue-flap ear, back ears, FRONT flap, front ears,
- * side triangles). Render-only; fades in while the tube closes so the flat sheet stays exactly flat.
+ * Paper-thickness offset of the glue flap inside LEFT during the assembly from the sheet (docs/PRODUCTION.md §10.8),
+ * mm. Render-only; fades in while the tube closes so the flat sheet stays exactly flat.
  */
 export const ASSEMBLY_LAYER_GAP_MM = 0.25;
 
 /**
- * Lines on the bottom underside (flap seam, tuck diagonals…) float this far off the outer surface so they are
- * visible from below but hidden when looking into the bag through the open top. Render-only, mm.
+ * Client rule [K]: the bottom layers are offset OUTWARDS (away from the bag interior) from the LEFT / RIGHT side flaps
+ * by this much per layer, so their textures never z-fight: side flaps 0, FRONT trapezoid −0.1 mm, BACK trapezoid
+ * −0.2 mm (outermost). Render-only; used by the assembly (faded in with the tube, so the sheet stays flat) and by the
+ * formed / standing / flat bag. At the default camera distance (7.5 scene units, near 0.1) the depth buffer resolves
+ * ~0.003 mm, so the geometric offset alone separates the layers.
+ */
+export const BOTTOM_LAYER_OFFSET_MM = 0.1;
+
+/**
+ * Outward offset of each bottom piece in BOTTOM_LAYER_OFFSET_MM steps (docs/PRODUCTION.md §3.4.2): the corner
+ * triangles (ears) sit half a step outside the layer they are tucked under, between the side flap and their trapezoid.
+ */
+const BOTTOM_LAYER_STEPS: Readonly<Record<BottomPieceId, number>> = {
+  SIDE_FLAP_LEFT: 0,
+  SIDE_FLAP_RIGHT: 0,
+  FRONT_EAR_LEFT: 0.5,
+  FRONT_EAR_RIGHT: 0.5,
+  FRONT_TRAPEZOID: 1,
+  BACK_EAR_LEFT: 1.5,
+  BACK_EAR_RIGHT: 1.5,
+  BACK_TRAPEZOID: 2,
+};
+
+/** Outward offset of a bottom piece from the side flaps, mm (≥ 0; FRONT trapezoid 0.1, BACK trapezoid 0.2). */
+export function getBottomLayerOffsetMm(id: BottomPieceId): number {
+  return BOTTOM_LAYER_STEPS[id] * BOTTOM_LAYER_OFFSET_MM;
+}
+
+/**
+ * Lines on the bottom underside (trapezoid diagonals, glue seam) float this far off the side flaps' outer surface —
+ * beyond the outermost layer (BACK trapezoid, 2 · BOTTOM_LAYER_OFFSET_MM) — so they are visible from below but hidden
+ * when looking into the bag through the open top. Render-only, mm.
  */
 export const BOTTOM_LINE_LIFT_MM = 0.3;
 

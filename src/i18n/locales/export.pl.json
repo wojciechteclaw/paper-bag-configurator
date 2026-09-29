@@ -190,10 +190,9 @@
       "C2": "krawędź rękawa",
       "C3": "zawias zakładki (TYŁ/BOK LEWY)",
       "C4": "środek fałdy boku",
-      "C5": "środek fałdy (zapas dna)",
       "C6": "romb, górne 45°",
-      "C7": "romb, dolne 45°",
-      "C8": "big płaskiego złożenia"
+      "C8": "big płaskiego złożenia",
+      "C9": "trapez dna, 45° (przód/tył)"
     },
     "artworkColors": {
       "title": "Kolory w grafikach (HEX) — powierzchnia per kolor",

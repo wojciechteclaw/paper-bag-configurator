@@ -3,11 +3,15 @@ import {
   findRegion,
   getBottomCreases,
   getBottomFlapOverlap,
-  getBottomLayout,
   getBottomPieces,
+  getBottomTrapezoidDepth,
+  getBottomZoneDiagonals,
+  getBottomZonePieces,
   getPanelCreases,
   getPanelRegions,
   getVisibleBottomPieces,
+  getVisibleBottomZoneParts,
+  isBottomTrapezoidDegenerate,
   pointInConvexPolygon,
   type FoldPanelId,
 } from './blockBottom';
@@ -107,89 +111,205 @@ describe('panel creases', () => {
   });
 });
 
-describe('block bottom', () => {
-  it('overlaps the flaps by 30 mm (2a − D)', () => {
+describe('block bottom zones (client model [K]: sides whole, FRONT / BACK trapezoids)', () => {
+  const E = 90; // (150 + 30) / 2
+
+  it('overlaps the trapezoids by 30 mm (2E − D)', () => {
     expect(getBottomFlapOverlap(dims)).toBe(30);
     expect(getBottomFlapOverlap({ depth: 40 })).toBe(30);
   });
 
-  it('lays out flaps within the W × D bottom (docs/PRODUCTION.md §10.4)', () => {
-    const b = getBottomLayout(dims);
-    expect(polygonArea(b.outline)).toBe(200 * 150);
-    expect(polygonArea(b.frontFlap)).toBe(200 * 90);
-    expect(polygonArea(b.backFlap)).toBe(200 * 90);
-    expect(polygonArea(b.overlap)).toBe(200 * 30);
-    expect(b.overlap.map((p) => p.y).sort((x, y) => x - y)).toEqual([60, 60, 90, 90]);
-    for (const polygon of [...Object.values(b.tucks), ...Object.values(b.ears)]) {
-      expect(polygonArea(polygon)).toBeGreaterThan(0);
-      polygon.forEach((p) => expect(pointInConvexPolygon(p, b.outline)).toBe(true));
+  it('keeps each side zone whole (one D × E piece, no crease inside)', () => {
+    for (const panel of ['LEFT', 'RIGHT'] as const) {
+      const pieces = getBottomZonePieces(panel, dims);
+      expect(pieces.map((p) => p.id)).toEqual(['SIDE_FLAP']);
+      expect(polygonArea(pieces[0].polygon)).toBeCloseTo(150 * E);
     }
-    expect(b.tucks.LEFT).toContainEqual({ x: 75, y: 75 });
-    expect(b.tucks.RIGHT).toContainEqual({ x: 125, y: 75 });
   });
 
-  it('lists seam, overlap edge, tuck diagonals and ear creases on the underside', () => {
-    const creases = getBottomCreases(dims);
-    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_SEAM')!.segment.from.y).toBe(90); // outer BACK flap edge [K]
-    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_OVERLAP')!.segment.from.y).toBe(60);
-    expect(creases.filter((c) => c.kind === 'BOTTOM_TUCK_DIAGONAL')).toHaveLength(4);
-    const ears = creases.filter((c) => c.kind === 'BOTTOM_EAR_CENTRE');
-    expect(ears.map((c) => c.segment.from.x).sort((a, b) => a - b)).toEqual([75, 125]);
-    ears.forEach((c) => expect(Math.abs(c.segment.to.y - c.segment.from.y)).toBe(30));
+  it('splits FRONT / BACK zones by the 45° creases into a trapezoid W → W − 2E and two corner triangles', () => {
+    for (const panel of ['FRONT', 'BACK'] as const) {
+      const byId = Object.fromEntries(getBottomZonePieces(panel, dims).map((p) => [p.id, p.polygon]));
+      expect(byId.TRAPEZOID).toEqual([
+        { x: 0, y: 0 },
+        { x: 90, y: -90 },
+        { x: 110, y: -90 },
+        { x: 200, y: 0 },
+      ]);
+      expect(byId.EAR_START).toEqual([
+        { x: 0, y: 0 },
+        { x: 0, y: -90 },
+        { x: 90, y: -90 },
+      ]);
+      expect(polygonArea(byId.EAR_END)).toBeCloseTo((E * E) / 2);
+    }
+    expect(getBottomZoneDiagonals(dims)).toEqual([
+      { from: { x: 0, y: 0 }, to: { x: 90, y: -90 } },
+      { from: { x: 200, y: 0 }, to: { x: 110, y: -90 } },
+    ]);
+  });
+
+  it.each([dims, { width: 260, height: 170, depth: 260 }, { width: 75, height: 430, depth: 40 }, { width: 120, height: 300, depth: 110 }])(
+    'tiles every zone exactly, CCW (%o)',
+    (d) => {
+      const e = (d.depth + 30) / 2;
+      for (const panel of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) {
+        const pieces = getBottomZonePieces(panel, d);
+        pieces.forEach((p) => expect(polygonArea(p.polygon)).toBeGreaterThan(0));
+        const width = panel === 'FRONT' || panel === 'BACK' ? d.width : d.depth;
+        expect(pieces.reduce((sum, p) => sum + polygonArea(p.polygon), 0)).toBeCloseTo(width * e, 6);
+        pieces.forEach((p) => p.polygon.forEach((q) => expect(Number.isFinite(q.x) && Number.isFinite(q.y)).toBe(true)));
+      }
+    },
+  );
+
+  it('degrades a narrow bag (W < D + 30) into a triangle without NaN', () => {
+    const narrow = { width: 120, height: 300, depth: 110 }; // E = 70 > W/2 = 60
+    expect(isBottomTrapezoidDegenerate(narrow)).toBe(true);
+    expect(isBottomTrapezoidDegenerate(dims)).toBe(false);
+    expect(isBottomTrapezoidDegenerate({ width: 180, depth: 150 })).toBe(false); // W = D + 30 exactly
+    expect(getBottomTrapezoidDepth(narrow)).toBe(60);
+    const trapezoid = getBottomZonePieces('FRONT', narrow).find((p) => p.id === 'TRAPEZOID')!.polygon;
+    expect(trapezoid).toEqual([
+      { x: 0, y: 0 },
+      { x: 60, y: -60 },
+      { x: 120, y: 0 },
+    ]);
+    const ear = getBottomZonePieces('FRONT', narrow).find((p) => p.id === 'EAR_START')!.polygon;
+    expect(ear).toHaveLength(4); // quadrilateral up to x = W/2
+    const visible = getVisibleBottomPieces(narrow);
+    const area = visible.flatMap((p) => p.visibleParts).reduce((sum, p) => sum + polygonArea(p), 0);
+    expect(area).toBeCloseTo(120 * 110, 6);
+    getBottomCreases(narrow).forEach((c) => expect(Number.isFinite(c.segment.to.x + c.segment.to.y)).toBe(true));
   });
 });
 
-describe('bottom pieces in their wall artwork space (SPEC §4f)', () => {
-  const d = { width: 200, height: 400, depth: 150 }; // a = 90, h = 75
-  const a = 90;
+describe('formed bottom seen from below (BOTTOM-local)', () => {
+  const d = { width: 200, height: 400, depth: 150 }; // E = 90
+  const E = 90;
   const wallWidth = (panel: string) => (panel === 'FRONT' || panel === 'BACK' ? d.width : d.depth);
+  const pieces = Object.fromEntries(getBottomPieces(d).map((p) => [p.id, p]));
 
-  it('maps every piece into its wall allowance strip, printed side out except the ears', () => {
+  it('maps every piece into its wall zone, printed side out except the corner triangles', () => {
     for (const piece of getBottomPieces(d)) {
       const mapped = piece.polygon.map(piece.toPanel);
       for (const p of mapped) {
         expect(p.x).toBeGreaterThanOrEqual(-1e-9);
         expect(p.x).toBeLessThanOrEqual(wallWidth(piece.panel) + 1e-9);
-        expect(p.y).toBeGreaterThanOrEqual(-a - 1e-9);
+        expect(p.y).toBeGreaterThanOrEqual(-E - 1e-9);
         expect(p.y).toBeLessThanOrEqual(1e-9);
       }
-      // Orientation: the map preserves CCW (printed side seen from below) unless the piece is folded back.
+      // Orientation: the map preserves CCW (printed side seen from below) unless the piece is turned over.
       expect(Math.sign(polygonArea(mapped))).toBe(piece.printedSideOut ? 1 : -1);
+      for (const p of piece.polygon) {
+        const back = piece.fromPanel(piece.toPanel(p));
+        expect(back.x).toBeCloseTo(p.x, 9);
+        expect(back.y).toBeCloseTo(p.y, 9);
+      }
     }
   });
 
-  it('tiles each allowance strip exactly (area Pw × a per wall)', () => {
-    const pieces = getBottomPieces(d);
+  it('tiles each zone exactly (area Pw × E per wall) and stays inside the W × D outline', () => {
+    const all = getBottomPieces(d);
     for (const panel of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) {
-      const area = pieces.filter((p) => p.panel === panel).reduce((sum, p) => sum + Math.abs(polygonArea(p.polygon)), 0);
-      expect(area).toBeCloseTo(wallWidth(panel) * a);
+      const area = all.filter((p) => p.panel === panel).reduce((sum, p) => sum + Math.abs(polygonArea(p.polygon)), 0);
+      expect(area).toBeCloseTo(wallWidth(panel) * E);
     }
+    const outline = [
+      { x: 0, y: 0 },
+      { x: 200, y: 0 },
+      { x: 200, y: 150 },
+      { x: 0, y: 150 },
+    ];
+    all.forEach((piece) => piece.polygon.forEach((p) => expect(pointInConvexPolygon(p, outline)).toBe(true)));
   });
 
   const near = (p: { x: number; y: number }, q: { x: number; y: number }) => {
-    expect(p.x).toBeCloseTo(q.x);
+    expect(p.x + 0).toBeCloseTo(q.x + 0);
     expect(p.y + 0).toBeCloseTo(q.y + 0);
   };
 
-  it('continues the wall across its bottom crease (hinge points map to y = 0 at the same wall x)', () => {
-    const pieces = Object.fromEntries(getBottomPieces(d).map((p) => [p.id, p]));
+  it('continues every wall across its bottom line and joins the corner triangles to the side flaps', () => {
     // Front crease y_b = D ↔ FRONT (x, 0); back crease y_b = 0 ↔ BACK (W − x, 0).
-    near(pieces.FRONT_FLAP.toPanel({ x: 30, y: 150 }), { x: 30, y: 0 });
-    near(pieces.BACK_FLAP.toPanel({ x: 30, y: 0 }), { x: 170, y: 0 });
+    near(pieces.FRONT_TRAPEZOID.toPanel({ x: 30, y: 150 }), { x: 30, y: 0 });
+    near(pieces.BACK_TRAPEZOID.toPanel({ x: 30, y: 0 }), { x: 170, y: 0 });
     // Side bottom lines: LEFT (x, 0) ↔ bottom (0, x); RIGHT (x, 0) ↔ bottom (W, D − x).
-    near(pieces.TUCK_LEFT.toPanel({ x: 0, y: 40 }), { x: 40, y: 0 });
-    near(pieces.TUCK_RIGHT.toPanel({ x: 200, y: 40 }), { x: 110, y: 0 });
-    // Ears stay attached along the 45° creases shared with the tuck.
-    near(pieces.EAR_LEFT_BACK.toPanel({ x: 20, y: 20 }), pieces.TUCK_LEFT.toPanel({ x: 20, y: 20 }));
-    near(pieces.EAR_RIGHT_FRONT.toPanel({ x: 180, y: 130 }), pieces.TUCK_RIGHT.toPanel({ x: 180, y: 130 }));
+    near(pieces.SIDE_FLAP_LEFT.toPanel({ x: 0, y: 40 }), { x: 40, y: 0 });
+    near(pieces.SIDE_FLAP_RIGHT.toPanel({ x: 200, y: 40 }), { x: 110, y: 0 });
+    // Tube corner edge in the zone (depth t): the corner triangle's edge and the side flap's edge meet on the bottom line.
+    for (const t of [0, 30, 90]) {
+      near(pieces.FRONT_EAR_LEFT.fromPanel({ x: 0, y: -t }), pieces.SIDE_FLAP_LEFT.fromPanel({ x: 150, y: -t }));
+      near(pieces.FRONT_EAR_RIGHT.fromPanel({ x: 200, y: -t }), pieces.SIDE_FLAP_RIGHT.fromPanel({ x: 0, y: -t }));
+      near(pieces.BACK_EAR_RIGHT.fromPanel({ x: 0, y: -t }), pieces.SIDE_FLAP_RIGHT.fromPanel({ x: 150, y: -t }));
+      near(pieces.BACK_EAR_LEFT.fromPanel({ x: 200, y: -t }), pieces.SIDE_FLAP_LEFT.fromPanel({ x: 0, y: -t }));
+    }
+    // 45° creases: the corner triangle turns over its diagonal and stays joined to the trapezoid.
+    near(pieces.FRONT_EAR_LEFT.fromPanel({ x: 40, y: -40 }), pieces.FRONT_TRAPEZOID.fromPanel({ x: 40, y: -40 }));
+    near(pieces.BACK_EAR_LEFT.fromPanel({ x: 160, y: -40 }), pieces.BACK_TRAPEZOID.fromPanel({ x: 160, y: -40 }));
+    // Every corner triangle ends up inside the footprint of its own trapezoid (tucked under it).
+    for (const [ear, trapezoid] of [
+      ['FRONT_EAR_LEFT', 'FRONT_TRAPEZOID'],
+      ['FRONT_EAR_RIGHT', 'FRONT_TRAPEZOID'],
+      ['BACK_EAR_LEFT', 'BACK_TRAPEZOID'],
+      ['BACK_EAR_RIGHT', 'BACK_TRAPEZOID'],
+    ] as const) {
+      pieces[ear].polygon.forEach((p) => expect(pointInConvexPolygon(p, pieces[trapezoid].polygon)).toBe(true));
+    }
   });
 
-  it('shows only the two flaps from below (BACK flap outermost, client rule), covering the whole bottom', () => {
+  it('stacks side flaps innermost, then FRONT ears, FRONT trapezoid, BACK ears, BACK trapezoid outermost [K]', () => {
+    const layer = (id: string) => pieces[id].layer;
+    expect(layer('BACK_TRAPEZOID')).toBe(0);
+    expect(layer('BACK_EAR_LEFT')).toBeGreaterThan(layer('BACK_TRAPEZOID'));
+    expect(layer('FRONT_TRAPEZOID')).toBeGreaterThan(layer('BACK_EAR_LEFT'));
+    expect(layer('FRONT_EAR_LEFT')).toBeGreaterThan(layer('FRONT_TRAPEZOID'));
+    expect(layer('SIDE_FLAP_LEFT')).toBeGreaterThan(layer('FRONT_EAR_LEFT'));
+    expect(layer('SIDE_FLAP_RIGHT')).toBe(layer('SIDE_FLAP_LEFT'));
+  });
+
+  it('shows W × D from below: BACK trapezoid, the free part of the FRONT trapezoid and the two side triangles', () => {
     const visible = getVisibleBottomPieces(d);
-    expect(visible.map((p) => p.id)).toEqual(['BACK_FLAP', 'FRONT_FLAP']);
-    expect(getBottomPieces(d).find((p) => p.id === 'BACK_FLAP')!.layer).toBe(0);
-    expect(visible[0].polygon.map((p) => p.y).sort((x, y) => x - y)).toEqual([0, 0, a, a]);
-    expect(visible[1].polygon.map((p) => p.y).sort((x, y) => x - y)).toEqual([a, a, 150, 150]);
-    expect(visible.reduce((sum, p) => sum + Math.abs(polygonArea(p.polygon)), 0)).toBeCloseTo(200 * 150);
+    expect(visible.map((p) => p.id)).toEqual(['BACK_TRAPEZOID', 'FRONT_TRAPEZOID', 'SIDE_FLAP_LEFT', 'SIDE_FLAP_RIGHT']);
+    const area = (id: string) =>
+      visible.find((p) => p.id === id)!.visibleParts.reduce((sum, part) => sum + polygonArea(part), 0);
+    expect(area('BACK_TRAPEZOID')).toBeCloseTo(((200 + 20) / 2) * 90);
+    expect(area('SIDE_FLAP_LEFT')).toBeCloseTo((150 * 75) / 2); // triangle (0,0),(D/2,D/2),(0,D)
+    expect(visible[2].visibleParts[0]).toEqual(expect.arrayContaining([{ x: 75, y: 75 }]));
+    expect(area('FRONT_TRAPEZOID')).toBeCloseTo(200 * 150 - area('BACK_TRAPEZOID') - 2 * area('SIDE_FLAP_LEFT'));
+    // Every visible part is convex, CCW and inside the outline; no two parts overlap (sample points).
+    const parts = visible.flatMap((p) => p.visibleParts);
+    parts.forEach((part) => expect(polygonArea(part)).toBeGreaterThan(0));
+    for (let x = 1.3; x < 200; x += 6.1) {
+      for (let y = 1.1; y < 150; y += 5.3) {
+        expect(parts.filter((part) => pointInConvexPolygon({ x, y }, part, -1e-6)).length).toBeLessThanOrEqual(1);
+        expect(parts.filter((part) => pointInConvexPolygon({ x, y }, part)).length).toBeGreaterThanOrEqual(1);
+      }
+    }
+    // The BACK trapezoid is outermost: nothing else is visible where it lies.
+    expect(pointInConvexPolygon({ x: 100, y: 40 }, visible[0].polygon)).toBe(true);
+  });
+
+  it('draws the "X" and the glue seam on the underside', () => {
+    const creases = getBottomCreases(d);
+    expect(creases.filter((c) => c.kind === 'BOTTOM_TRAPEZOID_DIAGONAL').map((c) => c.segment)).toEqual([
+      { from: { x: 0, y: 0 }, to: { x: 90, y: 90 } },
+      { from: { x: 200, y: 0 }, to: { x: 110, y: 90 } },
+      { from: { x: 0, y: 150 }, to: { x: 75, y: 75 } },
+      { from: { x: 200, y: 150 }, to: { x: 125, y: 75 } },
+    ]);
+    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_SEAM')!.segment).toEqual({ from: { x: 90, y: 90 }, to: { x: 110, y: 90 } });
+  });
+
+  it('lists the visible parts of each zone in panel-local mm (ears never visible)', () => {
+    const area = (panel: 'FRONT' | 'BACK' | 'LEFT' | 'RIGHT') =>
+      getVisibleBottomZoneParts(panel, d).reduce((sum, part) => sum + polygonArea(part), 0);
+    expect(area('BACK')).toBeCloseTo(110 * 90);
+    expect(area('LEFT')).toBeCloseTo((150 * 75) / 2);
+    expect(area('RIGHT')).toBeCloseTo((150 * 75) / 2);
+    const left = getVisibleBottomZoneParts('LEFT', d)[0];
+    expect(left).toEqual(expect.arrayContaining([{ x: 75, y: -75 }])); // the side triangle, apex D/2 deep
+    getVisibleBottomZoneParts('FRONT', d).forEach((part) =>
+      part.forEach((p) => expect(p.y).toBeLessThanOrEqual(1e-9)),
+    );
   });
 });

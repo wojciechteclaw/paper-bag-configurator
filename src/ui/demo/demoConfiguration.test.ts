@@ -22,7 +22,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('demo configuration', () => {
-  it('loads 250 × 200 × 400 mm, white 100 g/m² FSC, flat handle and the wave artwork extended to the bottom', async () => {
+  it('loads 250 × 200 × 400 mm, white 100 g/m² FSC, twisted rope handle and the wave artwork extended to the bottom', async () => {
     await loadDemoConfiguration('/');
     const c = useConfigurationStore.getState().configuration;
     expect(c.productType).toBe('BLOCK');

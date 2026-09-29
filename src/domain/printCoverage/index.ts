@@ -14,3 +14,4 @@ export type { ArtworkColor, ArtworkPaletteInput, ArtworkPaletteResult, ArtworkPa
 export { normalizeColorAnalysis } from './colorAnalysis';
 export { deltaE2000, deltaE76, hexToRgb, labToRgb, normalizeHex, rgbToHex, rgbToLab } from './color';
 export type { Lab, Rgb } from './color';
+export { getVisibleBottomZoneArea, isBottomZonePointVisible } from './bottomVisibility';

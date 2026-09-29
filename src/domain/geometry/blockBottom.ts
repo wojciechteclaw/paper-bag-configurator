@@ -5,8 +5,9 @@
 //   FRONT  W × H, x = 0 at the LEFT edge        RIGHT  D × H, x = 0 at the FRONT edge
 //   BACK   W × H, x = 0 at the RIGHT edge       LEFT   D × H, x = 0 at the BACK edge
 //   BOTTOM W × D, seen from BELOW: x like FRONT (LEFT → RIGHT), y = 0 on the back bottom crease, y = D on the front one.
-// The visible wall is y ∈ [0, H]; the bottom allowance a = (D + 30)/2 hangs below it (y ∈ [−a, 0)) and, once folded,
-// forms the BOTTOM. Polygons are convex and counter-clockwise as seen from outside.
+// The visible wall is y ∈ [0, H]; the bottom zone (allowance) E = a = (D + 30)/2 hangs below it (y ∈ [−E, 0)) and,
+// once folded, forms the BOTTOM (client model [K]: side zones fold in whole, FRONT / BACK zones fold as trapezoids with
+// 45° creases — see "Block bottom" below). Polygons are convex and counter-clockwise as seen from outside.
 
 import type { Dimensions, PanelPosition } from '../types';
 import { polygonArea, type Point2, type Polygon2, type Segment2 } from './sideGusset';
@@ -41,14 +42,10 @@ export type CreaseKind =
   | 'SIDE_DIAGONAL_BACK'
   /** Horizontal flat-fold pleat y = D/2 (whole BACK, back half of each side). */
   | 'FLAT_FOLD_PLEAT'
-  /** Tuck-triangle edges on the bottom (lower half of the diamond, the ears fold over them). */
-  | 'BOTTOM_TUCK_DIAGONAL'
-  /** Centre crease between the two ears of a side allowance (x = D/2 on the bottom). */
-  | 'BOTTOM_EAR_CENTRE'
-  /** Visible cut edge of the outer (BACK) bottom flap = the glue seam seen from below (client rule [K]: back on top). */
-  | 'BOTTOM_FLAP_SEAM'
-  /** Cut edge of the inner (FRONT) bottom flap, hidden under the back flap (overlap boundary). */
-  | 'BOTTOM_FLAP_OVERLAP';
+  /** Visible 45° crease of a FRONT / BACK bottom trapezoid seen from below (the "X" of the formed bottom). */
+  | 'BOTTOM_TRAPEZOID_DIAGONAL'
+  /** Visible end edge of the outer (BACK) trapezoid = the glue seam seen from below (client rule [K]: back on top). */
+  | 'BOTTOM_FLAP_SEAM';
 
 export type Crease = { kind: CreaseKind; segment: Segment2 };
 
@@ -143,81 +140,6 @@ export function getPanelCreases(panel: PanelPosition, d: Dims): Crease[] {
   }
 }
 
-/**
- * Layers of the folded block bottom in BOTTOM-local coordinates (seen from below), docs/PRODUCTION.md §3.4.2, §10.4.
- * Order from the inside of the bag outwards: tucks → ears → front flap → back flap. Client rule [K]: the side
- * triangles fold in first, then the FRONT flap onto the bottom, then the BACK flap over it (glued on the overlap).
- */
-export type BottomLayout = {
-  outline: Polygon2;
-  /** Inner flap (allowance of FRONT), y ∈ [D − a, D]; folded first. */
-  frontFlap: Polygon2;
-  /** Outer flap (allowance of BACK), y ∈ [0, a]; folded last, on top of the front flap. */
-  backFlap: Polygon2;
-  /** Glue overlap of the flaps, y ∈ [D − a, a] (30 mm). */
-  overlap: Polygon2;
-  /** Inner tuck triangles (allowances of LEFT / RIGHT turned in on the side bottom line). */
-  tucks: Record<'LEFT' | 'RIGHT', Polygon2>;
-  /** Ears folded back by 180° over the 45° creases, under the flaps. */
-  ears: Record<'LEFT_BACK' | 'LEFT_FRONT' | 'RIGHT_BACK' | 'RIGHT_FRONT', Polygon2>;
-};
-
-/** Mirror of a BOTTOM polygon x → W − x (LEFT ↔ RIGHT side of the bag), still counter-clockwise. */
-function mirrorBottom(polygon: Polygon2, width: number): Polygon2 {
-  return polygon.map((p) => pt(width - p.x, p.y)).reverse();
-}
-
-export function getBottomLayout(d: Pick<Dimensions, 'width' | 'depth'>): BottomLayout {
-  const { width: W, depth: D } = d;
-  const a = Math.min(getBottomAllowance(d), D);
-  const h = D / 2;
-  const leftTuck: Polygon2 = [pt(0, 0), pt(h, h), pt(0, D)];
-  const earBack: Polygon2 = [pt(0, 0), pt(h, h), pt(h, a), pt(0, a)];
-  const earFront: Polygon2 = [pt(0, D), pt(0, D - a), pt(h, D - a), pt(h, h)];
-  // earFront listed as in PRODUCTION §10.4; normalise to counter-clockwise.
-  const ccw = (p: Polygon2) => (polygonArea(p) < 0 ? [...p].reverse() : p);
-  return {
-    outline: rect(0, 0, W, D),
-    frontFlap: rect(0, D - a, W, D),
-    backFlap: rect(0, 0, W, a),
-    overlap: rect(0, D - a, W, a),
-    tucks: { LEFT: leftTuck, RIGHT: mirrorBottom(leftTuck, W) },
-    ears: {
-      LEFT_BACK: ccw(earBack),
-      LEFT_FRONT: ccw(earFront),
-      RIGHT_BACK: mirrorBottom(ccw(earBack), W),
-      RIGHT_FRONT: mirrorBottom(ccw(earFront), W),
-    },
-  };
-}
-
-/**
- * Lines on the underside of the formed bottom (BOTTOM-local): the visible flap seam y = a (edge of the outer BACK
- * flap), the hidden edge of the inner FRONT flap y = D − a (together they bound the 30 mm glue overlap), the tuck-triangle diagonals (the 45° creases of
- * the side allowances, lower half of the diamond) and the ear centre creases x = D/2 between the flaps.
- * The outline itself (front/back bottom creases, side bottom lines) is the panel boundary and is not listed.
- */
-export function getBottomCreases(d: Pick<Dimensions, 'width' | 'depth'>): Crease[] {
-  const { width: W, depth: D } = d;
-  const a = Math.min(getBottomAllowance(d), D);
-  const h = D / 2;
-  const left: Crease[] = [
-    { kind: 'BOTTOM_TUCK_DIAGONAL', segment: seg(pt(0, 0), pt(h, h)) },
-    { kind: 'BOTTOM_TUCK_DIAGONAL', segment: seg(pt(0, D), pt(h, h)) },
-    { kind: 'BOTTOM_EAR_CENTRE', segment: seg(pt(h, D - a), pt(h, a)) },
-  ];
-  const right = left.map((c) => ({
-    kind: c.kind,
-    segment: seg(pt(W - c.segment.from.x, c.segment.from.y), pt(W - c.segment.to.x, c.segment.to.y)),
-  }));
-  return [
-    { kind: 'BOTTOM_FLAP_SEAM', segment: seg(pt(0, a), pt(W, a)) },
-    { kind: 'BOTTOM_FLAP_OVERLAP', segment: seg(pt(0, D - a), pt(W, D - a)) },
-    ...left,
-    ...right,
-  ];
-}
-
 /** Inclusive point-in-convex-polygon test (CCW polygon), tolerance in mm. */
 export function pointInConvexPolygon(p: Point2, polygon: Polygon2, tolerance = 1e-6): boolean {
   return polygon.every((a, i) => {
@@ -232,79 +154,259 @@ export function findRegion(regions: readonly PanelRegion[], p: Point2): PanelReg
   return regions.find((r) => pointInConvexPolygon(p, r.polygon));
 }
 
-// ——— Bottom pieces in their wall's artwork space ("rozciągnij na dno", docs/SPEC.md §4f) ———
+// ——— Polygon helpers ———
 
-export type BottomPieceId =
-  | 'FRONT_FLAP'
-  | 'BACK_FLAP'
-  | 'EAR_LEFT_BACK'
-  | 'EAR_LEFT_FRONT'
-  | 'EAR_RIGHT_BACK'
-  | 'EAR_RIGHT_FRONT'
-  | 'TUCK_LEFT'
-  | 'TUCK_RIGHT';
+/** Drops consecutive (and closing) duplicate vertices, e.g. the collapsed end of a degenerate trapezoid. */
+export function dedupePolygon(polygon: Polygon2, tolerance = 1e-9): Polygon2 {
+  const out: Point2[] = [];
+  for (const p of polygon) {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > tolerance) out.push(p);
+  }
+  while (out.length > 1 && Math.hypot(out[0].x - out[out.length - 1].x, out[0].y - out[out.length - 1].y) <= tolerance) {
+    out.pop();
+  }
+  return out;
+}
 
 /**
- * One layer of the formed block bottom that comes from a wall's bottom allowance (panel-local y ∈ [−a, 0]).
- * `toPanel` maps BOTTOM-local (seen from below) to that wall's panel-local mm, so the wall's continuous UV space
- * (u = x / panelWidth, v = y / H, v < 0 in the allowance) continues onto the piece.
+ * Clips a convex polygon to the half-plane n · p ≤ c (Sutherland–Hodgman); keeps the vertex order. May return fewer
+ * than 3 vertices (empty intersection).
+ */
+export function clipConvexPolygon(polygon: Polygon2, n: Point2, c: number): Polygon2 {
+  const out: Point2[] = [];
+  const side = (p: Point2) => n.x * p.x + n.y * p.y - c;
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i];
+    const b = polygon[(i + 1) % polygon.length];
+    const sa = side(a);
+    const sb = side(b);
+    if (sa <= 0) out.push(a);
+    if ((sa < 0 && sb > 0) || (sa > 0 && sb < 0)) {
+      const t = sa / (sa - sb);
+      out.push(pt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
+    }
+  }
+  return dedupePolygon(out);
+}
+
+/** Intersection of a convex polygon with several half-planes n · p ≤ c. */
+export function clipConvexPolygonAll(polygon: Polygon2, halfPlanes: readonly (readonly [Point2, number])[]): Polygon2 {
+  return halfPlanes.reduce((poly, [n, c]) => (poly.length >= 3 ? clipConvexPolygon(poly, n, c) : poly), polygon);
+}
+
+const ccw = (polygon: Polygon2): Polygon2 => (polygonArea(polygon) < 0 ? [...polygon].reverse() : polygon);
+
+// ——— Block bottom: the four bottom zones (client model [K], docs/PRODUCTION.md §3.4) ———
+//
+// Every wall has a bottom zone of depth E = (D + 30)/2 below its bottom line (panel-local y ∈ [−E, 0]).
+//   LEFT / RIGHT (D × E): no crease inside — the whole zone turns 90° in on the bottom line ("side flap").
+//   FRONT / BACK (W × E): two 45° creases from the bottom-line corners, (0,0)→(E,−E) and (W,0)→(W−E,−E) — a trapezoid
+//     (W at the bottom line, W − 2E at the zone end) and two corner triangles ("ears") outside the diagonals.
+// Forming (client order [K]): sides in → FRONT trapezoid → BACK trapezoid on top (glue overlap OV = 2E − D = 30 mm).
+// An ear is joined to the neighbouring side zone along the tube corner edge (C2 / C3 continued into the zone). When the
+// side zone turns in, that edge swings from vertical onto the wall's bottom line, so the ear turns 180° over its
+// diagonal and lies on the INSIDE of its own trapezoid; the trapezoid then carries it onto the bottom. Stack from the
+// inside of the bag outwards: side flaps → FRONT ears → FRONT trapezoid → BACK ears → BACK trapezoid.
+// Needs W ≥ 2E = D + 30; below that the diagonals meet at t = W/2 before the zone end (trapezoid → triangle, ears
+// become quadrilaterals) — `isBottomTrapezoidDegenerate`, domain warning BOTTOM_TRAPEZOID_DEGENERATE.
+
+/** Depth of the trapezoid (where its 45° creases end): min(E, W/2) — E normally, W/2 when W < D + 30. */
+export function getBottomTrapezoidDepth(d: Pick<Dimensions, 'width' | 'depth'>): number {
+  return Math.max(0, Math.min(getBottomAllowance(d), d.width / 2));
+}
+
+/** W < 2E = D + 30: the trapezoid of the FRONT / BACK bottom zone degenerates into a triangle. */
+export function isBottomTrapezoidDegenerate(d: Pick<Dimensions, 'width' | 'depth'>): boolean {
+  return d.width < 2 * getBottomAllowance(d) - 1e-9;
+}
+
+export type BottomZonePieceId =
+  /** FRONT / BACK: the trapezoid between the 45° creases (visible from below). */
+  | 'TRAPEZOID'
+  /** FRONT / BACK: corner triangle at panel x = 0 (turns 180° over its diagonal onto the trapezoid's inside). */
+  | 'EAR_START'
+  /** FRONT / BACK: corner triangle at panel x = W. */
+  | 'EAR_END'
+  /** LEFT / RIGHT: the whole D × E zone (turns 90° in on the bottom line, no crease inside). */
+  | 'SIDE_FLAP';
+
+export type BottomZonePiece = { id: BottomZonePieceId; polygon: Polygon2 };
+
+/**
+ * Pieces of a wall's bottom zone in panel-local mm (y ∈ [−E, 0]), CCW seen from the print side; they tile the zone
+ * exactly. Degenerate FRONT / BACK zones (W < 2E) end the diagonals at t = W/2: trapezoid → triangle, the ears are
+ * quadrilaterals meeting on x = W/2.
+ */
+export function getBottomZonePieces(panel: PanelPosition, d: Pick<Dimensions, 'width' | 'depth'>): BottomZonePiece[] {
+  const { width: W, depth: D } = d;
+  const E = getBottomAllowance(d);
+  if (panel === 'LEFT' || panel === 'RIGHT') return [{ id: 'SIDE_FLAP', polygon: rect(0, -E, D, 0) }];
+  const m = getBottomTrapezoidDepth(d);
+  return [
+    { id: 'TRAPEZOID', polygon: dedupePolygon([pt(0, 0), pt(m, -m), pt(W - m, -m), pt(W, 0)]) },
+    { id: 'EAR_START', polygon: dedupePolygon([pt(0, 0), pt(0, -E), pt(m, -E), pt(m, -m)]) },
+    { id: 'EAR_END', polygon: dedupePolygon([pt(W - m, -m), pt(W - m, -E), pt(W, -E), pt(W, 0)]) },
+  ];
+}
+
+/** The 45° creases of a FRONT / BACK bottom zone (panel-local), from the bottom-line corners to the trapezoid end. */
+export function getBottomZoneDiagonals(d: Pick<Dimensions, 'width' | 'depth'>): [Segment2, Segment2] {
+  const m = getBottomTrapezoidDepth(d);
+  const W = d.width;
+  return [seg(pt(0, 0), pt(m, -m)), seg(pt(W, 0), pt(W - m, -m))];
+}
+
+// ——— The formed bottom seen from below (BOTTOM-local, docs/PRODUCTION.md §10.4) ———
+
+export type BottomPieceId =
+  | 'BACK_TRAPEZOID'
+  | 'BACK_EAR_LEFT'
+  | 'BACK_EAR_RIGHT'
+  | 'FRONT_TRAPEZOID'
+  | 'FRONT_EAR_LEFT'
+  | 'FRONT_EAR_RIGHT'
+  | 'SIDE_FLAP_LEFT'
+  | 'SIDE_FLAP_RIGHT';
+
+/**
+ * One layer of the formed block bottom, i.e. one piece of a wall's bottom zone (panel-local y ∈ [−E, 0]).
+ * `toPanel` maps BOTTOM-local (seen from below) to that wall's panel-local mm (inverse: `fromPanel`), so the wall's
+ * continuous UV space (u = x / panelWidth, v = y / H, v < 0 in the zone) continues onto the piece.
  */
 export type BottomPiece = {
   id: BottomPieceId;
-  /** The wall whose allowance forms this piece. */
+  /** The wall whose bottom zone forms this piece. */
   panel: PanelPosition;
-  /** 0 = outermost (seen from below): back flap, front flap, ears, tucks. */
+  /** The piece of that zone (`getBottomZonePieces`). */
+  zonePiece: BottomZonePieceId;
+  /**
+   * Paper layer counted from the OUTSIDE of the bottom (client rule [K]): 0 BACK trapezoid (outermost), 1 BACK ears,
+   * 2 FRONT trapezoid, 3 FRONT ears, 4 side flaps (innermost) — the side flaps lie under both trapezoids.
+   */
   layer: number;
   /** BOTTOM-local, counter-clockwise seen from below. */
   polygon: Polygon2;
   toPanel: (p: Point2) => Point2;
+  fromPanel: (p: Point2) => Point2;
   /**
-   * Whether the printed (outer) side of the wall faces down/outwards on this piece. Flaps and tucks turn 90° on
-   * their bottom line (printed side out); the ears fold back a further 180° over the 45° creases (printed side in).
+   * Whether the printed (outer) side of the wall faces down/outwards on this piece. Trapezoids and side flaps turn 90°
+   * on their bottom line (printed side out); the ears turn a further 180° over the 45° creases (printed side in).
    */
   printedSideOut: boolean;
 };
 
+type PointMap = (p: Point2) => Point2;
+
 /**
- * All allowance pieces of the formed bottom with their maps into the source wall (derivation: the flaps hinge on the
- * front / back bottom crease, the side allowance turns in on the side bottom line, the ears are then reflected over
- * the 45° creases). RIGHT pieces mirror LEFT (bottom x → W − x, panel x → D − x).
+ * Zone point ↔ BOTTOM-local for every piece (docs/PRODUCTION.md §10.4): the trapezoids hinge on the front / back bottom
+ * crease, the side flaps on the side bottom lines; an ear is its trapezoid's map after the reflection over its diagonal.
  */
-export function getBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomPiece[] {
+function bottomMaps(d: Pick<Dimensions, 'width' | 'depth'>): Record<BottomPieceId, { from: PointMap; to: PointMap }> {
   const { width: W, depth: D } = d;
-  const layout = getBottomLayout(d);
-  // LEFT side (bottom x = 0 edge; LEFT x = 0 at BACK): tuck (bx, by) → (by, −bx); back ear reflected over y = x,
-  // front ear over y = D − x.
-  const leftTuck = (p: Point2) => pt(p.y, -p.x);
-  const leftEarBack = (p: Point2) => pt(p.x, -p.y);
-  const leftEarFront = (p: Point2) => pt(D - p.x, p.y - D);
-  const right = (left: (p: Point2) => Point2) => (p: Point2) => {
-    const q = left(pt(W - p.x, p.y));
-    return pt(D - q.x, q.y);
+  const pair = (from: PointMap, to: PointMap) => ({ from, to });
+  return {
+    FRONT_TRAPEZOID: pair((p) => pt(p.x, p.y + D), (p) => pt(p.x, p.y - D)),
+    BACK_TRAPEZOID: pair((p) => pt(W - p.x, -p.y), (p) => pt(W - p.x, -p.y)),
+    SIDE_FLAP_LEFT: pair((p) => pt(-p.y, p.x), (p) => pt(p.y, -p.x)),
+    SIDE_FLAP_RIGHT: pair((p) => pt(W + p.y, D - p.x), (p) => pt(D - p.y, p.x - W)),
+    FRONT_EAR_LEFT: pair((p) => pt(-p.y, D - p.x), (p) => pt(D - p.y, -p.x)),
+    FRONT_EAR_RIGHT: pair((p) => pt(W + p.y, p.x - W + D), (p) => pt(W - D + p.y, p.x - W)),
+    BACK_EAR_RIGHT: pair((p) => pt(W + p.y, p.x), (p) => pt(p.y, p.x - W)),
+    BACK_EAR_LEFT: pair((p) => pt(-p.y, W - p.x), (p) => pt(W - p.y, -p.x)),
   };
+}
+
+const BOTTOM_PIECE_SOURCES: readonly { id: BottomPieceId; panel: PanelPosition; zonePiece: BottomZonePieceId; layer: number }[] = [
+  { id: 'BACK_TRAPEZOID', panel: 'BACK', zonePiece: 'TRAPEZOID', layer: 0 },
+  // BACK x = 0 is at RIGHT: its start ear sits at the RIGHT corner.
+  { id: 'BACK_EAR_RIGHT', panel: 'BACK', zonePiece: 'EAR_START', layer: 1 },
+  { id: 'BACK_EAR_LEFT', panel: 'BACK', zonePiece: 'EAR_END', layer: 1 },
+  { id: 'FRONT_TRAPEZOID', panel: 'FRONT', zonePiece: 'TRAPEZOID', layer: 2 },
+  { id: 'FRONT_EAR_LEFT', panel: 'FRONT', zonePiece: 'EAR_START', layer: 3 },
+  { id: 'FRONT_EAR_RIGHT', panel: 'FRONT', zonePiece: 'EAR_END', layer: 3 },
+  { id: 'SIDE_FLAP_LEFT', panel: 'LEFT', zonePiece: 'SIDE_FLAP', layer: 4 },
+  { id: 'SIDE_FLAP_RIGHT', panel: 'RIGHT', zonePiece: 'SIDE_FLAP', layer: 4 },
+];
+
+/** All bottom-zone pieces of the formed bottom, outermost first (BACK trapezoid … side flaps). */
+export function getBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomPiece[] {
+  const maps = bottomMaps(d);
+  return BOTTOM_PIECE_SOURCES.map(({ id, panel, zonePiece, layer }) => {
+    const zone = getBottomZonePieces(panel, d).find((z) => z.id === zonePiece)!;
+    const { from, to } = maps[id];
+    return {
+      id,
+      panel,
+      zonePiece,
+      layer,
+      polygon: ccw(zone.polygon.map(from)),
+      toPanel: to,
+      fromPanel: from,
+      printedSideOut: zonePiece === 'TRAPEZOID' || zonePiece === 'SIDE_FLAP',
+    };
+  });
+}
+
+/** A piece as seen from below: the convex parts of it that no outer layer covers (BOTTOM-local, CCW). */
+export type VisibleBottomPiece = BottomPiece & { visibleParts: Polygon2[] };
+
+/**
+ * What is seen of the formed bottom from below (docs/PRODUCTION.md §3.4.2 [K]): the BACK trapezoid (outermost), the
+ * part of the FRONT trapezoid it leaves free, and the two side triangles (0,0),(D/2,D/2),(0,D) and mirror — the side
+ * flaps between the trapezoid diagonals ("X"). Together they tile the W × D bottom exactly; the ears are always
+ * hidden (tucked between the side flaps and the trapezoids).
+ */
+export function getVisibleBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): VisibleBottomPiece[] {
+  const { width: W, depth: D } = d;
+  const m = getBottomTrapezoidDepth(d);
+  const pieces = Object.fromEntries(getBottomPieces(d).map((p) => [p.id, p])) as Record<BottomPieceId, BottomPiece>;
+  const keep = (parts: Polygon2[]) => parts.filter((p) => p.length >= 3 && polygonArea(p) > 1e-9);
+  const front = pieces.FRONT_TRAPEZOID.polygon;
+  // Outside the BACK trapezoid = beyond its end (y ≥ m) or beyond one of its diagonals (x ≤ y, x ≥ W − y).
+  const frontParts = keep([
+    clipConvexPolygonAll(front, [[pt(0, -1), -m]]),
+    clipConvexPolygonAll(front, [[pt(0, 1), m], [pt(1, -1), 0]]),
+    clipConvexPolygonAll(front, [[pt(0, 1), m], [pt(-1, -1), -W]]),
+  ]);
+  // Side triangle: left of both diagonals, x ≤ y and x ≤ D − y (also for W < 2E, as long as D ≤ W).
+  const sideLeft = keep([clipConvexPolygonAll(pieces.SIDE_FLAP_LEFT.polygon, [[pt(1, -1), 0], [pt(1, 1), D]])]);
+  const sideRight = keep([clipConvexPolygonAll(pieces.SIDE_FLAP_RIGHT.polygon, [[pt(-1, -1), -W], [pt(-1, 1), D - W]])]);
   return [
-    { id: 'BACK_FLAP', panel: 'BACK', layer: 0, polygon: layout.backFlap, toPanel: (p) => pt(W - p.x, -p.y), printedSideOut: true },
-    { id: 'FRONT_FLAP', panel: 'FRONT', layer: 1, polygon: layout.frontFlap, toPanel: (p) => pt(p.x, p.y - D), printedSideOut: true },
-    { id: 'EAR_LEFT_BACK', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_BACK, toPanel: leftEarBack, printedSideOut: false },
-    { id: 'EAR_LEFT_FRONT', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_FRONT, toPanel: leftEarFront, printedSideOut: false },
-    { id: 'EAR_RIGHT_BACK', panel: 'RIGHT', layer: 2, polygon: layout.ears.RIGHT_BACK, toPanel: right(leftEarBack), printedSideOut: false },
-    { id: 'EAR_RIGHT_FRONT', panel: 'RIGHT', layer: 2, polygon: layout.ears.RIGHT_FRONT, toPanel: right(leftEarFront), printedSideOut: false },
-    { id: 'TUCK_LEFT', panel: 'LEFT', layer: 3, polygon: layout.tucks.LEFT, toPanel: leftTuck, printedSideOut: true },
-    { id: 'TUCK_RIGHT', panel: 'RIGHT', layer: 3, polygon: layout.tucks.RIGHT, toPanel: right(leftTuck), printedSideOut: true },
+    { ...pieces.BACK_TRAPEZOID, visibleParts: [pieces.BACK_TRAPEZOID.polygon] },
+    { ...pieces.FRONT_TRAPEZOID, visibleParts: frontParts },
+    { ...pieces.SIDE_FLAP_LEFT, visibleParts: sideLeft },
+    { ...pieces.SIDE_FLAP_RIGHT, visibleParts: sideRight },
   ];
 }
 
 /**
- * What is seen of the formed bottom from below: the back flap (outermost, client rule [K], y ∈ [0, a]) and the part
- * of the front flap it does not cover (y ∈ [a, D]). Together they tile the whole W × D bottom (the flaps span the full width
- * and a > D/2), so the ears and tucks — the LEFT/RIGHT allowances — are always hidden inside the bottom: side-wall
- * artwork extended to the bottom is printed (dieline, ink coverage) but never visible on the finished bag.
+ * Lines seen on the underside of the formed bottom (BOTTOM-local): the BACK trapezoid's 45° creases and its end edge
+ * y = E (the glue seam, client rule [K]: back on top), and the visible halves of the FRONT trapezoid's 45° creases up
+ * to the side-triangle tips (D/2, D/2). Together with the outline they draw the "X" of the client's view from below.
+ * The outline itself (front/back bottom creases, side bottom lines) is the panel boundary and is not listed.
  */
-export function getVisibleBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomPiece[] {
+export function getBottomCreases(d: Pick<Dimensions, 'width' | 'depth'>): Crease[] {
   const { width: W, depth: D } = d;
-  const a = Math.min(getBottomAllowance(d), D);
-  const pieces = getBottomPieces(d);
-  const back = pieces.find((p) => p.id === 'BACK_FLAP')!;
-  const front = pieces.find((p) => p.id === 'FRONT_FLAP')!;
-  return [back, { ...front, polygon: rect(0, a, W, D) }];
+  const m = getBottomTrapezoidDepth(d);
+  const h = D / 2;
+  const creases: Crease[] = [
+    { kind: 'BOTTOM_TRAPEZOID_DIAGONAL', segment: seg(pt(0, 0), pt(m, m)) },
+    { kind: 'BOTTOM_TRAPEZOID_DIAGONAL', segment: seg(pt(W, 0), pt(W - m, m)) },
+    { kind: 'BOTTOM_TRAPEZOID_DIAGONAL', segment: seg(pt(0, D), pt(h, h)) },
+    { kind: 'BOTTOM_TRAPEZOID_DIAGONAL', segment: seg(pt(W, D), pt(W - h, h)) },
+  ];
+  if (W - 2 * m > 1e-9) creases.push({ kind: 'BOTTOM_FLAP_SEAM', segment: seg(pt(m, m), pt(W - m, m)) });
+  return creases;
+}
+
+/**
+ * Parts of a wall's bottom zone that are visible from below on the formed bag, in panel-local mm (y ∈ [−E, 0]):
+ * BACK — the whole trapezoid, FRONT — the part the BACK trapezoid leaves free, LEFT / RIGHT — the side triangle
+ * (D/2 deep); the ears are never visible. Tells which printed colours of the zone show on the finished bottom.
+ */
+export function getVisibleBottomZoneParts(panel: PanelPosition, d: Pick<Dimensions, 'width' | 'depth'>): Polygon2[] {
+  return getVisibleBottomPieces(d)
+    .filter((piece) => piece.panel === panel)
+    .flatMap((piece) => piece.visibleParts.map((part) => ccw(part.map(piece.toPanel))));
 }

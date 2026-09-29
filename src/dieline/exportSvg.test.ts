@@ -55,7 +55,10 @@ describe('buildDielineSvg', () => {
     expect(mountain.every((l) => l.getAttribute('data-kind') === 'MOUNTAIN')).toBe(true);
     // Gusset centre (C4) and 45° diagonals (C6) are mountains; tube edges (C2) and the bottom line (C1) valleys.
     expect(mountain.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C4', 'C6']));
-    expect(valley.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C7']));
+    expect(valley.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C9']));
+    // Tube corner edges continued into the bottom zone are mountains (turned-over corner triangle under the side flap).
+    expect(mountain.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C2', 'C3']));
+    expect(root.querySelector('#bottom-flap-glue-FRONT')?.tagName).toBe('polygon');
     // Distinguishable styles.
     expect(valley[0].getAttribute('stroke-dasharray')).not.toBe(mountain[0].getAttribute('stroke-dasharray'));
     // Glue layer: chamfered glue flap polygon + bottom glue bands (print side on FRONT, inside face on BACK).

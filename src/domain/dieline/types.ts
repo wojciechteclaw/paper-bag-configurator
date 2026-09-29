@@ -32,7 +32,7 @@ export type DielineSegment = {
 };
 
 /** Crease codes of PRODUCTION.md §9.3. */
-export type CreaseCode = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8';
+export type CreaseCode = 'C1' | 'C2' | 'C3' | 'C4' | 'C6' | 'C8' | 'C9';
 
 /**
  * Fold direction of a crease seen from the PRINT side, client convention [K] (docs/PRODUCTION.md §9.3):

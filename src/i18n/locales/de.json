@@ -8,7 +8,7 @@
     "preview": "3D-Vorschau",
     "demo": "Demo",
     "demoBusy": "Wird geladen…",
-    "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Flachhenkel, „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
+    "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
     "demoError": "Die Demo-Grafiken konnten nicht geladen werden."
   },
   "steps": {
@@ -63,6 +63,9 @@
       "unavailableInfo": "Ausgegraute Formate überschreiten die aktuellen Grenzen des Konfigurators:",
       "violation": "{{size}}: {{dimension}} {{value}} mm außerhalb {{min}}–{{max}} mm",
       "none": "Für den gewählten Griff gibt es keine Standardformate — bitte individuelle Abmessungen eingeben."
+    },
+    "warnings": {
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Breite unter {{minWidth}} mm (Tiefe + 30 mm): Die vordere und hintere Bodenklappe bilden statt eines Trapezes ein Dreieck, und die Bodenseiten überlappen sich. Machbarkeit mit der Produktion klären."
     }
   },
   "handle": {
@@ -186,9 +189,9 @@
     "phase": {
       "SHEET": "Flacher Bogen",
       "TUBE": "A: Schlauch formen",
-      "TRIANGLES": "B: Seitendreiecke nach innen",
-      "FRONT_FLAP": "C1: vordere Klappe auf den Boden",
-      "BACK_FLAP": "C2: hintere Klappe oben (Leim)",
+      "SIDES": "B: Bodenseiten ganz nach innen",
+      "FRONT_TRAPEZOID": "C1: vorderes Trapez auf den Boden",
+      "BACK_TRAPEZOID": "C2: hinteres Trapez oben (Leim)",
       "FORMED": "Geformter Beutel",
       "FOLD": "Flachlegen"
     },

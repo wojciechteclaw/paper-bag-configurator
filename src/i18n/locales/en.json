@@ -8,7 +8,7 @@
     "preview": "3D preview",
     "demo": "Demo",
     "demoBusy": "Loading…",
-    "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, flat handle, \"wave\" artwork on all walls, extended to the bottom",
+    "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
     "demoError": "The demo artwork could not be loaded."
   },
   "steps": {
@@ -63,6 +63,9 @@
       "unavailableInfo": "Greyed-out sizes exceed the current configurator limits:",
       "violation": "{{size}}: {{dimension}} {{value}} mm outside {{min}}–{{max}} mm",
       "none": "There are no standard sizes for the selected handle — enter custom dimensions."
+    },
+    "warnings": {
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Width below {{minWidth}} mm (depth + 30 mm): the front and back bottom flaps form a triangle instead of a trapezoid and the bottom sides overlap. Check feasibility with production."
     }
   },
   "handle": {
@@ -186,9 +189,9 @@
     "phase": {
       "SHEET": "Flat sheet",
       "TUBE": "A: forming the tube",
-      "TRIANGLES": "B: side triangles in",
-      "FRONT_FLAP": "C1: front flap onto the bottom",
-      "BACK_FLAP": "C2: back flap on top (glued)",
+      "SIDES": "B: bottom sides fold in (whole)",
+      "FRONT_TRAPEZOID": "C1: front trapezoid onto the bottom",
+      "BACK_TRAPEZOID": "C2: back trapezoid on top (glued)",
       "FORMED": "Formed bag",
       "FOLD": "Folding flat"
     },

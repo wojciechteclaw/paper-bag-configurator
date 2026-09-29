@@ -92,14 +92,16 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
 ### 4a. Podgląd złożenia (wywiad, 29.09.2026)
 
 Suwak **„Składanie” 0–100%** to jedna ciągła oś czasu (decyzja klienta 29.09.2026): **płaski arkusz (0 %)** → rękaw
-(faza A) → trójkąty boków do środka (B) → klapa przednia (C1) → klapa tylna na wierzch (C2) → **uformowana torba
+(faza A) → boki dna do środka w całości (B) → trapez przedni (C1) → trapez tylny na wierzch (C2) → **uformowana torba
 (40 %, „3D pełne”)** → stojąca (55 %) → **złożona na płasko (100 %)**. Część 0–40 % to składanie z arkusza
 (`assemblyKinematics.ts`, `docs/PRODUCTION.md` §10.8), część 40–100 % to dotychczasowe złożenie na płasko (§10.5,
 przemapowane). Podział 40/60 trzyma wszystkie presety na siatce 1 % (0 / 0,4 / 0,55 / 1). Obok suwaka nazwa bieżącego
 etapu i przycisk odtwórz / pauza (cała oś w ok. 14 s; odtwarzanie z końca zaczyna od arkusza). W stanie widoku
 (`previewStore`) jest jedna wartość `progress`; `getTimelineState` wylicza z niej postęp składania, postęp złożenia i etap.
-W fazach B–C trójkąty i klapy zamykają się razem (narożnik „ciągnie” obie ścianki — bez rozcinania papieru), klapa
-przednia lekko przodem, tylna na końcu na wierzchu.
+Model dna klienta [K] (`docs/PRODUCTION.md` §3.4): strefy dna boków składają się w całości (bez bigów), strefy przodu
+i tyłu mają bigi 45° (C9) — trapez + narożne trójkąty, które przy wchodzeniu boków obracają się o 180° na C9 (zginając
+się po dwusiecznej na zewnątrz) i leżą między klapą boku a trapezem. Fazy B → C1 → C2 są ściśle po kolei; warstwy od
+środka: klapy boków → trapez przedni → trapez tylny (w 3D odsunięte o 0,1 mm na warstwę na zewnątrz).
 
 Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `depth × height`:
 
@@ -173,7 +175,7 @@ Płaski rozkład arkusza jednej torby generowany z konfiguracji.
 - **Geometria:**
   - ścianki w rzędzie rękawa w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka klejowa wzdłużna** (BACK w jednym kawałku); **szew na krawędzi rękawa między BACK a LEFT**, **zakładka 10 mm** doczepiona do zewnętrznej krawędzi BACK i klejona do wolnej krawędzi LEFT — decyzja klienta (29.09.2026), stała w `productionRules.ts`; szczegóły w `docs/PRODUCTION.md` §9 (np. 200 × 400 × 150 → arkusz 710 × 490 mm),
   - wysokość arkusza = `H + (D + 30) / 2` (zapas na dno pod każdą ścianką),
-  - linie bigowania: krawędzie ścianek, linia dna, bigi fałd bocznych (środek + 45°), bigi klap dna wg `docs/PRODUCTION.md`,
+  - linie bigowania: krawędzie ścianek, linia dna, bigi fałd bocznych (środek + 45°), bigi 45° trapezów dna przodu i tyłu (C9; strefy dna boków bez bigów) wg `docs/PRODUCTION.md` §9.3,
   - linie cięcia: obrys arkusza z **końcami zakładki klejowej ściętymi pod 45°** [K] (bez nacięć klap dna),
   - klej dna: pas OV = 30 mm na końcu rękawa; klapa tylna na wierzchu [K], więc klej na stronie zadrukowanej klapy przedniej.
 - **Grafiki:** wgrane grafiki nałożone na swoje ścianki (ten sam tryb `ArtworkPlacement` co w 3D), przełącznik pokaż/ukryj; widać, co wchodzi w dno i zakładkę.
@@ -195,7 +197,7 @@ Na wykroju (edycja grafiki), per ścianka:
 - Wyrównanie: `alignPlacement(placement, { horizontal?, vertical? }, obszar, obraz)` — 3 × 3 (LEFT/CENTER/RIGHT × TOP/MIDDLE/BOTTOM, osobno lub razem); krawędź prostokąta obrazu (z uwzględnieniem obrotu) dotyka krawędzi obszaru. Z FILL najpierw przejście na CUSTOM „contain”. Na wykroju: dwie grupy po 3 przyciski + przełącznik „Rozciągnij na dno” w pasku edycji.
 - Przełączenie rozciągnięcia (`setPlacementExtendToBottom`, akcja store `setPanelExtendToBottom`): grafika CUSTOM **zostaje w tym samym miejscu** na ściance (przeliczone `scale` i przesunięcia), FILL rozciąga się na nowy obszar. „Rozciągnij” (FILL) zachowuje przełącznik, „Resetuj” i usunięcie grafiki go zerują, podmiana grafiki go zachowuje.
 - Wykrój 2D: bez rozciągnięcia grafika jest przycinana do ścianki + 2 mm zachodzenia przez linię dna (wcześniej wchodziła w zapas); z rozciągnięciem — do końca rękawa + spad 3 mm. Eksport SVG/PDF korzysta z tej samej sceny. Zaznaczona ścianka pokazuje obrys obszaru grafiki. Zapas na dno jest rysowany per kolumna: bez grafiki — szare tło, z grafiką (rozciągnięta ścianka) — fioletowy przerywany obrys bez przyciemnienia, żeby było widać, jakie kolory trafiają na dno (legenda; to samo w eksporcie SVG/PDF).
-- 3D: dno składa się z widocznych od spodu części: klapa przednia (zapas FRONT, `y ∈ [D − a, D]`) i odsłonięta część klapy tylnej (zapas BACK, `y ∈ [0, D − a]`); każda ma UV w przestrzeni swojej ścianki (`getBottomPieces` / `getVisibleBottomPieces` w `blockBottom.ts`) i tę samą teksturę co ścianka, pokazywaną tylko przy `extendToBottom`. Dno jest sztywne w animacji, więc mapowanie jest poprawne przez całe składanie. **Uszy i trójkąty (zapasy LEFT/RIGHT) są w gotowym dnie całkowicie przykryte klapami** (a uszy są dodatkowo odwrócone zadrukiem do środka), więc rozciągnięcie boków widać tylko na wykroju i w pokryciu farbą — nie w 3D.
+- 3D: dno składa się z widocznych od spodu części (model klienta [K]): trapez tyłu (wierzch), odsłonięta część trapezu przodu i dwa trójkąty klap boków między przekątnymi; każda ma UV w przestrzeni swojej ścianki (`getBottomPieces` / `getVisibleBottomPieces` w `blockBottom.ts`) i tę samą teksturę co ścianka, pokazywaną tylko przy `extendToBottom` — kolory widoczne od spodu są dokładnie tymi z arkusza. Narożne trójkąty (uszy) przodu/tyłu są schowane (odwrócone, między klapą boku a trapezem). Które części strefy dna widać od spodu: `getVisibleBottomZoneParts` / `printCoverage/bottomVisibility.ts`.
 - Pokrycie farbą: dla ścianek z rozciągnięciem próbkowany jest obszar `Pw × (H + a)` (pole `printArea` w wyniku per ścianka); mianownik bez zmian (arkusz bez spadu). Rozstrzyga pytanie z §8.
 
 ### 4e. Eksport konfiguracji: PDF i Excel (wywiad 29.09.2026)

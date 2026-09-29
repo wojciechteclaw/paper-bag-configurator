@@ -153,7 +153,8 @@ tylko tego, czy dno ma dodatkowe łaty lub strefy kleju.
 
 - **Linie 45° z dolnych narożników** są dwusiecznymi kątów prostych w rogach dna. Spotykają się nad
   środkiem krawędzi dna na wysokości `D/2`, bo trójkąt prostokątny równoramienny o przeciwprostokątnej
-  `D` ma wysokość `D/2` [W]. Pod linią dna, na zapasie bocznym, jest ten sam trójkąt odwrócony (§3.4).
+  `D` ma wysokość `D/2` [W]. Pod linią dna ten sam trójkąt (odwrócony) widać od spodu jako część klapy boku między przekątnymi
+  trapezów (§3.4) — na zapasie boku nie ma jednak bigów (klapa boku składa się w całości [K]).
   Oba trójkąty razem tworzą **romb (kwadrat obrócony o 45°) o przekątnych `D`**. To klasyczny „romb”
   dna klockowego.
 - **Dlaczego potrzebny jest big poziomy na połówce tylnej.** Bez niego w wierzchołku A schodzą się 3 bigi
@@ -171,23 +172,19 @@ tylko tego, czy dno ma dodatkowe łaty lub strefy kleju.
 **„Na dole również tworzy się zawinięcie”.** Każda z czterech ścianek ma pod linią dna zapas
 `a = D/2 + 15`. Z tych czterech zapasów składa się dno.
 
-> **Stan implementacji vs. wytyczne (29.09.2026).** Zaimplementowane (`blockBottom.ts`, `assemblyKinematics.ts`):
-> zapasy FRONT/BACK to **pełne prostokątne klapy `W × a` bez bigów 45°**; uszy są wycinane ze stref **boków**
-> (`BOTTOM_TUCK_DIAGONAL` = C7, `BOTTOM_EAR_CENTRE` = C5, linia gięcia ucha 22,5°) i kończą pod trójkątami; od spodu
-> widać tylko dwie prostokątne klapy (tylna na wierzchu, zakład 30 mm). **Kod nie ma odpowiednika bigu C9** (45° na
-> klapach przód/tył) ani widocznych trójkątów boków / trapezów. Poniższy model z wytycznych jest więc
-> **propozycją do wdrożenia [P]**, nie stanem kodu. To tłumaczy uwagę klienta z podglądu: „boki wcale nie są
-> składane, tylko przód i tył w trapez” — w kodzie trapez tworzą klapa + uszy z boków.
-> Brakuje: (1) bigu C9 na wykroju (`CREASE_FOLDS`, `buildDieline.ts`); (2) podziału strefy FRONT/BACK na trapez
-> + 2 uszy `(0,0),(0,E),(E,E)` + lustro; (3) strefy boku jako jednego sztywnego kawałka (C7 płaski w stanie
-> końcowym); (4) widocznej mozaiki od spodu w `blockBottom.ts` / `getVisibleBottomPieces` (§10.4); (5) zmiany
-> sekwencji w `assemblyKinematics.ts` (§4.2).
+> **Stan implementacji (29.09.2026): model klienta [K] wdrożony** (`blockBottom.ts`, `assemblyKinematics.ts`,
+> `buildDieline.ts`, renderer). Reguły klienta: (1) bigi dna są na strefach **przodu i tyłu** (C9), nie na bokach;
+> (2) strefy **boków** (`D × E`) składają się **w całości** o 90° na linii dna, bez bigów ukośnych (C5 i C7 usunięte);
+> (3) potem trapez przodu, na końcu trapez tyłu na wierzch (zakład OV = 2E − D = 30 mm). Narożne trójkąty („uszy”)
+> przodu/tyłu obracają się o 180° na C9 i leżą między klapą boku a swoim trapezem (§3.4.2). `E = (D + 30)/2` bez zmian
+> dla wszystkich ścianek [K] (nie zależy od W). Model składania boków jest w kodzie odizolowany
+> (`getBottomZonePieces` dla LEFT/RIGHT + transformacja `*_SIDE_FLAP`), więc można go podmienić bez ruszania `E`
+> i trapezów przodu/tyłu.
 >
-> **Model dna wg wytycznych klienta „dno krzyżowe (SOS / block bottom)” z 29.09.2026 [K] — do wdrożenia.**
-> Oznaczenia klienta: `E = (OV + D)/2` (≡ nasze `a`), `OV = 30` (zakład klap = pole kleju), `G` (zakładka rękawa).
-> Warunki: `E > D/2`, `OV = 2E − D`, `W − 2E ≥ 0` (inaczej trapez przechodzi w trójkąt).
-> Model w kodzie (klapy przód/tył jako pełne prostokąty `W × a`, uszy tylko z boków) opisuje §3.4.2a.
-> Poniżej `t` = odległość w dół od linii dna (`t ∈ [0, E]`); u klienta strefa dna to `y ∈ [H, H+E]`, tj. `y_klient = H + t`.
+> Oznaczenia klienta: `E = (OV + D)/2` (≡ nasze `a`), `OV = 30` (zakład = pole kleju), `G` (zakładka rękawa).
+> Warunki: `E > D/2`, `OV = 2E − D`, `W − 2E ≥ 0` (inaczej trapez przechodzi w trójkąt — ostrzeżenie
+> `BOTTOM_TRAPEZOID_DEGENERATE`, §10.7). Poniżej `t` = odległość w dół od linii dna (`t ∈ [0, E]`); u klienta strefa
+> dna to `y ∈ [H, H+E]`, tj. `y_klient = H + t`.
 
 #### 3.4.1 Bigi na zapasie (strefa dna) [K]
 
@@ -196,13 +193,14 @@ na linii dna do wnętrza. Bigi 45° wyznaczają część widoczną na spodzie i 
 
 | Panel (lokalne `x` panelu) | Bigi 45° w strefie dna | Widoczne na spodzie | Ukryte |
 |---|---|---|---|
-| LEFT / RIGHT (`x ∈ [0,D]`) | `(0,0)→(D/2, D/2)` i `(D,0)→(D/2, D/2)` (C7) | **trójkąt** `(0,0),(D,0),(D/2,D/2)`: podstawa D, wysokość D/2 | 2 połówki uszu `(0,0),(0,D/2),(D/2,D/2)` + lustro, oraz **pas** `t ∈ [D/2, E]` na całej szerokości D |
-| FRONT / BACK (`x ∈ [0,W]`) | `(0,0)→(E, E)` i `(W,0)→(W−E, E)` (**nowy C9**) | **trapez** `(0,0),(W,0),(W−E,E),(E,E)`: W przy linii dna → `W − 2E` na krawędzi, ramiona 45°, wysokość E | 2 połówki uszu `(0,0),(0,E),(E,E)` + lustro |
+| LEFT / RIGHT (`x ∈ [0,D]`) | **brak** — strefa składa się w całości [K] | **trójkąt** `(0,0),(D,0),(D/2,D/2)` (część klapy boku między przekątnymi trapezów): podstawa D, wysokość D/2 | reszta klapy boku (pod trapezami) |
+| FRONT / BACK (`x ∈ [0,W]`) | `(0,0)→(E, E)` i `(W,0)→(W−E, E)` (**C9**, V) | **trapez** `(0,0),(W,0),(W−E,E),(E,E)`: W przy linii dna → `W − 2E` na krawędzi, ramiona 45°, wysokość E | 2 połówki uszu `(0,0),(0,E),(E,E)` + lustro |
 | wszystkie | linia dna `t = 0` (C1) | — | — |
 
-Współrzędne w tabeli: `(x, t)`. Bigi 45° boku i sąsiedniego przodu/tyłu wychodzą z tego samego narożnika rękawa
-i po złożeniu leżą **na jednej przekątnej dna**. Materiał między nimi to **ucho**: podwójny trójkąt spięty pionową
-krawędzią rękawa (odcinek C2 w strefie dna, długość E), zawijany do środka pod klapę.
+Współrzędne w tabeli: `(x, t)`. Ucho (trójkąt narożny przodu/tyłu) jest połączone z klapą boku krawędzią rękawa
+(C2 / C3 przedłużone w strefę dna, długość E); po złożeniu leży odwrócone między klapą boku a swoim trapezem.
+Przy `W < 2E` bigi C9 kończą się w punkcie przecięcia `t = W/2` (trapez → trójkąt, uszy → czworokąty do `x = W/2`),
+bez NaN; zob. §10.7.
 
 Przykład klienta `W = 250, D = 200, OV = 30 → E = 115`: trapez 250 → 20 mm, trójkąt boku 200 × 100, pas pod
 wierzchołkiem boku 15 mm, ucho przodu/tyłu: trójkąt o przyprostokątnych 115 mm.
@@ -233,19 +231,35 @@ z przodu i tyłu, w środku zakład 30 mm.
    trójkąt LEFT: (0,0),(0,200),(100,100); trapez tyłu: (0,0),(250,0),(135,115),(115,115)
 ```
 
-**Położenie ucha (wyprowadzenie, sztywne panele) [W]:** ucho = połówka z przodu/tyłu `F_e` (przyprostokątne E)
-+ połówka z boku `S_e` (trójkąt `D/2` + część pasu), spięte krawędzią rękawa. Żeby krawędź rękawa pozostała
-spójna, w każdym narożniku **aktywny jest tylko jeden z dwóch bigów 45°**: `F_e` obraca się o 180° na C9 i leży
-od środka na własnym trapezie, a `S_e` pozostaje w płaszczyźnie trójkąta boku (przedłużenie za przekątną, pod
-trapezem); krawędź rękawa ucha leży wtedy wzdłuż krawędzi dna przód/tył i jest zgięta o 180°. To realizuje
-„zawija się do środka **pod klapę**”. Wariant lustrzany (ucho pod trójkątem: C7 aktywny, C9 płaski) jest
-fizycznie możliwy — **do potwierdzenia**, który wybiera bottomer klienta (oba bigi są bigowane). Pasy boków
-`t ∈ [D/2, E]` leżą za wierzchołkami, pod trapezami, w obszarze `x ∈ [D/2, E]` i `[W−E, W−D/2]`.
+**Położenie ucha (wyprowadzenie, zaimplementowane) [W]:** ucho przodu `(0,0),(0,E),(E,E)` (lokalnie `(x, t)`) jest
+spięte z klapą boku krawędzią rękawa `(0, t)`. Gdy klapa boku obraca się o β na linii dna, ta krawędź przechodzi
+z pionu na linię dna przodu: punkt `(0, t)` → `(t, 0)`. To dokładnie odbicie ucha względem jego przekątnej C9
+(obrót o 180°): ucho ląduje na trapezie w obszarze `(0,0),(E,0),(E,E)`, **po wewnętrznej stronie trapezu** (inaczej
+krawędź łącząca je z klapą boku przechodziłaby przez trapez). Faza C obraca trapez razem z uchem (krawędź leży na osi
+obrotu). W trakcie fazy B kąt 3D między krawędzią a przekątną spada poniżej 45° (do 0 przy β = 45°), więc ucho zgina
+się wzdłuż dwusiecznej swojego narożnika (`EAR_BEND_ANGLE` = 22,5°, zgięcie papieru, nie big) — **na zewnątrz torby**
+(decyzja klienta 29.09.2026; do środka ucho kładłoby się na obracającą się klapę boku). Zawiasy są domknięte w każdej
+chwili (testy `assemblyKinematics.test.ts`).
 
-Kolejność warstw od zewnątrz: **trapez tyłu** (wierzch, w pasie `y ∈ [0, E]`) → trapez przodu → uszy (`F_e`, `S_e`)
-i pasy boków → (od środka torby) wewnętrzne strony trójkątów i trapezów.
+**V / M w strefie dna [W]:** C1 V (strefa obraca się do środka), C9 **V** (ucho kładzie się niezadrukowaną stroną na
+niezadrukowaną stronę trapezu, druk na zewnątrz zgięcia), a krawędzie rękawa C2 / C3 w strefie dna są **M**: odwrócone
+ucho leży zadrukiem do góry, pod klapą boku, której zadruk jest skierowany w dół (druk do druku). Kontrola w narożniku
+arkusza (6 bigów: C1 ×2, C2/C3 ×2, C6, C9; sektory 90°, 45°, 45°, 90°, 45°, 45°): Maekawa `|M − V| = |2 − 4| = 2`,
+Kawasaki 180° / 180° — narożnik jest płasko-składalny (test w `buildDieline.test.ts`).
 
-#### 3.4.2a Model zaimplementowany w kodzie (prostokątne klapy; do zastąpienia, jeśli klient potwierdzi §3.4.1)
+**Kolejność warstw [K]** (od środka torby na zewnątrz): **klapy boków** (+ zakładka klejowa na LEFT) → uszy przodu →
+**trapez przodu** → uszy tyłu → **trapez tyłu** (wierzch, klej OV na zadruku trapezu przodu). Klapy boków leżą więc
+**pod** oboma trapezami; w animacji żadna klapa boku nie przechodzi nad trapezem (boki są już w dnie, zanim trapez
+opuści pion). W 3D (render) warstwy są odsunięte **na zewnątrz** od klap boków o `BOTTOM_LAYER_OFFSET_MM = 0,1` mm na
+warstwę [K]: klapy boków 0, uszy przodu 0,05, trapez przodu 0,1, uszy tyłu 0,15, trapez tyłu 0,2 mm — w torbie
+uformowanej, stojącej, płaskiej i w trakcie składania (skalowane z fazą rękawa, arkusz 0 % jest płaski).
+
+**Widok od spodu (zaimplementowany):** trapez tyłu w całości, odsłonięta część trapezu przodu (pas `y ≥ E` + dwa małe
+trójkąty przy przekątnych tyłu) i dwa trójkąty boków `(0,0),(D/2,D/2),(0,D)` + lustro — razem dokładnie `W × D`
+(`getVisibleBottomPieces`); uszy zawsze schowane. Linie od spodu: przekątne trapezu tyłu, widoczne połówki przekątnych
+trapezu przodu i krawędź trapezu tyłu `y = E` (szew).
+
+#### 3.4.2a Poprzedni model (prostokątne klapy, uszy z boków) — usunięty z kodu 29.09.2026, tylko dla historii
 
 ```text
  1) zapas otwarty (rękaw stoi,           2) boki do środka: trójkąty wewn. leżą w dnie,
@@ -306,6 +320,14 @@ w praktyce zaostrzona do `D ≤ W − 30`.
 | FRONT | tylko linia dna `y = 0` (zawias z dnem) | W stanie płaskim FRONT jest najniżej, a dno obraca się na tym bigu (§3.5). |
 | BACK | linia dna `y = 0` **oraz big poziomy `y = D/2` na całej szerokości** | Pas `y ∈ [0, D/2]` składa się przy spłaszczaniu na zewnątrz i do góry, pod dno. |
 | LEFT / RIGHT | linia dna, 45° do A, poziomy `v = D/2` na połówce tylnej, pionowy środkowy od A w górę | §3.3 |
+
+**Co zostaje po zmianie modelu dna (reguła klienta 5) [W]:** wszystkie bigi ścianek nad linią dna — C4 (środek fałdy),
+C6 (45° do A), C8 (`D/2`) — **zostają bez zmian**. Uzasadnienie: po sklejeniu dno jest sztywnym laminatem `W × D`
+(trapezy + uszy + klapy boków), obojętne, jak warstwy leżą w środku. Spłaszczenie (§3.5, §10.5) używa tylko zawiasów
+tego laminatu ze ściankami (przedni i tylny big dna, boczne linie dna między trójkątem T a klapą boku) oraz bigów
+ścianek; kinematyka i stan płaski są identyczne jak w poprzednim modelu. Linia dna boku łączy teraz T z **całą** klapą
+boku (wcześniej z trójkątem wewnętrznym) — też część sztywnego dna. Nowe wierzchołki w narożnikach arkusza (C1, C2/C3,
+C6, C9) są płasko-składalne (Maekawa/Kawasaki, §3.4.2), a C7 znikł, więc nic nie koliduje ze stanem płaskim.
 
 ### 3.5 Torba złożona na płasko: gdzie leży dno
 
@@ -369,10 +391,10 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
   bokach łamie się na bigu środkowym i na liniach 45°, na BACK na bigu `D/2`, co widać tylko po
   złożeniu [W].
 - **Co znika albo zmienia rolę**:
-  - zapas pod BACK (`y ∈ [−a, 0]`) jest w całości widoczny od spodu jako zewnętrzna klapa dna (klapa tylna na
-    wierzchu [K]),
-  - zapas pod FRONT jest widoczny od spodu tylko w pasie `D/2 − 15` przy bigu przednim,
-  - zapasy pod bokami są całkowicie schowane,
+  - ze strefy dna BACK widać od spodu cały trapez (wierzch [K]); uszy są schowane,
+  - ze strefy dna FRONT widać część trapezu, której nie przykrywa trapez tyłu,
+  - ze stref dna boków widać trójkąty `(0,0),(D,0),(D/2,D/2)` (lokalnie `(x, t)`) między przekątnymi trapezów; reszta
+    klapy boku jest pod trapezami (`getVisibleBottomZoneParts`, `printCoverage/bottomVisibility.ts`),
   - zakładka `s` jest schowana (klej).
 - **Na bokach** treść krytyczną trzymać powyżej rombu, czyli `v ≥ D/2 + 5 mm` [Z]. Obszar trójkąta T
   w torbie stojącej jest widoczny, ale leży na zawinięciu.
@@ -401,29 +423,14 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
 
 ### 4.2 Animacja składania dna (wytyczne klienta, opcjonalna) [K]
 
-- Strefa dna każdego panelu dzielona na poligony: część widoczna (trójkąt / trapez) + 2 uszy (+ pas pod
-  wierzchołkiem na boku).
-- Faza A: rękaw — obroty 90° na pionowych krawędziach. Faza B: boki 90° na linii dna, uszy 180° wokół bigów 45°.
-  Faza C: trapez przodu 90°, potem trapez tyłu 90° (offset grubości ok. 0,2 mm).
-- **Podział na elementy (docelowy, [K] + [W])** — strefa dna każdego panelu, lokalnie `(x, t)`, `t` w dół:
-  - FRONT / BACK: `TRAPEZOID (0,0),(W,0),(W−E,E),(E,E)`, `EAR_L (0,0),(0,E),(E,E)`, `EAR_R (W,0),(W,E),(W−E,E)`;
-  - LEFT / RIGHT: **cała strefa `D × E` jednym sztywnym kawałkiem** (trójkąt + połówki uszu + pas) — C7 w stanie
-    końcowym pozostaje płaski, rysowany tylko jako linia bigu.
-- **Sekwencja sztywna w stanach końcowych faz [W]:**
-  - Faza B: strefy boków 0 → 90° na linii dna (do środka). Jednocześnie uszy przodu/tyłu `EAR_L/R` 0 → 180° na
-    C9 — kładą się od środka na własnym trapezie, a ich krawędź rękawa ląduje na linii dna przodu/tyłu,
-    dokładnie tam, gdzie krawędź rękawa obróconej strefy boku. Stan po fazie B jest więc spójny.
-  - Faza C: trapez przodu 0 → 90° na linii dna (ucho leży na nim i obraca się razem; krawędź rękawa jest na osi
-    obrotu, więc nic się nie rozjeżdża), potem trapez tyłu 0 → 90° na wierzch (offset ok. 0,2 mm).
-  - W trakcie fazy B połączenie ucha z bokiem nie jest sztywne (jak w całej torbie, Balkcom i in.): krawędź rękawa
-    w uchu musi się lekko wygiąć. Pośrednie pozy ucha interpolować (np. linia gięcia jak `EAR_BEND_ANGLE`).
-- Stan końcowy od spodu: widoczne trójkąty boków (część stref boków nieprzykryta trapezami) i trapezy; uszy
-  i pasy boków schowane pod trapezami.
-- **Różnica względem obecnej implementacji** (`src/domain/geometry/assemblyKinematics.ts`, stan na 29.09.2026):
-  tam uszy są wycinane ze stref **boków** i kończą pod trójkątami, a przód/tył to pełne prostokątne klapy.
-  Według wytycznych klienta uszy (zawijane) należą do **przodu/tyłu** (C9), a strefy boków obracają się
-  w całości. Klient zauważył w podglądzie, że „boki wcale nie są składane, tylko przód i tył w trapez” — to jest
-  właśnie ta rozbieżność; kinematykę trzeba przebudować wg powyższego podziału.
+- **Zaimplementowane** (`assemblyKinematics.ts`, `blockBottom.ts`, szczegóły §10.8). Podział strefy dna, lokalnie `(x, t)`:
+  - FRONT / BACK: `TRAPEZOID (0,0),(W,0),(W−E,E),(E,E)`, `EAR_START (0,0),(0,E),(E,E)`, `EAR_END (W,0),(W,E),(W−E,E)`
+    (ucho dodatkowo dzielone linią gięcia na część narożną i część przy przekątnej);
+  - LEFT / RIGHT: **cała strefa `D × E` jednym sztywnym kawałkiem** (bez bigów).
+- Faza A: rękaw — obroty 90° na pionowych krawędziach. Faza B: boki 90° na linii dna (w całości); uszy 180° wokół C9,
+  zginając się po dwusiecznej na zewnątrz. Faza C1: trapez przodu 90°, C2: trapez tyłu 90° na wierzch. Fazy są ściśle
+  po kolei; offset warstw 0,1 mm na warstwę (§3.4.2).
+- Stan końcowy od spodu: widoczne trójkąty boków i trapezy; uszy i reszta klap boków schowane pod trapezami.
 
 ## 5. Uchwyty
 
@@ -557,13 +564,12 @@ dolnym końcu (koniec zapasu dna). Zakładka to trapez o polu `s · (L − s)`; 
 | # | Linia | Odcinek(i) | Typ w torbie stojącej | V / M od strony druku |
 |---|---|---|---|---|
 | C1 | linia dna | `Y = 0`, `X ∈ [0, 2W+2D+s]` | 90° (ścianka–dno) | **V** [K] |
-| C2 | krawędzie rękawa | `X ∈ {D, W+D, W+2D}` (LEFT/FRONT, FRONT/RIGHT, RIGHT/BACK), `Y ∈ [−a, H]` | 90° (grzbiet) | **V** [K] |
-| C3 | zawias zakładki = krawędź BACK/LEFT | `X = X_T`, `Y ∈ [−a, H]` | 90° (grzbiet; zakładka pod LEFT od wewnątrz) | **V** [K] (krawędź ścianki) |
+| C2 | krawędzie rękawa | `X ∈ {D, W+D, W+2D}` (LEFT/FRONT, FRONT/RIGHT, RIGHT/BACK), `Y ∈ [−a, H]` | 90° (grzbiet) | **V** [K] na ściance; **M** [W] w strefie dna `Y < 0` (odcinki `*-Z`, §3.4.2) |
+| C3 | zawias zakładki = krawędź BACK/LEFT | `X = X_T`, `Y ∈ [−a, H]` | 90° (grzbiet; zakładka pod LEFT od wewnątrz) | **V** [K] (krawędź ścianki); **M** w strefie dna (`C3-Z`) |
 | C4 | środek fałdy (ścianka) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [D/2, H]` | 0° na stojąco, 180° na płasko | **M** [K] |
-| C5 | środek fałdy (zapas) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [−a, −D/2]` | między uszami | **M** [K] (oś boku) |
 | C6 | romb, górne 45° (= linia 5 specyfikacji klienta) | `(Xc−D/2, 0)–(Xc, D/2)` i `(Xc+D/2, 0)–(Xc, D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, s)` | krawędzie T | **M** [K] |
-| C7 | romb, dolne 45° (trójkąty boków w zapasie) | `(Xc−D/2, 0)–(Xc, −D/2)` i `(Xc+D/2, 0)–(Xc, −D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, −s)` | krawędzie trójkąta wewn. / uszu | **V** [K] |
-| C9 | **PROPOZYCJA, niezaimplementowane:** ramiona trapezów klap przód/tył (wytyczne klienta 29.09.2026, §3.4) | w strefie dna pod FRONT i BACK: `(X0, 0)–(X0+E, −E)` i `(X1, 0)–(X1−E, −E)`, gdzie `X0, X1` = krawędzie panelu | ucho `F_e` zawinięte 180° do środka pod trapez | **V** [W] (strona druku na zewnątrz zgięcia, jak C7) — do potwierdzenia |
+| C9 | ramiona trapezów przód/tył [K] (zaimplementowane 29.09.2026, §3.4) | w strefie dna pod FRONT i BACK: `(X0, 0)–(X0+m, −m)` i `(X1, 0)–(X1−m, −m)`, `m = min(E, W/2)`, `X0, X1` = krawędzie panelu | ucho zawinięte 180° do środka, między klapą boku a trapezem | **V** [W] (druk na zewnątrz zgięcia) |
+| — | C5, C7 (dawne bigi w strefach dna boków) | **usunięte** [K]: strefy boków składają się w całości | — | — |
 | C8 | big płaskiego złożenia (nasz, poza specyfikacją klienta) | `Y = D/2` na: LEFT (połówka tylna) `X ∈ [0, Xc_L]`, RIGHT (połówka tylna) `[Xc_R, W+2D]`, cały BACK `[W+2D, X_T]`, zakładka `[X_T, X_T+s]` | 0° na stojąco, 180° na płasko | **V** na połówkach boków i zakładce, **M** na BACK [W] |
 
 **Konwencja V / M [K].** Klient podaje typ bigu widziany od strony druku: V (dolina) — krawędzie ścianek, linia
@@ -571,13 +577,13 @@ dna, trójkąty boków w zapasie; M (grzbiet) — osie boków (fałda) i ukośne
 **V = strona zadrukowana na zewnątrz zgięcia**, **M = strona zadrukowana do środka** (odwrotnie niż w konwencji
 origami; sprawdzone na modelu kinematycznym, test `fold direction of the wall creases` w `foldKinematics.test.ts`).
 **Linia 5 specyfikacji klienta ≡ nasze bigi 45° C6** (od dolnych narożników boku do wierzchołka `D/2`). Zakładka
-kontynuuje typy LEFT (C6 M, C7 V, C8 V).
+kontynuuje typy LEFT (C6 M, C8 V).
 
 **Decyzja: C8 [W].** Big poziomy `D/2` (wymagany do płaskiego złożenia, §3.3) zmienia kierunek na krawędziach
 BACK/bok: na **BACK jest M** (dolny pas BACK obraca się na zewnątrz i do góry, druk do druku), na **połówkach tylnych
 boków i na zakładce V**. To jedyne przypisanie, przy którym wierzchołek rombu A (C4 M, dwa C6 M, C8) spełnia
 tw. Maekawy `|M − V| = 2` (test w `buildDieline.test.ts`); zgodne też z kinematyką złożenia (§10.5).
-W kodzie: `DielineLine.kind: 'VALLEY' | 'MOUNTAIN'`, `CREASE_FOLDS` w `buildDieline.ts` (kody C1–C8 bez zmian).
+W kodzie: `DielineLine.kind: 'VALLEY' | 'MOUNTAIN'`, `CREASE_FOLDS` + `ZONE_CORNER_EDGE_FOLD` w `buildDieline.ts` (kody C1–C4, C6, C8, C9).
 
 **Eksport SVG — warstwy [K]:** `print` (grafiki), `annotations` (wymiary, spad, strefa bezpieczna, zapasy, łatki,
 opisy — informacyjnie), `glue`, `crease_valley` (niebieska przerywana), `crease_mountain` (turkusowa
@@ -640,21 +646,23 @@ Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa je
      25 #  /         \ :                   :  /         \ :                   :#
    12.5 #/            \:                   :/            \:                   :#
       0 #----------------------------------------------------------------------#
-  -12.5 #\            /:                   :\            /:                   :#
-    -25 #  \         / :                   :  \         / :                   :#
-  -37.5 #   \      /   :   FRONT_FLAP      :   \      /   :     BACK_FLAP     :#
-    -50 #    \    /    :                   :    \    /    :                   :#
-  -62.5 #     \  /     :                   :     \  /     :                   :#
-    -75 #       V      :                   :       V      :                   :#
-    -82 #       |      :                   :       |      :                   :#
+  -12.5 #              :\                 /:              :\                 / #
+    -25 #              :  \              / :              :  \              /  #
+  -37.5 #  KLAPA BOKU  :   \           /   : KLAPA BOKU   :   \           /    #
+    -50 #              :    \ TRAPEZ  /    :              :    \ TRAPEZ  /     #
+  -62.5 #  (cala, bez  :     \       /     : (cala, bez   :     \       /      #
+    -75 #   bigow)     :       \    /      :  bigow)      :       \    /       #
+    -82 #              :       \   /       :              :       \   /        #
     -90 #######################################################################/
   legenda: # cięcie  : big krawędzi rękawa / zawias zakładki C3  | big środkowy fałdy  / \ bigi 45° rombu
            = big płaskiego złożenia  - linia dna  + obrys łatki (wewnątrz)  S zakładka klejowa (10 mm)
-           \ / w X = 700–710: ścięcie 45° końców zakładki [K]; pas kleju OV na FRONT_FLAP i BACK_FLAP w Y ∈ [−90, −60]
+           \ / w X = 700–710: ścięcie 45° końców zakładki [K]; \ / w strefach dna przodu/tyłu: bigi 45° C9 (trapezy);
+           pas kleju OV na trapezach w Y ∈ [−90, −60]; strefy dna boków bez bigów (składane w całości [K])
 ```
 
-Romb LEFT: `(0,0)–(75,75)–(150,0)–(75,−75)`. Romb RIGHT: `(350,0)–(425,75)–(500,0)–(425,−75)`.
-Na zakładce: C6 `(700,0)–(710,10)`, C7 `(700,0)–(710,−10)`. C8 (`Y = 75`): `X ∈ [0, 75] ∪ [425, 710]`.
+Trójkąty T nad linią dna (C6): LEFT `(0,0)–(75,75)–(150,0)`, RIGHT `(350,0)–(425,75)–(500,0)`. Pod linią dna boki są bez bigów.
+C9 (E = 90): FRONT `(150,0)–(240,−90)`, `(350,0)–(260,−90)`; BACK `(500,0)–(590,−90)`, `(700,0)–(610,−90)` — trapez 200 → 20 mm.
+Na zakładce: C6 `(700,0)–(710,10)`. C8 (`Y = 75`): `X ∈ [0, 75] ∪ [425, 710]`. C2/C3 w strefie dna (`Y < 0`): M.
 Łatka FRONT: `X ∈ [200, 300]`, `Y ∈ [360, 380]` [K]. Łatka BACK: `X ∈ [550, 650]`, `Y` j.w.
 
 ---
@@ -708,29 +716,18 @@ UV: każdy region dostaje UV = `(x/D, y/H)` całej ścianki. Grafika jest ciąg�
 
 ### 10.4 BOTTOM (`W × D`, widok z dołu, `y=0` big tylny, `y=D` big przedni)
 
-- W animacji: jeden sztywny region `(0,0) (W,0) (W,D) (0,D)`.
-- **Widoczna mozaika wg wytycznych klienta 29.09.2026 — propozycja [P], niezaimplementowana**, `E = (D+30)/2`:
-  - `BACK_TRAPEZOID` (wierzch): `(0,0) (W,0) (W−E,E) (E,E)`; UV ze strefy dna pliku BACK (`*_back`, wys. H+E):
-    punkt `(x, y)` ↔ BACK-local `(W − x, −y)` (lustro, bo BACK `x=0` przy RIGHT),
-  - `FRONT_TRAPEZOID`: `(0,D) (W,D) (W−E,D−E) (E,D−E)`, widoczny tylko `y ≥ E`; ↔ FRONT-local `(x, −(D − y))`,
-  - `LEFT_TRIANGLE`: `(0,0) (0,D) (D/2,D/2)` ↔ LEFT-local `(y, −x)`,
-  - `RIGHT_TRIANGLE`: `(W,0) (W,D) (W−D/2,D/2)` ↔ RIGHT-local `(D − y, −(W − x))`,
-  - krawędzie widoczne: przekątne „X” + szew `y = E` (krawędź trapezu tyłu).
-  - Uwaga do UV boków: LEFT-local `u` rośnie od BACK do FRONT, więc punkt dna `(x, y)` na trójkącie LEFT ma
-    `u = y`, `t = x` (głębokość w strefie dna); RIGHT: `u = D − y`, `t = W − x`. Grafiki `H + E` obsługuje
-    opcja `extendToBottom` („Rozciągnij na dno”).
-- **Stan kodu:** `getVisibleBottomPieces` pokazuje od spodu prostokątne klapy (model poprzedni); mozaika powyżej to
-  propozycja [P] (§3.4).
-- Model zaimplementowany (prostokątne klapy):
-  - `BACK_FLAP` `[0,W] × [0, a]` (wierzch [K]),
-  - `FRONT_FLAP` `[0,W] × [D−a, D]`,
-  - zakładka `[0,W] × [D/2−15, D/2+15]`,
-  - LEFT: `EAR_BACK` `(0,0) (0,a) (h,a) (h,h)`, `EAR_FRONT` `(0,D) (0,D−a) (h,D−a) (h,h)`,
-    `TUCK` `(0,0) (0,D) (h,h)`,
-  - RIGHT: lustro `x → W − x`.
-- Widoczny szew od zewnątrz: odcinek `(0, a)–(W, a)`, czyli `y = D/2 + 15` (krawędź klapy tylnej [K]).
-  W 3D od spodu widać klapę tylną w całości i odsłoniętą część klapy przedniej `[0,W] × [a, D]`
-  (`getVisibleBottomPieces`).
+- W animacji składania na płasko: jeden sztywny region `(0,0) (W,0) (W,D) (0,D)` (sklejony laminat).
+- **Mozaika wg modelu klienta [K] — zaimplementowana** (`getBottomPieces`, `getVisibleBottomPieces`), `E = (D+30)/2`,
+  `m = min(E, W/2)`, warstwy od zewnątrz 0…4:
+  - `BACK_TRAPEZOID` (0, wierzch): `(0,0) (W,0) (W−m,m) (m,m)` ↔ BACK-local `(W − x, −y)`,
+  - `BACK_EAR_RIGHT` / `BACK_EAR_LEFT` (1): odbicia uszu na trapezie tyłu ↔ BACK `(y, x − W)` / `(W − y, −x)`,
+  - `FRONT_TRAPEZOID` (2): `(0,D) (W,D) (W−m,D−m) (m,D−m)` ↔ FRONT-local `(x, y − D)`,
+  - `FRONT_EAR_LEFT` / `FRONT_EAR_RIGHT` (3) ↔ FRONT `(D − y, −x)` / `(W − D + y, x − W)`,
+  - `SIDE_FLAP_LEFT` (4): `[0,E] × [0,D]` ↔ LEFT-local `(y, −x)`; `SIDE_FLAP_RIGHT`: `[W−E,W] × [0,D]` ↔ RIGHT `(D − y, x − W)`.
+  - Widoczne od spodu: trapez tyłu, trapez przodu poza trapezem tyłu (części wypukłe), trójkąty boków
+    `(0,0),(D/2,D/2),(0,D)` i lustro — kafelkują `W × D`. Krawędzie widoczne: „X” + szew `y = m`.
+  - UV: każdy kawałek w ciągłej przestrzeni UV swojej ścianki (`toPanel`), więc kolory widoczne od spodu to dokładnie
+    kolory wydrukowane na arkuszu (opcja `extendToBottom`).
 
 ### 10.5 Kinematyka złożenia (p ∈ [0,1], p=0 torba stojąca, p=1 płaska)
 
@@ -815,7 +812,7 @@ Renderer może je liczyć z normalnych regionów.
 | `DEPTH_ABOVE_MACHINE_RATIO` | `D > 0,65·W` | ostrzeżenie [F dane maszyn], do potwierdzenia |
 | `CUTOFF_OUT_OF_RANGE` | `H + (D+30)/2` poza zakresem maszyny klienta | ostrzeżenie, zakres do potwierdzenia |
 | `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?); geometria zmniejsza rozstaw na wąskich ściankach (łatka `min(110, W − 10)`; rozstaw maleje, gdy `W − 10 < 110`, tj. W < 120) (`endSpacingReduced`, §5) | do potwierdzenia |
-| `BOTTOM_TRAPEZOID_DEGENERATE` | `W ≥ D + 30` (§3.4.1) | **[P] propozycja**, czeka na decyzję klienta (błąd czy ostrzeżenie) |
+| `BOTTOM_TRAPEZOID_DEGENERATE` | `W ≥ D + 30` (§3.4.1) | **ostrzeżenie** (zaimplementowane: `getDimensionWarnings`, krok wymiarów UI pl/en/de; geometria degraduje łagodnie: trapez → trójkąt, bez NaN); klient nie zdecydował, czy ma być twardym limitem |
 
 Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D) => (D + 30) / 2`,
 `SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `FLAT_FOLD_PLEAT_RATIO = 0.5`.
@@ -824,36 +821,24 @@ Uchwyty [K]: `DIELINE_RULES.handlePatch = { width: 110, height: 20, topOffset: 2
 
 ### 10.8 Składanie z arkusza (oś czasu podglądu, `assemblyKinematics.ts`)
 
-Specyfikacja klienta [K]: kolejność 1) rękaw (bigi krawędzi, zakładka), 2) spłaszczenie, 3) zagięcie strefy dna na linii
-dna, 4) „romb”: trójkąty boków (podstawa `D` na linii dna, wierzchołek `D/2` w głąb) do środka, przód/tył stają się
-klapami `W × E` z narożnikami boków, 5) klapa przednia na dno, 6) klej OV i klapa tylna na wierzch, 7) otwarcie torby.
-W 3D: każdy panel to osobna siatka z zawiasami na bigach, strefa dna boku = trójkąt + 2 narożniki („uszy”).
-
-Realizacja [W] — `q ∈ [0, 1]` od płaskiego arkusza (wszystkie elementy w płaszczyźnie, druk do widza, współrzędne arkusza)
-do uformowanej torby (dokładnie poza BOX modelu §10.5, `p = 0`; test):
+Specyfikacja klienta [K] (model dna §3.4): rękaw → boki dna do środka w całości → trapez przodu → trapez tyłu na wierzch.
+Każdy kawałek jest sztywny i ma zawiasy na bigach; `q ∈ [0, 1]` od płaskiego arkusza (druk do widza) do uformowanej torby
+(dokładnie poza BOX modelu §10.5, `p = 0`; test).
 
 | Faza | `q` | Ruch |
 |---|---|---|
 | A rękaw | 0–0,4 | panele obracają się o 90° wokół pionowych krawędzi (FRONT nieruchomy, łańcuch RIGHT → BACK → zakładka); zakładka zamyka szew od wewnątrz pod wolną krawędzią LEFT |
-| B trójkąty | 0,4–0,6 | trójkąty boków zaczynają wchodzić do środka na linii dna, pociągając klapy |
-| C1 klapa przednia | 0,6–0,8 | klapa przednia (lekko wyprzedza) idzie na dno |
-| C2 klapa tylna | 0,8–1 | klapa tylna domyka dno ostatnia, na wierzchu (klej OV) |
+| B boki | 0,4–0,6 | klapy boków (całe strefy `D × E`) 0 → 90° na linii dna; uszy przodu/tyłu obracają się o 180° na C9 (zgięte po dwusiecznej na zewnątrz), trapezy wiszą pionowo |
+| C1 trapez przodu | 0,6–0,8 | trapez przodu (z uszami) 0 → 90° na dno, pod klapami boków |
+| C2 trapez tyłu | 0,8–1 | trapez tyłu 0 → 90° na wierzch (klej OV) |
 
-- **Sprzężenie [W], potwierdzone przez klienta** („jedna linia narożnika ciągnie 2 ścianki”; „boki zaginane na 90° do
-  środka, a przód i tył wypadkowo — stąd trapez”). W otwartym rękawie trójkąt (kąt β) i klapa (δ) spotykają się w
-  narożniku dna przez ucho, którego papier ma tam kąt 45°. Bez rozcinania papieru kąt 3D między przekątną trójkąta a
-  linią narożnika klapy nie przekroczy 45°: `cos β · cos δ + sin δ ≥ 1`. Klapa wynikowa (ucho płaskie, klapa z uszami =
-  trapez): `δmin(β) = asin(1/√(1 + cos²β)) − atan(cos β)` (0 → 90°). Klapa tylna: `δB = δmin(β)`; przednia:
-  `δF = δmin + 0,3 · (β − δmin)` (≤ β, więc nie przechodzi przez trójkąt), dlatego tylna domyka dno ostatnia.
-  Ściśle sekwencyjne B → C1 → C2 (trójkąty do końca przy wiszących klapach) na otwartym rękawie wymagałoby rozcięcia
-  uszu wzdłuż przekątnych — tak jest w maszynie (romb na **spłaszczonym** rękawie), ale nie w otwartej bryle.
-- `β = 90° · smoothstep((q − 0,4)/0,6)`, rękaw `α = 90° · smoothstep(q/0,4)`.
-- **Uszy** zginają się wzdłuż dwusiecznej (22,5° od linii narożnika; zgięcie papieru, nie big), gdy kąt < 45° (tylko
-  uszy przednie, lekko); przy `q = 1` leżą płasko pod trójkątem. Zawiasy dokładne przy każdym `q` (testy): C1, C2, C3,
-  linie narożników klapa–ucho, przekątne C7, zgięcia uszu. Nie-sztywny (jak u Balkcoma, §3.5) jest tylko krótki big C5
-  między uszami (`a − D/2 = 15 mm`): uszy idą na różne klapy, szczelina ≤ 30 mm schowana pod klapami.
-- Warstwy (render, 0,25 mm na warstwę, od zewnątrz): klapa tylna 0, ucho zakładki 1, uszy tylne 2, klapa przednia 3,
-  uszy przednie 4, trójkąty 5, trójkąt zakładki 6; zakładka 1 wewnątrz LEFT. Zakładka ma ścięte końce jak na wykroju.
+- Fazy są ściśle sekwencyjne (`smoothstep` w każdej); `getAssemblyAngles` = `{ tube, sides, frontTrapezoid, backTrapezoid }`.
+- Kawałki: ściany, `FRONT/BACK_TRAPEZOID`, uszy `*_EAR_*_CORNER` / `*_DIAGONAL` (podział linią gięcia), `LEFT/RIGHT_SIDE_FLAP`,
+  `GLUE_WALL`, `GLUE_BOTTOM` (zakładka w strefie dna, od zamknięcia rękawa przyklejona do klapy LEFT).
+- Zawiasy dokładne przy każdym `q` (testy): C1, C2, C3, C9, krawędzie rękawa w strefie dna (ucho ↔ klapa boku, także przez
+  szew BACK ↔ zakładka ↔ LEFT po zamknięciu rękawa) i zgięcia uszu.
+- Render: offset warstw na zewnątrz od klap boków 0,1 mm/warstwę (`BOTTOM_LAYER_OFFSET_MM`, §3.4.2), zakładka 0,25 mm do
+  środka LEFT; wszystko skalowane z końcem fazy A (arkusz 0 % płaski).
 - **Oś czasu podglądu** (jeden suwak, SPEC §4a/§4c): `t ∈ [0; 0,4]` = składanie z arkusza (`q = t/0,4`),
   `t ∈ [0,4; 1]` = złożenie na płasko z §10.5 (`p = (t − 0,4)/0,6`). Presety: Arkusz 0, 3D pełne 0,4,
   3D po zgięciu 0,55 (`p = 0,25`), Złożona 1 — wszystkie na siatce 1 %.
@@ -883,10 +868,9 @@ do uformowanej torby (dokładnie poza BOX modelu §10.5, `p = 0`; test):
 9. **Nadruk**: inline na tuberze czy rola zadrukowana wcześniej (8 kolorów)? Tolerancja nadruku względem
    bigów i cięcia? Czy drukujecie zapas dna (widoczny od spodu)?
 10. **Górna krawędź**: prosta czy ząbkowana? Czy jest wycięcie na kciuk?
-11. **Dno „krzyżowe” z wytycznych 29.09.2026 [P]:** czy wdrażamy klapy przód/tył jako trapezy z bigami 45° (C9) i uszami
-    zawijanymi pod klapę (od spodu widoczne „X”, trójkąty boków i trapezy), zamiast obecnych prostokątnych klap?
-    Czy ucho kładzie się pod trapezem (C9 aktywny), czy pod trójkątem boku (C7 aktywny)? Czy warunek `W ≥ D + 30`
-    ma być błędem czy ostrzeżeniem?
+11. ~~**Dno „krzyżowe”**: trapezy z C9 zamiast prostokątnych klap?~~ Rozstrzygnięte [K] (29.09.2026) i wdrożone (§3.4):
+    boki w całości, trapezy przód/tył, tył na wierzchu. Otwarte: czy `W ≥ D + 30` ma być twardym limitem (teraz
+    ostrzeżenie) oraz fizyczny sposób składania boków (analiza zewnętrzna, `docs/analysis/`).
 
 ---
 

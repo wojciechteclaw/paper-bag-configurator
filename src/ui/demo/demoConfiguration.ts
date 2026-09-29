@@ -3,7 +3,7 @@ import type { Dimensions, HandleType, PanelPosition, PaperColor } from '../../do
 import { useConfigurationStore } from '../../state/configurationStore';
 
 // Demo configuration (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC,
-// internal flat paper handle, the "wave" sample artwork (public/sample-images) on all four walls, every one stretched
+// internal twisted paper rope handle (client, 29.09.2026), the "wave" sample artwork (public/sample-images) on all four walls, every one stretched
 // onto the bottom (SPEC §4f). Handle / FSC follow the client's example configuration.
 
 export const DEMO_CONFIGURATION: {
@@ -15,7 +15,7 @@ export const DEMO_CONFIGURATION: {
   artwork: Record<PanelPosition, string>;
 } = {
   dimensions: { width: 250, height: 400, depth: 200 },
-  handle: 'FLAT_PAPER',
+  handle: 'TWISTED_PAPER',
   fscCertified: true,
   paperColor: 'WHITE',
   grammage: 100,

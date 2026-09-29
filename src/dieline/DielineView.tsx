@@ -539,7 +539,13 @@ export function DielineView() {
               ))}
               {scene.zones.map((zone) =>
                 zone.points ? (
-                  <polygon key={zone.id} points={zone.points} data-zone={zone.kind} {...ZONE_PROPS[zone.kind]} />
+                  <polygon
+                    key={zone.id}
+                    points={zone.points}
+                    data-zone={zone.kind}
+                    data-face={zone.face}
+                    {...(zone.face === 'REVERSE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
+                  />
                 ) : (
                   <rect
                     key={zone.id}

@@ -1,60 +1,65 @@
 // Assembly of the bag from the flat sheet (preview timeline, docs/SPEC.md §4a/§4c), q ∈ [0, 1]: q = 0 is the flat
 // dieline (every piece in one plane, print side towards the viewer), q = 1 is the formed open bag — exactly the BOX pose
 // of the fold kinematics (`foldKinematics.ts`, p = 0). Pure maths in millimetres, no React / Three.js.
-// Client bottom-forming spec [K] and its 3D realisation: docs/PRODUCTION.md §10.8.
+// Client bottom model [K] and its 3D realisation: docs/PRODUCTION.md §3.4, §10.8. Strictly sequential phases:
 //
-//   A  tube        q ∈ [0.0, 0.4]  panels turn 90° about the vertical tube edges (FRONT fixed); the glue flap closes
-//                                  the seam under LEFT's free edge from the inside
-//   B  triangles   q ∈ [0.4, 0.6]  the side triangles (base D on the bottom line, apex D/2 deep) start turning in; the
-//                                  corner lines pull the FRONT flap along and, a little, the BACK flap
-//   C1 front flap  q ∈ [0.6, 0.8]  the FRONT flap follows the triangles onto the bottom
-//   C2 back flap   q ∈ [0.8, 1.0]  the BACK flap closes last, over the front flap (glued on the overlap OV = 2E − D)
+//   A  tube             q ∈ [0.0, 0.4]  panels turn 90° about the vertical tube edges (FRONT fixed); the glue flap
+//                                       closes the seam under LEFT's free edge from the inside
+//   B  sides in         q ∈ [0.4, 0.6]  the LEFT / RIGHT bottom zones turn in WHOLE (90° on the bottom line); the
+//                                       corner triangles ("ears") of FRONT / BACK, joined to them along the tube
+//                                       corner edges, turn 180° over their 45° creases onto the inside of their
+//                                       trapezoid
+//   C1 front trapezoid  q ∈ [0.6, 0.8]  the FRONT trapezoid (with its ears) folds 90° onto the bottom, under the sides
+//   C2 back trapezoid   q ∈ [0.8, 1.0]  the BACK trapezoid folds last, outermost (glued on the overlap OV = 2E − D)
 //
-// Why B and C overlap: on the open tube a triangle and a flap meet at a bottom corner through the "ear" (the side
-// corner piece), whose paper spans only 45° there. The 3D angle between the triangle's diagonal and the flap's corner
-// line can therefore never exceed 45° without cutting the paper, i.e. cos β · cos δ + sin δ ≥ 1 (β triangle angle,
-// δ flap angle, both 0 → 90°): the sides are folded 90° in and the front and back follow as the resultant — "one
-// corner line pulls two walls", the flap and its two flat ears forming a trapezoid (client, 29.09.2026). Both flaps
-// ride on that limit, δ = δmin(β); the FRONT flap is only slightly ahead (FRONT_FLAP_LEAD of the way to β, the most
-// the triangle allows without the flap passing through it), so the BACK flap still closes last and ends on top. The
-// front ears then bend a little along their bisector (22.5° from the corner line — a paper bend, not a crease); at
-// q = 1 every ear lies flat under its triangle.
+// Stack from the inside out (client rule [K]): side flaps → FRONT ears → FRONT trapezoid → BACK ears → BACK trapezoid.
+// A side flap never passes over a trapezoid: the sides are in (at y = 0) before either trapezoid leaves the vertical.
 //
 // Every piece is rigid; its pose is a rigid transform of its FLAT position (sheet → world: x = sheetX − D,
-// y = sheetY − a, z = 0, i.e. FRONT's flat position is already its final one). World frame as in foldKinematics.ts:
+// y = sheetY − E, z = 0, i.e. FRONT's flat position is already its final one). World frame as in foldKinematics.ts:
 // x to the right, y up, z towards the viewer; FRONT fixed in z = 0; the finished BACK is at z = −D; the bottom line is
-// y = 0 (the allowance hangs below it before the bottom is formed).
+// y = 0 (the zones hang below it before the bottom is formed).
 //
-// Exact at every q: the tube edges (C2, C3), the bottom lines of all walls (C1), the corner lines between each flap and
-// its ears, the triangle / ear diagonals (C7) and the ear bends. Not rigid (inherent, like the real bag — Balkcom et al.,
-// docs/PRODUCTION.md §3.5): the short ear centre crease C5 (a − D/2 = 15 mm below the diamond), whose two ears go to
-// different flaps; it opens into a slit that is hidden under the flaps.
+// The ears: while a side zone turns by β, the tube corner edge it shares with the ear sweeps from vertical onto the
+// wall's bottom line, but the ear's 45° corner (edge ↔ diagonal) can only follow rigidly at β = 0 and β = 90°. In
+// between the 3D angle between the edge and the diagonal drops below 45° (to 0 at β = 45°), so the ear bends along the
+// bisector of its corner (EAR_BEND_ANGLE = 22.5°, a paper bend, not a crease) OUTWARDS, away from the bag (client [K]:
+// inwards it would fold onto the side flap turning in behind it); at β = 90° it lies flat again, turned over over its
+// diagonal, in the plane of its trapezoid — in the stack between the side flap and the trapezoid (layer order). With that one bend every hinge stays closed at every
+// q: tube edges C2 / C3, bottom line C1, the tube corner edges in the zones, the 45° creases C9 and the ear bends.
 
 import { DIELINE_RULES } from '../config/productionRules';
 import type { Dimensions } from '../types';
-import { pointInConvexPolygon } from './blockBottom';
+import {
+  clipConvexPolygon,
+  getBottomPieces,
+  getBottomZonePieces,
+  pointInConvexPolygon,
+  type BottomPieceId,
+  type BottomZonePieceId,
+} from './blockBottom';
 import type { Vec3 } from './foldKinematics';
-import type { Point2, Polygon2 } from './sideGusset';
+import { polygonArea, type Point2, type Polygon2 } from './sideGusset';
 import { getBottomAllowance } from './tube';
 
 /** Sheet columns (LEFT | FRONT | RIGHT | BACK | glue flap, docs/PRODUCTION.md §9.1). */
 export type AssemblySheetPanel = 'LEFT' | 'FRONT' | 'RIGHT' | 'BACK' | 'GLUE';
 
-/** An ear (side corner piece) is split by its bend line into the part on the corner line and the part on the diagonal. */
+/** An ear (corner triangle of a FRONT / BACK zone) is split by its bend line into the part on the tube corner edge and the part on the 45° crease. */
 type EarPart = 'CORNER' | 'DIAGONAL';
-type EarId = 'LEFT_EAR_BACK' | 'LEFT_EAR_FRONT' | 'RIGHT_EAR_FRONT' | 'RIGHT_EAR_BACK' | 'GLUE_EAR';
+type EarId = 'FRONT_EAR_LEFT' | 'FRONT_EAR_RIGHT' | 'BACK_EAR_RIGHT' | 'BACK_EAR_LEFT';
 
 export type AssemblyPieceId =
   | 'FRONT_WALL'
-  | 'FRONT_FLAP'
+  | 'FRONT_TRAPEZOID'
   | 'BACK_WALL'
-  | 'BACK_FLAP'
+  | 'BACK_TRAPEZOID'
   | 'LEFT_WALL'
-  | 'LEFT_TRIANGLE'
+  | 'LEFT_SIDE_FLAP'
   | 'RIGHT_WALL'
-  | 'RIGHT_TRIANGLE'
+  | 'RIGHT_SIDE_FLAP'
   | 'GLUE_WALL'
-  | 'GLUE_TRIANGLE'
+  | 'GLUE_BOTTOM'
   | `${EarId}_${EarPart}`;
 
 export type AssemblyPiece = {
@@ -62,20 +67,22 @@ export type AssemblyPiece = {
   panel: AssemblySheetPanel;
   /**
    * Panel-local mm, counter-clockwise seen from the print side: u from the column's left sheet edge (= the panel-local
-   * x of blockBottom.ts for the walls), v up from the bottom line (v < 0 = bottom allowance).
+   * x of blockBottom.ts for the walls), v up from the bottom line (v < 0 = bottom zone).
    */
   polygon: Polygon2;
-  /** Part of the bottom allowance (v ≤ 0). */
+  /** Part of the bottom zone (v ≤ 0). */
   allowance: boolean;
+  /** The piece of the formed bottom it belongs to (`getBottomPieces`); unset for walls and the glue flap. */
+  bottomPiece?: BottomPieceId;
   /**
    * Paper layer counted from the outside where pieces overlap in the formed bag (render-only offset hint): walls 0,
-   * glue flap 1 (inside LEFT); bottom: BACK flap 0 (outermost, client rule [K]), glue-flap ear 1, back ears 2, FRONT
-   * flap 3, front ears 4, side triangles 5, glue-flap triangle 6.
+   * glue flap 1 (inside LEFT); bottom (client rule [K], `BottomPiece.layer`): BACK trapezoid 0 (outermost), BACK ears
+   * 1, FRONT trapezoid 2, FRONT ears 3, side flaps 4, glue flap 5 (laminated to the inside of LEFT's side flap).
    */
   layer: number;
   /**
-   * Piece whose inside face defines "inwards" for the layer offset: the piece itself, or — for the ears — the flap
-   * they end up on (an ear lies flipped, print side inwards).
+   * Piece whose inside face defines "inwards" for the layer offset: the piece itself, or — for the ears — the
+   * trapezoid they end up on (an ear lies turned over, print side inwards).
    */
   host: AssemblyPieceId;
 };
@@ -85,7 +92,7 @@ type Dims = Pick<Dimensions, 'width' | 'height' | 'depth'>;
 const pt = (x: number, y: number): Point2 => ({ x, y });
 const rect = (x0: number, y0: number, x1: number, y1: number): Polygon2 => [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
 
-/** Angle of an ear's bend line from its corner line: the bisector of the ear's 45° corner (π/8). */
+/** Angle of an ear's bend line from the tube corner edge: the bisector of the ear's 45° corner (π/8). */
 export const EAR_BEND_ANGLE = Math.PI / 8;
 
 /** Sheet x of each column's u = 0 (LEFT | FRONT | RIGHT | BACK | glue flap). */
@@ -94,63 +101,64 @@ export function getAssemblySheetOrigins(d: Pick<Dimensions, 'width' | 'depth'>):
   return { LEFT: 0, FRONT: D, RIGHT: W + D, BACK: W + 2 * D, GLUE: 2 * W + 2 * D };
 }
 
+/** Ear ids per wall zone piece (BACK x = 0 is at RIGHT). */
+const EAR_OF: Record<'FRONT' | 'BACK', Record<'EAR_START' | 'EAR_END', EarId>> = {
+  FRONT: { EAR_START: 'FRONT_EAR_LEFT', EAR_END: 'FRONT_EAR_RIGHT' },
+  BACK: { EAR_START: 'BACK_EAR_RIGHT', EAR_END: 'BACK_EAR_LEFT' },
+};
+
 /**
- * The rigid pieces of the sheet (docs/PRODUCTION.md §10.8): four walls + glue flap, the FRONT / BACK flaps, and each
- * side allowance split into the middle triangle and two ears along the lower diamond diagonals (C7) and the ear centre
- * crease (C5); every ear is split once more along its bend line. The glue flap's allowance is split like LEFT's strip
- * it is laminated to; its ends are chamfered at 45° like the cut outline (docs/PRODUCTION.md §9.2). Together the
- * pieces tile the sheet exactly.
+ * The rigid pieces of the sheet (docs/PRODUCTION.md §10.8): four walls + glue flap, and the bottom zones of
+ * `getBottomZonePieces` — FRONT / BACK trapezoids, their corner triangles (each split once more along its bend line:
+ * CORNER part on the tube corner edge, DIAGONAL part on the 45° crease), the whole LEFT / RIGHT side flaps, and the glue
+ * flap's zone part (laminated to LEFT's side flap). The glue flap's ends are chamfered at 45° like the cut outline
+ * (docs/PRODUCTION.md §9.2). Together the pieces tile the sheet exactly.
  */
 export function getAssemblyPieces(d: Dims, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): AssemblyPiece[] {
   const { width: W, height: H, depth: D } = d;
-  const a = getBottomAllowance(d);
-  const h = D / 2;
-  const s = Math.max(0, Math.min(glueFlapWidth, h));
-  const bend = Math.min(h, a * Math.tan(EAR_BEND_ANGLE)); // where the ear bend line meets the tube end
-  const triangle: Polygon2 = [pt(0, 0), pt(h, -h), pt(D, 0)];
-  // Ear with the corner line at u = 0 (u ∈ [0, D/2]) and at u = D (u ∈ [D/2, D]).
-  const lowEar = { CORNER: [pt(0, -a), pt(bend, -a), pt(0, 0)], DIAGONAL: [pt(bend, -a), pt(h, -a), pt(h, -h), pt(0, 0)] };
-  const highEar = {
-    CORNER: [pt(D - bend, -a), pt(D, -a), pt(D, 0)],
-    DIAGONAL: [pt(h, -a), pt(D - bend, -a), pt(D, 0), pt(h, -h)],
+  const E = getBottomAllowance(d);
+  const s = Math.max(0, Math.min(glueFlapWidth, D / 2));
+  const tan = Math.tan(EAR_BEND_ANGLE);
+  const layers = Object.fromEntries(getBottomPieces(d).map((p) => [`${p.panel}:${p.zonePiece}`, p]));
+  const pieces: AssemblyPiece[] = [];
+  const add = (id: AssemblyPieceId, panel: AssemblySheetPanel, polygon: Polygon2, layer: number, host: AssemblyPieceId = id, bottomPiece?: BottomPieceId) => {
+    if (polygon.length < 3 || polygonArea(polygon) <= 1e-9) return;
+    pieces.push({ id, panel, polygon, allowance: polygon.every((p) => p.y <= 1e-9), layer, host, ...(bottomPiece ? { bottomPiece } : {}) });
   };
-  const piece = (
-    id: AssemblyPieceId,
-    panel: AssemblySheetPanel,
-    polygon: Polygon2,
-    layer: number,
-    host: AssemblyPieceId = id,
-  ): AssemblyPiece => ({ id, panel, polygon, allowance: polygon.every((p) => p.y <= 1e-9), layer, host });
-  const ear = (id: EarId, panel: AssemblySheetPanel, shape: Record<EarPart, Polygon2>, layer: number, host: AssemblyPieceId) =>
-    (['CORNER', 'DIAGONAL'] as const).map((part) => piece(`${id}_${part}`, panel, shape[part], layer, host));
-  const pieces = [
-    piece('FRONT_WALL', 'FRONT', rect(0, 0, W, H), 0),
-    piece('FRONT_FLAP', 'FRONT', rect(0, -a, W, 0), 3),
-    piece('BACK_WALL', 'BACK', rect(0, 0, W, H), 0),
-    piece('BACK_FLAP', 'BACK', rect(0, -a, W, 0), 0),
-    piece('LEFT_WALL', 'LEFT', rect(0, 0, D, H), 0),
-    piece('LEFT_TRIANGLE', 'LEFT', triangle, 5),
-    // LEFT: u = 0 at BACK (the free sheet edge / seam), u = D at FRONT.
-    ...ear('LEFT_EAR_BACK', 'LEFT', lowEar, 2, 'BACK_FLAP'),
-    ...ear('LEFT_EAR_FRONT', 'LEFT', highEar, 4, 'FRONT_FLAP'),
-    piece('RIGHT_WALL', 'RIGHT', rect(0, 0, D, H), 0),
-    piece('RIGHT_TRIANGLE', 'RIGHT', triangle, 5),
-    // RIGHT: u = 0 at FRONT, u = D at BACK.
-    ...ear('RIGHT_EAR_FRONT', 'RIGHT', lowEar, 4, 'FRONT_FLAP'),
-    ...ear('RIGHT_EAR_BACK', 'RIGHT', highEar, 2, 'BACK_FLAP'),
-  ];
-  if (s > 0) {
-    // The glue flap lies on LEFT's strip u ∈ [0, s]; LEFT's back-ear bend line crosses it at v = −s / tan(π/8).
-    const bendV = Math.max(-a + s, -s / Math.tan(EAR_BEND_ANGLE));
-    pieces.push(
-      // Both ends of the glue flap are chamfered at 45° [K]: the free edge u = s runs from v = −a + s to v = H − s.
-      piece('GLUE_WALL', 'GLUE', [pt(0, 0), pt(s, 0), pt(s, H - s), pt(0, H)], 1),
-      piece('GLUE_TRIANGLE', 'GLUE', [pt(0, 0), pt(s, -s), pt(s, 0)], 6),
-      piece('GLUE_EAR_CORNER', 'GLUE', [pt(0, -a), pt(s, -a + s), pt(s, bendV), pt(0, 0)], 1, 'BACK_FLAP'),
-      piece('GLUE_EAR_DIAGONAL', 'GLUE', [pt(0, 0), pt(s, bendV), pt(s, -s)], 1, 'BACK_FLAP'),
-    );
+  const zoneOf = (panel: 'FRONT' | 'BACK' | 'LEFT' | 'RIGHT', id: BottomZonePieceId) => {
+    const polygon = getBottomZonePieces(panel, d).find((z) => z.id === id)!.polygon;
+    return { polygon, bottom: layers[`${panel}:${id}`] };
+  };
+
+  for (const panel of ['FRONT', 'BACK'] as const) {
+    add(`${panel}_WALL`, panel, rect(0, 0, W, H), 0);
+    const trapezoidId = `${panel}_TRAPEZOID` as const;
+    const trapezoid = zoneOf(panel, 'TRAPEZOID');
+    add(trapezoidId, panel, trapezoid.polygon, trapezoid.bottom.layer, trapezoidId, trapezoid.bottom.id);
+    for (const zonePiece of ['EAR_START', 'EAR_END'] as const) {
+      const ear = zoneOf(panel, zonePiece);
+      const earId = EAR_OF[panel][zonePiece];
+      // Bend line from the corner at EAR_BEND_ANGLE to the tube corner edge: u = −v·tan (START), W − u = −v·tan (END).
+      const [corner, diagonal] =
+        zonePiece === 'EAR_START'
+          ? [clipConvexPolygon(ear.polygon, pt(1, tan), 0), clipConvexPolygon(ear.polygon, pt(-1, -tan), 0)]
+          : [clipConvexPolygon(ear.polygon, pt(-1, tan), -W), clipConvexPolygon(ear.polygon, pt(1, -tan), W)];
+      add(`${earId}_CORNER`, panel, corner, ear.bottom.layer, trapezoidId, ear.bottom.id);
+      add(`${earId}_DIAGONAL`, panel, diagonal, ear.bottom.layer, trapezoidId, ear.bottom.id);
+    }
   }
-  return pieces;
+  for (const panel of ['LEFT', 'RIGHT'] as const) {
+    add(`${panel}_WALL`, panel, rect(0, 0, D, H), 0);
+    const flap = zoneOf(panel, 'SIDE_FLAP');
+    add(`${panel}_SIDE_FLAP`, panel, flap.polygon, flap.bottom.layer, `${panel}_SIDE_FLAP`, flap.bottom.id);
+  }
+  if (s > 0) {
+    // Both ends of the glue flap are chamfered at 45° [K]: the free edge u = s runs from v = −E + s to v = H − s.
+    add('GLUE_WALL', 'GLUE', [pt(0, 0), pt(s, 0), pt(s, H - s), pt(0, H)], 1);
+    add('GLUE_BOTTOM', 'GLUE', [pt(0, -E), pt(s, -E + s), pt(s, 0), pt(0, 0)], 5);
+  }
+  // Stable order: walls first (lines on a wall / zone boundary attach to the wall), then the zones outermost first.
+  return pieces.sort((p, q) => Number(p.allowance) - Number(q.allowance) || p.layer - q.layer);
 }
 
 /** First piece of `panel` containing the panel-local point (inclusive), e.g. to attach a dieline line to a piece. */
@@ -165,14 +173,14 @@ export function findAssemblyPiece(
 
 // ——— Phases ———
 
-export type AssemblyPhaseId = 'TUBE' | 'TRIANGLES' | 'FRONT_FLAP' | 'BACK_FLAP';
+export type AssemblyPhaseId = 'TUBE' | 'SIDES' | 'FRONT_TRAPEZOID' | 'BACK_TRAPEZOID';
 
-/** Sub-ranges of q per phase (client spec: A 0–0.4, B 0.4–0.6, C1 0.6–0.8, C2 0.8–1.0). */
+/** Sub-ranges of q per phase (client order: A tube 0–0.4, B sides 0.4–0.6, C1 front 0.6–0.8, C2 back 0.8–1.0). */
 export const ASSEMBLY_PHASES: Readonly<Record<AssemblyPhaseId, readonly [number, number]>> = {
   TUBE: [0, 0.4],
-  TRIANGLES: [0.4, 0.6],
-  FRONT_FLAP: [0.6, 0.8],
-  BACK_FLAP: [0.8, 1],
+  SIDES: [0.4, 0.6],
+  FRONT_TRAPEZOID: [0.6, 0.8],
+  BACK_TRAPEZOID: [0.8, 1],
 };
 
 const ASSEMBLY_PHASE_IDS = Object.keys(ASSEMBLY_PHASES) as AssemblyPhaseId[];
@@ -194,43 +202,29 @@ export function getAssemblyPhaseProgress(assemblyProgress: number): Record<Assem
 /** The phase running at q (its start inclusive); q = 1 → the last phase. */
 export function getAssemblyPhase(assemblyProgress: number): AssemblyPhaseId {
   const q = clamp01(assemblyProgress);
-  return ASSEMBLY_PHASE_IDS.find((id) => q < ASSEMBLY_PHASES[id][1]) ?? 'BACK_FLAP';
+  return ASSEMBLY_PHASE_IDS.find((id) => q < ASSEMBLY_PHASES[id][1]) ?? 'BACK_TRAPEZOID';
 }
-
-/**
- * Smallest flap angle δ that a triangle at angle β allows (the ear keeps its 45° corner flat):
- * cos β · cos δ + sin δ = 1 → δ = asin(1 / √(1 + cos²β)) − atan(cos β); 0 at β = 0, π/2 at β = π/2.
- */
-export function getMinFlapAngle(triangleAngle: number): number {
-  const k = Math.cos(triangleAngle);
-  return Math.max(0, Math.asin(Math.min(1, 1 / Math.sqrt(1 + k * k))) - Math.atan(k));
-}
-
-/** Share of the way from δmin(β) to β by which the FRONT flap leads the BACK flap (0 = both exactly resultant). */
-export const FRONT_FLAP_LEAD = 0.3;
 
 export type AssemblyAngles = {
   /** Tube: every panel turns by this about its vertical edge (0 → π/2). */
   tube: number;
-  /** Side triangles turning in on the bottom line (0 → π/2). */
-  triangles: number;
-  /** FRONT flap onto the bottom (0 → π/2): resultant of the triangles, slightly ahead (FRONT_FLAP_LEAD). */
-  frontFlap: number;
-  /** BACK flap over the front flap (0 → π/2): exactly the resultant, getMinFlapAngle(triangles). */
-  backFlap: number;
+  /** LEFT / RIGHT bottom zones turning in whole on the bottom line (0 → π/2). */
+  sides: number;
+  /** FRONT trapezoid onto the bottom (0 → π/2), after the sides. */
+  frontTrapezoid: number;
+  /** BACK trapezoid over the FRONT one (0 → π/2), last. */
+  backTrapezoid: number;
 };
 
+/** Phase angles: each phase turns its pieces 0 → 90° with a smoothstep ease, one after the other. */
 export function getAssemblyAngles(assemblyProgress: number): AssemblyAngles {
-  const q = clamp01(assemblyProgress);
-  const phase = getAssemblyPhaseProgress(q);
-  const bottomStart = ASSEMBLY_PHASES.TRIANGLES[0];
-  const triangles = (Math.PI / 2) * smoothstep(clamp01((q - bottomStart) / (1 - bottomStart)));
-  const resultant = q >= 1 ? Math.PI / 2 : getMinFlapAngle(triangles);
+  const phase = getAssemblyPhaseProgress(assemblyProgress);
+  const quarter = (t: number) => (Math.PI / 2) * smoothstep(t);
   return {
-    tube: (Math.PI / 2) * smoothstep(phase.TUBE),
-    triangles,
-    frontFlap: resultant + FRONT_FLAP_LEAD * (triangles - resultant),
-    backFlap: resultant,
+    tube: quarter(phase.TUBE),
+    sides: quarter(phase.SIDES),
+    frontTrapezoid: quarter(phase.FRONT_TRAPEZOID),
+    backTrapezoid: quarter(phase.BACK_TRAPEZOID),
   };
 }
 
@@ -311,24 +305,26 @@ function frameTransform(o: Vec3, a2: Point2, b2: Point2, O: Vec3, a3: Vec3, b3: 
 }
 
 /**
- * Poses of the two parts of one ear, stretched between a flap (along the corner line) and a triangle (along the
- * diagonal). `cornerFlat` is the ear corner in its side panel's flat frame, `side` +1 when the ear lies towards +u of
- * its corner line (−1 towards −u). The corner is taken from the side wall: it lies on the bottom line, so the flap and
- * triangle turns keep it fixed, and it is the ear's own corner even while the seam (LEFT ↔ BACK) is still open.
+ * Poses of the two parts of one ear of a FRONT / BACK zone, stretched between the neighbouring side flap (along the
+ * tube corner edge) and the trapezoid (along the 45° crease). Computed in the frame of the ear's own wall (`wall`),
+ * where — once the tube is formed — the side wall stands at the wall's edge, perpendicular, the inside of the bag at
+ * flat −z; the side flap turned by β moves the corner edge to direction (σ·sin β, −cos β, 0) (σ = +1 at the wall's
+ * x = 0 edge, −1 at x = W). Because the frame is the wall's own, the ear stays attached to its corner even while the
+ * seam (BACK ↔ LEFT) is still open (then β = 0 and the ear is flat in its wall).
  */
 function earTransforms(
   cornerFlat: Vec3,
-  side: 1 | -1,
-  sideWall: RigidTransform,
-  flap: RigidTransform,
-  triangle: RigidTransform,
+  sigma: 1 | -1,
+  sides: number,
+  wall: RigidTransform,
+  trapezoid: RigidTransform,
 ): Record<EarPart, RigidTransform> {
   const c2 = pt(0, -1);
-  const d2 = pt(side * Math.SQRT1_2, -Math.SQRT1_2);
-  const x2 = pt(side * Math.sin(EAR_BEND_ANGLE), -Math.cos(EAR_BEND_ANGLE));
-  const O = applyRigid(sideWall, cornerFlat);
-  const c = rotateVec(flap.r, { x: 0, y: -1, z: 0 });
-  const d = rotateVec(triangle.r, flat(d2));
+  const d2 = pt(sigma * Math.SQRT1_2, -Math.SQRT1_2);
+  const x2 = pt(sigma * Math.sin(EAR_BEND_ANGLE), -Math.cos(EAR_BEND_ANGLE));
+  const O = applyRigid(wall, cornerFlat);
+  const c = rotateVec(wall.r, { x: sigma * Math.sin(sides), y: -Math.cos(sides), z: 0 });
+  const d = rotateVec(trapezoid.r, flat(d2));
   // Bend line x: EAR_BEND_ANGLE from both c and d (the ear is flat when c and d are 45° apart).
   const g = Math.min(1, Math.max(-1, dot(c, d)));
   const cosB = Math.cos(EAR_BEND_ANGLE);
@@ -337,11 +333,15 @@ function earTransforms(
   const out2 = 1 - (2 * cosB * cosB) / (1 + g);
   let x = normalize(base);
   if (out2 > 1e-12) {
-    // Bend into the wedge between the inside of the flap and the outside of the triangle.
-    const n = normalize(cross(c, d));
-    const wedge = add(rotateVec(flap.r, { x: 0, y: 0, z: -1 }), rotateVec(triangle.r, { x: 0, y: 0, z: 1 }));
-    const sign = dot(n, wedge) < 0 ? -1 : 1;
-    x = normalize(add({ x: base.x * k, y: base.y * k, z: base.z * k }, n, sign * Math.sqrt(out2)));
+    // Bend OUTWARDS, away from the bag (client [K], 29.09.2026): the ear then never folds onto / through the side
+    // flap turning in behind it (inwards it would lie in the side flap's plane at β = 45°).
+    const outward = rotateVec(trapezoid.r, { x: 0, y: 0, z: 1 });
+    const cd = cross(c, d);
+    const len = Math.hypot(cd.x, cd.y, cd.z);
+    const sign = Math.sign(dot(cd, outward)) || 1;
+    // c ∥ d (β = 45° in phase B): any normal of c; take the outward one.
+    const n = len > 1e-9 ? normalize({ x: cd.x * sign, y: cd.y * sign, z: cd.z * sign }) : normalize(add(outward, c, -dot(outward, c)));
+    x = normalize(add({ x: base.x * k, y: base.y * k, z: base.z * k }, n, Math.sqrt(out2)));
   }
   const perp = (v: Vec3, axis: Vec3) => normalize(add(v, axis, -dot(v, axis)));
   const perp2 = (v: Point2, axis: Point2): Point2 => {
@@ -373,7 +373,7 @@ export type AssemblyPose = {
   /**
    * Suggested view placement (render-only): the model point to keep centred (sheet centre at q = 0 → the BOX centre
    * (W/2, ·, −D/2) once the tube is formed) and the lift that keeps the lowest hanging paper on the floor y = 0
-   * (a while the BACK flap hangs, 0 once it is folded).
+   * (E while the BACK trapezoid hangs, 0 once it is folded).
    */
   view: { centreX: number; centreZ: number; lift: number };
 };
@@ -384,11 +384,11 @@ export function getAssemblyPose(
   glueFlapWidth: number = DIELINE_RULES.glueFlapWidth,
 ): AssemblyPose {
   const { width: W, height: H, depth: D } = d;
-  const a = getBottomAllowance(d);
+  const E = getBottomAllowance(d);
   const s = Math.max(0, Math.min(glueFlapWidth, D / 2));
   const q = clamp01(assemblyProgress);
   const angles = getAssemblyAngles(q);
-  const { tube: al, triangles: be, frontFlap: dF, backFlap: dB } = angles;
+  const { tube: al, sides: be, frontTrapezoid: dF, backTrapezoid: dB } = angles;
   const origins = getAssemblySheetOrigins(d);
   const flatX = {} as Record<AssemblySheetPanel, number>;
   for (const key of Object.keys(origins) as AssemblySheetPanel[]) flatX[key] = origins[key] - D;
@@ -400,41 +400,40 @@ export function getAssemblyPose(
   const right = rotation('y', al, at(W));
   const back = compose(right, rotation('y', al, at(W + D)));
   const glue = compose(back, rotation('y', al, at(2 * W + D)));
-  // Flaps and triangles turn inwards (flat −z = the inside of every panel) on the flat bottom line y = 0, z = 0.
-  const frontFlap = compose(front, rotation('x', dF));
-  const backFlap = compose(back, rotation('x', dB));
-  const leftTriangle = compose(left, rotation('x', be));
-  const rightTriangle = compose(right, rotation('x', be));
-  // Ears between flap corner lines and triangle diagonals (the corner is shared by the side and the flap panel).
-  const leftEarFront = earTransforms(at(flatX.LEFT + D), -1, left, frontFlap, leftTriangle);
-  const leftEarBack = earTransforms(at(flatX.LEFT), 1, left, backFlap, leftTriangle);
-  const rightEarFront = earTransforms(at(flatX.RIGHT), 1, right, frontFlap, rightTriangle);
-  const rightEarBack = earTransforms(at(flatX.RIGHT + D), -1, right, backFlap, rightTriangle);
-  // The glue flap swings in with BACK while the tube forms; from then on it is laminated to LEFT's back strip.
+  // Zones turn inwards (flat −z = the inside of every panel) on the flat bottom line y = 0, z = 0.
+  const frontTrapezoid = compose(front, rotation('x', dF));
+  const backTrapezoid = compose(back, rotation('x', dB));
+  const leftFlap = compose(left, rotation('x', be));
+  const rightFlap = compose(right, rotation('x', be));
+  // Ears: FRONT x = 0 at LEFT, x = W at RIGHT; BACK x = 0 at RIGHT, x = W at LEFT.
+  const frontEarLeft = earTransforms(at(flatX.FRONT), 1, be, front, frontTrapezoid);
+  const frontEarRight = earTransforms(at(flatX.FRONT + W), -1, be, front, frontTrapezoid);
+  const backEarRight = earTransforms(at(flatX.BACK), 1, be, back, backTrapezoid);
+  const backEarLeft = earTransforms(at(flatX.BACK + W), -1, be, back, backTrapezoid);
+  // The glue flap swings in with BACK while the tube forms; from then on it is laminated to LEFT's back strip (its
+  // zone part to LEFT's side flap).
   const tubeClosed = q > ASSEMBLY_PHASES.TUBE[1];
   const onLeft = (m: RigidTransform) => (tubeClosed ? compose(m, translation(flatX.LEFT - flatX.GLUE)) : glue);
 
   const transforms: Record<AssemblyPieceId, RigidTransform> = {
     FRONT_WALL: front,
-    FRONT_FLAP: frontFlap,
+    FRONT_TRAPEZOID: frontTrapezoid,
+    FRONT_EAR_LEFT_CORNER: frontEarLeft.CORNER,
+    FRONT_EAR_LEFT_DIAGONAL: frontEarLeft.DIAGONAL,
+    FRONT_EAR_RIGHT_CORNER: frontEarRight.CORNER,
+    FRONT_EAR_RIGHT_DIAGONAL: frontEarRight.DIAGONAL,
     BACK_WALL: back,
-    BACK_FLAP: backFlap,
+    BACK_TRAPEZOID: backTrapezoid,
+    BACK_EAR_RIGHT_CORNER: backEarRight.CORNER,
+    BACK_EAR_RIGHT_DIAGONAL: backEarRight.DIAGONAL,
+    BACK_EAR_LEFT_CORNER: backEarLeft.CORNER,
+    BACK_EAR_LEFT_DIAGONAL: backEarLeft.DIAGONAL,
     LEFT_WALL: left,
-    LEFT_TRIANGLE: leftTriangle,
-    LEFT_EAR_FRONT_CORNER: leftEarFront.CORNER,
-    LEFT_EAR_FRONT_DIAGONAL: leftEarFront.DIAGONAL,
-    LEFT_EAR_BACK_CORNER: leftEarBack.CORNER,
-    LEFT_EAR_BACK_DIAGONAL: leftEarBack.DIAGONAL,
+    LEFT_SIDE_FLAP: leftFlap,
     RIGHT_WALL: right,
-    RIGHT_TRIANGLE: rightTriangle,
-    RIGHT_EAR_FRONT_CORNER: rightEarFront.CORNER,
-    RIGHT_EAR_FRONT_DIAGONAL: rightEarFront.DIAGONAL,
-    RIGHT_EAR_BACK_CORNER: rightEarBack.CORNER,
-    RIGHT_EAR_BACK_DIAGONAL: rightEarBack.DIAGONAL,
+    RIGHT_SIDE_FLAP: rightFlap,
     GLUE_WALL: glue,
-    GLUE_TRIANGLE: onLeft(leftTriangle),
-    GLUE_EAR_CORNER: onLeft(leftEarBack.CORNER),
-    GLUE_EAR_DIAGONAL: onLeft(leftEarBack.DIAGONAL),
+    GLUE_BOTTOM: onLeft(leftFlap),
   };
 
   const tubeDone = smoothstep(getAssemblyPhaseProgress(q).TUBE);
@@ -443,7 +442,7 @@ export function getAssemblyPose(
     width: W,
     height: H,
     depth: D,
-    allowance: a,
+    allowance: E,
     glueFlapWidth: s,
     assemblyProgress: q,
     angles,
@@ -452,7 +451,7 @@ export function getAssemblyPose(
     view: {
       centreX: sheetCentreX + (W / 2 - sheetCentreX) * tubeDone,
       centreZ: (-D / 2) * tubeDone + 0, // + 0 turns −0 into 0
-      lift: dB >= Math.PI / 2 ? 0 : a * Math.cos(dB),
+      lift: dB >= Math.PI / 2 ? 0 : E * Math.cos(dB),
     },
   };
 }

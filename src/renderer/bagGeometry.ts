@@ -9,7 +9,7 @@
 //
 // Regions and kinematics come from the domain (docs/PRODUCTION.md §10): FRONT; BACK = BACK_UPPER + BACK_LOWER (Z-fold
 // on the pleat y = D/2); each side = SIDE_FRONT, SIDE_BACK_UPPER, SIDE_BACK_LOWER, SIDE_T; BOTTOM = one rigid W × D
-// region hinged on the front bottom crease. Geometries are built once per dimension set; the fold animation only
+// region hinged on the front bottom crease (the glued bottom laminate), drawn as its visible pieces seen from below. Geometries are built once per dimension set; the fold animation only
 // rewrites their position attributes.
 
 import { BufferAttribute, BufferGeometry } from 'three';
@@ -29,7 +29,7 @@ import { foldPoint, getFoldPose, type FoldPose, type Vec3 } from '../domain/geom
 import type { Point2 } from '../domain/geometry/sideGusset';
 import { getPanelSize } from '../domain/panels';
 import type { Dimensions, PanelPosition } from '../domain/types';
-import { BOTTOM_LINE_LIFT_MM, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
+import { BOTTOM_LINE_LIFT_MM, getBottomLayerOffsetMm, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 
 export type BagPanelId = FoldPanelId;
 export const BAG_PANEL_IDS: readonly BagPanelId[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT', 'BOTTOM'];
@@ -133,6 +133,8 @@ export type PanelMesh = {
   artworkPanel: PanelPosition;
   /** Bottom piece id (BOTTOM meshes only). */
   piece?: BottomPieceId;
+  /** Outward offset from the bottom plane, mm (bottom pieces: client layer rule, `getBottomLayerOffsetMm`). */
+  lift: number;
   geometry: BufferGeometry;
   /** Panel-local (u, v) in mm per vertex (BOTTOM: bottom-local, used for posing). */
   local: Float32Array;
@@ -166,7 +168,15 @@ function buildMesh(id: BagPanelId, artworkPanel: PanelPosition, parts: readonly 
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(count * 3), 3));
   geometry.setAttribute('normal', new BufferAttribute(new Float32Array(count * 3), 3));
   geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
-  return { id, artworkPanel, ...(piece ? { piece } : {}), geometry, local: new Float32Array(local), regions: Uint8Array.from(regions) };
+  return {
+    id,
+    artworkPanel,
+    ...(piece ? { piece } : {}),
+    lift: piece ? getBottomLayerOffsetMm(piece) : 0,
+    geometry,
+    local: new Float32Array(local),
+    regions: Uint8Array.from(regions),
+  };
 }
 
 /** UV of a wall point: (x / panelWidth, y / H) of the visible wall; the bottom allowance continues below v = 0. */
@@ -177,19 +187,22 @@ function wallUv(position: PanelPosition, dimensions: Dimensions): (p: Point2) =>
 
 /** Visible pieces of the formed bottom (seen from below), each in the UV space of the wall it comes from. */
 function bottomParts(dimensions: Dimensions) {
-  return getVisibleBottomPieces(dimensions).map((piece) => {
-    const uvOfWall = wallUv(piece.panel, dimensions);
-    const part: MeshPart = { region: 'BOTTOM', polygon: piece.polygon, uvOf: (p) => uvOfWall(piece.toPanel(p)) };
-    return { piece, part };
-  });
+  return getVisibleBottomPieces(dimensions)
+    .filter((piece) => piece.visibleParts.length > 0)
+    .map((piece) => {
+      const uvOfWall = wallUv(piece.panel, dimensions);
+      const uvOf = (p: Point2) => uvOfWall(piece.toPanel(p));
+      const parts: MeshPart[] = piece.visibleParts.map((polygon) => ({ region: 'BOTTOM', polygon, uvOf }));
+      return { piece, parts };
+    });
 }
 
 /**
  * Mesh of one wall (its fold regions share the wall's continuous UV space), or of the whole BOTTOM (its visible
- * pieces as groups, each in the UV space of its source wall — FRONT flap, BACK flap).
+ * pieces as groups, each in the UV space of its source wall — trapezoids and side triangles).
  */
 export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMesh {
-  if (id === 'BOTTOM') return buildMesh(id, 'FRONT', bottomParts(dimensions).map(({ part }) => part));
+  if (id === 'BOTTOM') return buildMesh(id, 'FRONT', bottomParts(dimensions).flatMap(({ parts }) => parts));
   const uvOf = wallUv(id, dimensions);
   return buildMesh(
     id,
@@ -199,12 +212,13 @@ export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMe
 }
 
 /**
- * The bottom as one mesh per visible piece (so each can carry its own wall's texture): FRONT flap and the visible
- * part of the BACK flap. They tile the W × D bottom exactly — no overlapping layers, no z-fighting. The ears and
- * tucks (LEFT/RIGHT allowances) are hidden under the flaps in the formed bottom (`getVisibleBottomPieces`).
+ * The bottom as one mesh per visible piece (so each can carry its own wall's texture), client model [K]: the BACK
+ * trapezoid (outermost), the part of the FRONT trapezoid it leaves free and the two side triangles of the LEFT / RIGHT
+ * side flaps between the trapezoid diagonals. They tile the W × D bottom exactly — no overlapping layers, no
+ * z-fighting. The corner triangles (ears) are hidden between the side flaps and the trapezoids (`getVisibleBottomPieces`).
  */
 export function createBottomPieceMeshes(dimensions: Dimensions): PanelMesh[] {
-  return bottomParts(dimensions).map(({ piece, part }) => buildMesh('BOTTOM', piece.panel, [part], piece.id));
+  return bottomParts(dimensions).map(({ piece, parts }) => buildMesh('BOTTOM', piece.panel, parts, piece.id));
 }
 
 /** Walls + bottom pieces: everything BagModel renders for the bag body. */
@@ -220,7 +234,7 @@ export function updatePanelMesh(mesh: PanelMesh, frame: BagFrame) {
   const position = mesh.geometry.getAttribute('position') as BufferAttribute;
   const out = position.array as Float32Array;
   for (let i = 0; i < mesh.regions.length; i++) {
-    placePoint(mesh.id, REGION_IDS[mesh.regions[i]], mesh.local[i * 2], mesh.local[i * 2 + 1], frame, out, i * 3);
+    placePoint(mesh.id, REGION_IDS[mesh.regions[i]], mesh.local[i * 2], mesh.local[i * 2 + 1], frame, out, i * 3, mesh.lift);
   }
   position.needsUpdate = true;
   mesh.geometry.computeVertexNormals();
@@ -286,7 +300,8 @@ const toPts = (c: Crease): [Pt, Pt] => [
 
 /**
  * Crease lines from the domain: the BACK pleat, the side creases (centre, two 45°, pleat on the back half) and the
- * lines on the bottom underside (flap seam + overlap edge, tuck diagonals, ear centre creases). 17 segments.
+ * lines on the bottom underside (the visible trapezoid diagonals — the "X" — and the BACK trapezoid's end edge = glue
+ * seam). 14 segments.
  */
 export function getCreaseSpecs(d: Dimensions): LineSpec[] {
   const specs: LineSpec[] = [];

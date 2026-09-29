@@ -36,8 +36,9 @@ import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTra
 // Procedural block-bottom bag body. Face mapping (see bagGeometry.ts):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y; the top is open (no top face, no turn-in).
 // Each panel is its own mesh with its own outer material, so every PanelPosition maps to exactly one artwork
-// texture (UVs continuous across the fold regions of the panel). The bottom is one mesh per visible piece (BACK flap —
-// outermost, client rule — and the visible part of the FRONT flap) in the UV space of the wall it is folded from: it
+// texture (UVs continuous across the fold regions of the panel). The bottom is one mesh per visible piece (BACK
+// trapezoid — outermost, client rule —, the free part of the FRONT trapezoid, the two side triangles) in the UV space of
+// the wall it is folded from, each offset outwards per layer (BOTTOM_LAYER_OFFSET_MM): it
 // shows that wall's texture (same object, same transform) only when the wall's placement extends to the bottom
 // (SPEC §4f), otherwise plain paper.
 // Two models share the textures and the handles: while the assembly from the sheet runs (assemblyProgress < 1) the

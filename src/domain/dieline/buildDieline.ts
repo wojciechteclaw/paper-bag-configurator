@@ -2,6 +2,7 @@
 // the SVG export and the PDF export (docs/SPEC.md §4b, docs/PRODUCTION.md §9).
 
 import { DIELINE_RULES } from '../config/productionRules';
+import { clipConvexPolygon, getBottomZoneDiagonals, getBottomZonePieces } from '../geometry/blockBottom';
 import { getBottomAllowance } from '../geometry/tube';
 import type { BagConfiguration, Handle, PanelPosition } from '../types';
 import type {
@@ -35,21 +36,25 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 /**
  * Fold direction of every crease code seen from the print side — client spec [K] (docs/PRODUCTION.md §9.3):
- * tube edges C2/C3 and the bottom line C1 VALLEY; gusset centre axis C4 (and its continuation C5 between the ears)
- * MOUNTAIN; lower diamond diagonals in the side allowance C7 VALLEY; upper 45° flat-fold diagonals C6 (= spec line 5)
- * MOUNTAIN. C8 (our flat-fold pleat, not in the client spec) is split per part — see `buildDieline`; the value here
- * is its side/glue-flap part.
+ * tube edges C2/C3 and the bottom line C1 VALLEY; gusset centre axis C4 MOUNTAIN; upper 45° flat-fold diagonals C6
+ * (= spec line 5) MOUNTAIN; the 45° creases of the FRONT / BACK bottom trapezoids C9 VALLEY (the corner triangle turns
+ * over onto the inside of its trapezoid, print side outside the fold). The side bottom zones have no crease inside
+ * (client model [K]: they fold in whole). Split per part — see `buildDieline`: C8 (our flat-fold pleat) is MOUNTAIN on
+ * BACK, and C2 / C3 are MOUNTAIN where they continue into the bottom zone (the corner triangle, turned over, lies print
+ * side to print side under the side flap); the values here are the side/glue-flap part of C8 and the wall part of C2/C3.
  */
 export const CREASE_FOLDS: Readonly<Record<CreaseCode, CreaseFold>> = {
   C1: 'VALLEY',
   C2: 'VALLEY',
   C3: 'VALLEY',
   C4: 'MOUNTAIN',
-  C5: 'MOUNTAIN',
   C6: 'MOUNTAIN',
-  C7: 'VALLEY',
   C8: 'VALLEY',
+  C9: 'VALLEY',
 };
+
+/** Fold direction of the tube corner edges C2 / C3 inside the bottom zone (below the bottom line), PRODUCTION.md §9.3. */
+export const ZONE_CORNER_EDGE_FOLD: CreaseFold = 'MOUNTAIN';
 
 /**
  * Handle patch size: the handle entity's patch when set, otherwise the client rule 100 × 20 mm [K] (§9.5); never
@@ -127,25 +132,34 @@ export function buildDieline(
     if (Math.hypot(to.x - from.x, to.y - from.y) > 1e-9) creases.push({ id, code, kind, from, to });
   };
   add('C1', 'C1', p(0, y0), p(sheetWidth, y0));
-  // Tube edges LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK; the fourth one (BACK/LEFT) is the glue flap hinge C3.
-  segments.slice(0, -1).forEach((segment, i) => add('C2', `C2-${i + 1}`, p(segment.x1, 0), p(segment.x1, yTop)));
-  add('C3', 'C3', p(tubeEnd, 0), p(tubeEnd, yTop));
+  // Tube edges LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK; the fourth one (BACK/LEFT) is the glue flap hinge C3. Each is split
+  // at the bottom line: VALLEY on the wall, MOUNTAIN in the bottom zone (ZONE_CORNER_EDGE_FOLD, PRODUCTION.md §9.3).
+  segments.slice(0, -1).forEach((segment, i) => {
+    add('C2', `C2-${i + 1}`, p(segment.x1, y0), p(segment.x1, yTop));
+    add('C2', `C2-${i + 1}-Z`, p(segment.x1, 0), p(segment.x1, y0), ZONE_CORNER_EDGE_FOLD);
+  });
+  add('C3', 'C3', p(tubeEnd, y0), p(tubeEnd, yTop));
+  add('C3', 'C3-Z', p(tubeEnd, 0), p(tubeEnd, y0), ZONE_CORNER_EDGE_FOLD);
 
   for (const side of [seg('LEFT'), seg('RIGHT')]) {
     const xc = side.x0 + D / 2;
     const tag = side.id;
     add('C4', `C4-${tag}`, p(xc, y0 + h), p(xc, yTop));
-    add('C5', `C5-${tag}`, p(xc, 0), p(xc, Math.max(0, y0 - D / 2)));
     add('C6', `C6-${tag}-1`, p(side.x0, y0), p(xc, y0 + h));
     add('C6', `C6-${tag}-2`, p(side.x1, y0), p(xc, y0 + h));
-    add('C7', `C7-${tag}-1`, p(side.x0, y0), p(xc, y0 - D / 2));
-    add('C7', `C7-${tag}-2`, p(side.x1, y0), p(xc, y0 - D / 2));
   }
-  // The glue flap is glued to the inside of LEFT's strip x ∈ [0, s] and folds together with it, so LEFT's 45° rhombus
-  // creases continue across the flap (flap distance t from C3 = LEFT x = t).
+  // The glue flap is glued to the inside of LEFT's strip x ∈ [0, s] and folds together with it, so LEFT's upper 45°
+  // rhombus crease continues across the flap (flap distance t from C3 = LEFT x = t).
   const flapRun = Math.min(s, h, D / 2);
   add('C6', 'C6-GLUE', p(tubeEnd, y0), p(tubeEnd + flapRun, y0 + flapRun));
-  add('C7', 'C7-GLUE', p(tubeEnd, y0), p(tubeEnd + flapRun, y0 - flapRun));
+  // C9: the 45° creases of the FRONT / BACK bottom zones — trapezoid (W at the bottom line, W − 2E at the zone end)
+  // between them, corner triangles outside (client model [K], docs/PRODUCTION.md §3.4.1). None in the side zones.
+  for (const id of ['FRONT', 'BACK'] as const) {
+    const segment = seg(id);
+    getBottomZoneDiagonals(dimensions).forEach(({ from, to }, i) =>
+      add('C9', `C9-${id}-${i + 1}`, panelToSheet(segment, y0, from), panelToSheet(segment, y0, to)),
+    );
+  }
   // C8 flat-fold crease y = D/2 on the whole BACK and on the halves of the sides adjacent to BACK: LEFT x ∈ [0, D/2]
   // at the start of the sheet; RIGHT x ∈ [D/2, D], BACK and the glue flap (lying on LEFT's back half) at the end.
   // Its fold direction changes at the BACK/side tube edges (docs/PRODUCTION.md §9.3): MOUNTAIN on BACK (the lower
@@ -163,18 +177,26 @@ export function buildDieline(
   zones.push({ id: 'bottom-allowance', kind: 'BOTTOM_ALLOWANCE', rect: rect(0, 0, tubeEnd, y0) });
   zones.push({ id: 'glue-flap', kind: 'GLUE_FLAP', rect: glueFlap, polygon: glueFlapOutline });
   // Bottom glue band OV at the tube end, Y ∈ [−a, −a + OV] (client spec: y ∈ [H + E − OV, H + E] from the top), on
-  // both bottom flaps. Client rule [K]: the BACK flap goes on top, so the glue lies on the PRINT side of the FRONT
-  // flap's band and meets the REVERSE (inside) of the BACK flap's band.
+  // both trapezoids (the corner triangles are turned away). Client rule [K]: the BACK trapezoid goes on top, so the glue
+  // lies on the PRINT side of the FRONT trapezoid's band and meets the REVERSE (inside) of the BACK trapezoid's band.
+  const glueBand = Math.min(rules.bottomFlapGlue, y0);
   for (const [id, face] of [
     ['FRONT', 'PRINT'],
     ['BACK', 'REVERSE'],
   ] as const) {
     const segment = seg(id);
+    const trapezoid = getBottomZonePieces(id, dimensions).find((z) => z.id === 'TRAPEZOID')!.polygon;
+    // Trapezoid ∩ band y ≤ −a + OV (panel-local), in sheet mm.
+    const band = clipConvexPolygon(trapezoid, p(0, 1), -a + glueBand).map((q) => panelToSheet(segment, y0, q));
+    if (band.length < 3) continue;
+    const xs = band.map((q) => q.x);
+    const ys = band.map((q) => q.y);
     zones.push({
       id: `bottom-flap-glue-${id}`,
       kind: 'BOTTOM_FLAP_GLUE',
       face,
-      rect: rect(segment.x0, 0, segment.x1, Math.min(rules.bottomFlapGlue, y0)),
+      rect: rect(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)),
+      polygon: band,
     });
   }
   for (const segment of segments) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIELINE_RULES } from '../config/productionRules';
 import { createHandle } from '../factories';
 import type { Dimensions, Handle } from '../types';
-import { buildDieline, CREASE_FOLDS, getArtworkClipRect, panelToSheet, sheetToPanel } from './buildDieline';
+import { buildDieline, CREASE_FOLDS, getArtworkClipRect, panelToSheet, sheetToPanel, ZONE_CORNER_EDGE_FOLD } from './buildDieline';
 import { polygonArea } from '../geometry/sideGusset';
 import type { Dieline, DielineLine } from './types';
 
@@ -57,18 +57,24 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([0, 710, 0, 490]);
   });
 
-  it('places the creases C1–C8 as in §9.3', () => {
+  it('places the creases as in §9.3 (client bottom model: 45° C9 on FRONT / BACK zones, none in the side zones)', () => {
     expect(byCode(dieline, 'C1').map((l) => toDoc(dieline, l))).toEqual([[[0, 0], [710, 0]]]);
-    expect(byCode(dieline, 'C2').map((l) => l.from.x)).toEqual([150, 350, 500]);
-    expect(byCode(dieline, 'C2').every((l) => l.from.y === 0 && l.to.y === 490)).toBe(true);
-    expect(byCode(dieline, 'C3').map((l) => [l.from.x, l.to.x])).toEqual([[700, 700]]);
+    // Tube edges split at the bottom line: wall part and zone part (different fold direction).
+    expect(byCode(dieline, 'C2').map((l) => toDoc(dieline, l))).toEqual([
+      [[150, 0], [150, 400]],
+      [[150, -90], [150, 0]],
+      [[350, 0], [350, 400]],
+      [[350, -90], [350, 0]],
+      [[500, 0], [500, 400]],
+      [[500, -90], [500, 0]],
+    ]);
+    expect(byCode(dieline, 'C3').map((l) => toDoc(dieline, l))).toEqual([
+      [[700, 0], [700, 400]],
+      [[700, -90], [700, 0]],
+    ]);
     expect(byCode(dieline, 'C4').map((l) => toDoc(dieline, l))).toEqual([
       [[75, 75], [75, 400]],
       [[425, 75], [425, 400]],
-    ]);
-    expect(byCode(dieline, 'C5').map((l) => toDoc(dieline, l))).toEqual([
-      [[75, -90], [75, -75]],
-      [[425, -90], [425, -75]],
     ]);
     expect(byCode(dieline, 'C6').map((l) => toDoc(dieline, l))).toEqual([
       [[0, 0], [75, 75]],
@@ -77,13 +83,22 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
       [[500, 0], [425, 75]],
       [[700, 0], [710, 10]], // continued across the glue flap laminated to LEFT x ∈ [0, 10]
     ]);
-    expect(byCode(dieline, 'C7').map((l) => toDoc(dieline, l))).toEqual([
-      [[0, 0], [75, -75]],
-      [[150, 0], [75, -75]],
-      [[350, 0], [425, -75]],
-      [[500, 0], [425, -75]],
-      [[700, 0], [710, -10]],
+    // FRONT / BACK zone diagonals for E = 90: (0,0)→(E,−E) and (W,0)→(W−E,−E) — trapezoid 200 → 20 mm.
+    expect(byCode(dieline, 'C9').map((l) => toDoc(dieline, l))).toEqual([
+      [[150, 0], [240, -90]],
+      [[350, 0], [260, -90]],
+      [[500, 0], [590, -90]],
+      [[700, 0], [610, -90]],
     ]);
+    // No diagonal (nor any other crease) inside the side zones: only the zone borders C1 / C2 / C3 touch them.
+    for (const side of ['LEFT', 'RIGHT'] as const) {
+      const { x0, x1 } = seg(dieline, side);
+      const inside = dieline.creases.filter((l) =>
+        [l.from, l.to].some((q) => q.x > x0 + 1e-9 && q.x < x1 - 1e-9 && q.y < dieline.bottomLineY - 1e-9),
+      );
+      expect(inside).toEqual([]);
+    }
+    expect(dieline.creases.some((l) => (l.code as string) === 'C5' || (l.code as string) === 'C7')).toBe(false);
     // Flat-fold crease: back half of LEFT (sheet start), back half of RIGHT + whole BACK + glue flap (sheet end).
     expect(byCode(dieline, 'C8').map((l) => toDoc(dieline, l))).toEqual([
       [[0, 75], [75, 75]],
@@ -93,15 +108,30 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     ]);
   });
 
-  it('classifies every crease as valley / mountain seen from the print side (client spec + C8 decision)', () => {
+  it('ends the C9 creases at the crossing for a narrow bag (W < D + 30: trapezoid → triangle, no NaN)', () => {
+    const narrow = build({ width: 120, height: 300, depth: 110 }); // E = 70 > W/2 = 60
+    const c9 = byCode(narrow, 'C9').map((l) => toDoc(narrow, l));
+    expect(c9.slice(0, 2)).toEqual([
+      [[110, 0], [170, -60]],
+      [[230, 0], [170, -60]],
+    ]);
+    narrow.creases.forEach((l) => expect(Number.isFinite(l.from.x + l.from.y + l.to.x + l.to.y)).toBe(true));
+  });
+
+  it('classifies every crease as valley / mountain seen from the print side (client spec + C8 / zone-edge decisions)', () => {
     const kinds = (code: DielineLine['code']) => [...new Set(byCode(dieline, code).map((l) => l.kind))];
     expect(kinds('C1')).toEqual(['VALLEY']); // bottom line
-    expect(kinds('C2')).toEqual(['VALLEY']); // panel edges
-    expect(kinds('C3')).toEqual(['VALLEY']); // glue-flap hinge = BACK/LEFT tube edge
+    // Tube edges: VALLEY on the walls, MOUNTAIN in the bottom zone (the turned-over corner triangle meets the side flap
+    // print side to print side, docs/PRODUCTION.md §9.3).
+    for (const code of ['C2', 'C3'] as const) {
+      for (const l of byCode(dieline, code)) {
+        expect(l.kind, l.id).toBe(l.id.endsWith('-Z') ? ZONE_CORNER_EDGE_FOLD : 'VALLEY');
+      }
+    }
+    expect(ZONE_CORNER_EDGE_FOLD).toBe('MOUNTAIN');
     expect(kinds('C4')).toEqual(['MOUNTAIN']); // gusset centre axis
-    expect(kinds('C5')).toEqual(['MOUNTAIN']);
     expect(kinds('C6')).toEqual(['MOUNTAIN']); // 45° flat-fold diagonals (spec line 5)
-    expect(kinds('C7')).toEqual(['VALLEY']); // bottom triangles in the side allowance
+    expect(kinds('C9')).toEqual(['VALLEY']); // trapezoid diagonals: the corner triangle turns over onto the inside
     expect(byCode(dieline, 'C8').map((l) => [l.id, l.kind])).toEqual([
       ['C8-1', 'VALLEY'],
       ['C8-2', 'VALLEY'],
@@ -110,7 +140,30 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     ]);
     expect(dieline.creases.every((l) => l.kind === 'VALLEY' || l.kind === 'MOUNTAIN')).toBe(true);
     for (const [code, kind] of Object.entries(CREASE_FOLDS)) {
-      if (code !== 'C8') expect(kinds(code as DielineLine['code'])).toEqual([kind]);
+      const walls = byCode(dieline, code as DielineLine['code']).filter((l) => !l.id.endsWith('-Z') && l.id !== 'C8-3');
+      expect(walls.every((l) => l.kind === kind), code).toBe(true);
+    }
+  });
+
+  it('makes the bottom corner vertices flat-foldable: Maekawa |M − V| = 2 and Kawasaki 180° / 180°', () => {
+    const y0 = dieline.bottomLineY;
+    for (const x of [150, 350, 500, 700]) {
+      const at = (q: { x: number; y: number }) => Math.abs(q.x - x) < 1e-9 && Math.abs(q.y - y0) < 1e-9;
+      const meeting = dieline.creases.filter((l) => at(l.from) || at(l.to) || (l.code === 'C1' && l.from.x < x && l.to.x > x));
+      // C1 is one line through the vertex: count it twice (left and right ray).
+      const rays = meeting.flatMap((l) => {
+        const other = at(l.from) ? l.to : l.from;
+        const onLine = l.code === 'C1';
+        const dirs = onLine ? [Math.PI, 0] : [Math.atan2(other.y - y0, other.x - x)];
+        return dirs.map((angle) => ({ angle, kind: l.kind, code: l.code }));
+      });
+      expect(rays.map((r) => r.code).sort(), `x = ${x}`).toEqual(['C1', 'C1', x === 700 ? 'C3' : 'C2', x === 700 ? 'C3' : 'C2', 'C6', 'C9']);
+      const m = rays.filter((r) => r.kind === 'MOUNTAIN').length;
+      expect(Math.abs(m - (rays.length - m)), `x = ${x}`).toBe(2);
+      const sorted = rays.map((r) => (r.angle + 2 * Math.PI) % (2 * Math.PI)).sort((a, b) => a - b);
+      const sectors = sorted.map((a, i) => ((sorted[(i + 1) % sorted.length] - a + 2 * Math.PI) % (2 * Math.PI)) || 2 * Math.PI);
+      const alternate = sectors.filter((_, i) => i % 2 === 0).reduce((sum, a) => sum + a, 0);
+      expect(alternate).toBeCloseTo(Math.PI, 9);
     }
   });
 
@@ -176,7 +229,7 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
       return [key(m(l.from.x), l.from.y), key(m(l.to.x), l.to.y)].sort().join('|');
     };
     const lines = dieline.creases.filter(
-      (l) => ['C2', 'C3', 'C4', 'C5', 'C6', 'C7'].includes(l.code) && !l.id.endsWith('GLUE'),
+      (l) => ['C2', 'C3', 'C4', 'C6', 'C9'].includes(l.code) && !l.id.endsWith('GLUE'),
     );
     const set = new Set(lines.map((l) => lineKey(l, false)));
     for (const l of lines) expect(set.has(lineKey(l, true))).toBe(true);
@@ -187,9 +240,11 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     expect(zone('bleed').rect).toEqual({ x: -3, y: -3, width: 703, height: 496 });
     expect(zone('bottom-allowance').rect).toEqual({ x: 0, y: 0, width: 700, height: 90 });
     expect(zone('glue-flap').rect).toEqual(dieline.glueFlap);
-    expect(zone('bottom-flap-glue-FRONT').rect).toEqual({ x: 150, y: 0, width: 200, height: 30 });
-    expect(zone('bottom-flap-glue-BACK').rect).toEqual({ x: 500, y: 0, width: 200, height: 30 });
-    // Back flap on top [K]: glue on the print side of the FRONT flap band, meeting the inside of the BACK flap band.
+    // Glue band OV = 30 mm at the tube end, on the trapezoids only (t ∈ [60, 90]: 80 → 20 mm wide).
+    expect(zone('bottom-flap-glue-FRONT').rect).toEqual({ x: 210, y: 0, width: 80, height: 30 });
+    expect(zone('bottom-flap-glue-BACK').rect).toEqual({ x: 560, y: 0, width: 80, height: 30 });
+    expect(polygonArea(zone('bottom-flap-glue-FRONT').polygon!)).toBeCloseTo(((80 + 20) / 2) * 30);
+    // Back trapezoid on top [K]: glue on the print side of the FRONT band, meeting the inside of the BACK band.
     expect(zone('bottom-flap-glue-FRONT').face).toBe('PRINT');
     expect(zone('bottom-flap-glue-BACK').face).toBe('REVERSE');
     expect(zone('safety-FRONT').rect).toEqual({ x: 155, y: 96, width: 190, height: 388 });

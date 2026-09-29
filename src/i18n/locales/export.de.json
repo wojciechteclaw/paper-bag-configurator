@@ -190,10 +190,9 @@
       "C2": "Schlauchkante",
       "C3": "Knicklinie der Klebelasche (RÜCKSEITE/LINKS)",
       "C4": "Mitte der Seitenfalte",
-      "C5": "Mitte der Seitenfalte (Bodenzugabe)",
       "C6": "Raute, obere 45°",
-      "C7": "Raute, untere 45°",
-      "C8": "Rilllinie zum Flachlegen"
+      "C8": "Rilllinie zum Flachlegen",
+      "C9": "Bodentrapez, 45° (vorn/hinten)"
     },
     "artworkColors": {
       "title": "Farben in den Druckmotiven (HEX) — Fläche je Farbe",

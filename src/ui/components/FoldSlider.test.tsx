@@ -25,7 +25,7 @@ describe('FoldSlider (timeline)', () => {
     fireEvent.change(screen.getByRole('slider'), { target: { value: '10' } });
     expect(screen.getByText(/rękaw/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole('slider'), { target: { value: '34' } });
-    expect(screen.getByText(/klapa tylna/i)).toBeInTheDocument();
+    expect(screen.getByText(/trapez tylny/i)).toBeInTheDocument();
     fireEvent.change(screen.getByRole('slider'), { target: { value: '70' } });
     expect(screen.getByText(/na płasko/)).toBeInTheDocument();
   });

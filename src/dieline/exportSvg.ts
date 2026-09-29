@@ -72,9 +72,12 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
       const attrs = `fill="${s.glueFlapFill}" stroke="none" data-zone="GLUE_FLAP"`;
       return z.points ? `<polygon id="${esc(z.id)}" points="${z.points}" ${attrs}/>` : zoneRect(z, attrs, z.id);
     }
-    return z.face === 'REVERSE'
-      ? zoneRect(z, `fill="none" stroke="${s.bottomGlueReverse.stroke}" stroke-width="${s.bottomGlueReverse.width}" stroke-dasharray="${s.bottomGlueReverse.dash}" data-zone="${z.kind}"${face}`, z.id)
-      : zoneRect(z, `fill="${s.bottomGlueFill}" stroke="none" data-zone="${z.kind}"${face}`, z.id);
+    const attrs =
+      z.face === 'REVERSE'
+        ? `fill="none" stroke="${s.bottomGlueReverse.stroke}" stroke-width="${s.bottomGlueReverse.width}" stroke-dasharray="${s.bottomGlueReverse.dash}" data-zone="${z.kind}"${face}`
+        : `fill="${s.bottomGlueFill}" stroke="none" data-zone="${z.kind}"${face}`;
+    // The bottom glue bands lie on the trapezoids (polygons); rectangles only as a fallback.
+    return z.points ? `<polygon id="${esc(z.id)}" points="${z.points}" ${attrs}/>` : zoneRect(z, attrs, z.id);
   };
   const annotations = [
     // Bottom allowance per column: grey tint where it stays bare paper, a dashed outline (no tint over the colours)

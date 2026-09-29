@@ -58,9 +58,9 @@ describe('one timeline: sheet → assembly → BOX → fold → flat', () => {
   it('derives assembly / fold progress and the phase', () => {
     expect(getTimelineState(0)).toEqual({ assemblyProgress: 0, foldProgress: 0, phase: 'SHEET' });
     expect(getTimelineState(0.1).phase).toBe('TUBE');
-    expect(getTimelineState(0.2).phase).toBe('TRIANGLES');
-    expect(getTimelineState(0.28).phase).toBe('FRONT_FLAP');
-    expect(getTimelineState(0.36).phase).toBe('BACK_FLAP');
+    expect(getTimelineState(0.2).phase).toBe('SIDES');
+    expect(getTimelineState(0.28).phase).toBe('FRONT_TRAPEZOID');
+    expect(getTimelineState(0.36).phase).toBe('BACK_TRAPEZOID');
     expect(getTimelineState(0.4)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
     expect(getTimelineState(0.41).phase).toBe('FOLD');
     expect(getTimelineState(1)).toEqual({ assemblyProgress: 1, foldProgress: 1, phase: 'FOLD' });

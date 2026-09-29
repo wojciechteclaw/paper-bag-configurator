@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BufferAttribute, Vector3 } from 'three';
-import { MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
+import { BOTTOM_LINE_LIFT_MM, getBottomLayerOffsetMm, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 import {
   BAG_PANEL_IDS,
   createBagMeshes,
@@ -120,9 +120,9 @@ describe('folding', () => {
 });
 
 describe('lines', () => {
-  it('writes 16 edge and 17 crease segments', () => {
+  it('writes 16 edge and 14 crease segments', () => {
     expect(getEdgeSpecs(dims)).toHaveLength(16);
-    expect(getCreaseSpecs(dims)).toHaveLength(17);
+    expect(getCreaseSpecs(dims)).toHaveLength(14);
   });
 
   it('draws the pleat y = D/2 on BACK (full width) and on the back half of each side', () => {
@@ -137,7 +137,8 @@ describe('lines', () => {
 
   it('lifts the bottom underside lines off the surface (below the bottom at p = 0)', () => {
     const specs = getCreaseSpecs(dims).filter((c) => c.panel === 'BOTTOM');
-    expect(specs).toHaveLength(8);
+    expect(specs).toHaveLength(5); // the "X" (4 visible trapezoid diagonals) + the BACK trapezoid's end edge (glue seam)
+    expect(BOTTOM_LINE_LIFT_MM).toBeGreaterThan(getBottomLayerOffsetMm('BACK_TRAPEZOID')); // above the outermost layer
     const out = new Float32Array(specs.length * 6);
     writeLineSegments(specs, getBagFrame(dims, 0), out);
     for (let i = 0; i < specs.length * 2; i++) expect(out[i * 3 + 1]).toBeLessThan(0);
@@ -148,13 +149,43 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
   const a = 90; // (150 + 30) / 2
   const H = dims.height;
 
-  it('builds the bottom from the (outer) BACK flap and the visible part of the FRONT flap', () => {
+  it('builds the bottom from the BACK trapezoid, the free part of the FRONT trapezoid and the two side triangles', () => {
     const pieces = createBottomPieceMeshes(dims);
     expect(pieces.map((m) => [m.id, m.piece, m.artworkPanel])).toEqual([
-      ['BOTTOM', 'BACK_FLAP', 'BACK'],
-      ['BOTTOM', 'FRONT_FLAP', 'FRONT'],
+      ['BOTTOM', 'BACK_TRAPEZOID', 'BACK'],
+      ['BOTTOM', 'FRONT_TRAPEZOID', 'FRONT'],
+      ['BOTTOM', 'SIDE_FLAP_LEFT', 'LEFT'],
+      ['BOTTOM', 'SIDE_FLAP_RIGHT', 'RIGHT'],
     ]);
-    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual(['FRONT', 'BACK', 'LEFT', 'RIGHT', 'BACK_FLAP', 'FRONT_FLAP']);
+    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual([
+      'FRONT',
+      'BACK',
+      'LEFT',
+      'RIGHT',
+      'BACK_TRAPEZOID',
+      'FRONT_TRAPEZOID',
+      'SIDE_FLAP_LEFT',
+      'SIDE_FLAP_RIGHT',
+    ]);
+    // Client layer rule [K]: side flaps 0, FRONT trapezoid 0.1 mm, BACK trapezoid 0.2 mm outwards.
+    expect(pieces.map((m) => m.lift)).toEqual([0.2, 0.1, 0, 0].map((x) => expect.closeTo(x, 12)));
+    // Seen from below at p = 0 the pieces sit 0.2 / 0.1 / 0 mm under the bottom plane.
+    const frame = getBagFrame(dims, 0);
+    for (const mesh of pieces) {
+      updatePanelMesh(mesh, frame);
+      const pos = mesh.geometry.getAttribute('position') as BufferAttribute;
+      for (let i = 0; i < pos.count; i++) expect(pos.getY(i) / MM_TO_SCENE).toBeCloseTo(-mesh.lift, 4);
+    }
+  });
+
+  it('maps the side triangle into the side wall UV space (LEFT (x, y) ↔ LEFT-local (y, −x))', () => {
+    const left = createBottomPieceMeshes(dims).find((m) => m.piece === 'SIDE_FLAP_LEFT')!;
+    const uv = left.geometry.getAttribute('uv') as BufferAttribute;
+    for (let i = 0; i < uv.count; i++) {
+      const [bx, by] = [left.local[i * 2], left.local[i * 2 + 1]];
+      expect(uv.getX(i)).toBeCloseTo(by / dims.depth);
+      expect(uv.getY(i)).toBeCloseTo(-bx / H);
+    }
   });
 
   it('maps flap vertices into the source wall UV space with v < 0 (bottom-local → wall-local)', () => {
@@ -191,17 +222,18 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
       return null;
     };
     const byPiece = Object.fromEntries(meshes.map((m) => [m.piece ?? m.id, m]));
-    // FRONT bottom-left corner (u = 0, v = 0) is also a corner of the FRONT flap; BACK likewise with the BACK flap.
+    // FRONT bottom-left corner (u = 0, v = 0) is also a corner of the FRONT trapezoid; BACK likewise.
     for (const [wall, flap] of [
-      ['FRONT', 'FRONT_FLAP'],
-      ['BACK', 'BACK_FLAP'],
+      ['FRONT', 'FRONT_TRAPEZOID'],
+      ['BACK', 'BACK_TRAPEZOID'],
     ] as const) {
       for (const u of [0, 1]) {
         const onWall = at(byPiece[wall], u, 0);
         const onFlap = at(byPiece[flap], u, 0);
         expect(onWall).not.toBeNull();
         expect(onFlap).not.toBeNull();
-        expect(onFlap!.distanceTo(onWall!)).toBeLessThan(1e-6 + (p === 1 ? 7 * PAPER_LAYER_GAP_MM * s : 0));
+        const lift = byPiece[flap].lift * s; // client layer offset of the trapezoid (render-only)
+        expect(onFlap!.distanceTo(onWall!)).toBeLessThan(1e-6 + lift + (p === 1 ? 7 * PAPER_LAYER_GAP_MM * s : 0));
       }
     }
   });

@@ -6,13 +6,14 @@ import {
   createAssemblyMeshes,
   getAssemblyFrame,
   getAssemblyHandleMatrix,
+  getAssemblyInwardOffsetMm,
   getAssemblyLineSpecs,
   getSheetViewExtent,
   updateAssemblyMesh,
   writeAssemblyLines,
 } from './assemblyGeometry';
 import { getBagFrame, getWallPlaneZ } from './bagGeometry';
-import { MM_TO_SCENE } from './constants';
+import { BOTTOM_LAYER_OFFSET_MM, getBottomLayerOffsetMm, MM_TO_SCENE } from './constants';
 
 const dims = { width: 200, height: 400, depth: 150 };
 const length = (s: { from: [number, number]; to: [number, number] }) => Math.hypot(s.to[0] - s.from[0], s.to[1] - s.from[1]);
@@ -21,14 +22,15 @@ describe('assembly meshes (sheet → bag)', () => {
   it('builds one mesh per sheet piece, walls and allowance in the wall UV space, glue flap unprinted', () => {
     const meshes = createAssemblyMeshes(dims);
     expect(meshes.map((m) => m.piece.id)).toEqual(getAssemblyPieces(dims).map((p) => p.id));
-    const front = meshes.find((m) => m.piece.id === 'FRONT_FLAP')!;
+    const front = meshes.find((m) => m.piece.id === 'FRONT_TRAPEZOID')!;
     const uv = front.geometry.getAttribute('uv') as BufferAttribute;
     for (let i = 0; i < uv.count; i++) {
       expect(uv.getX(i)).toBeCloseTo(front.local[i * 2] / 200);
       expect(uv.getY(i)).toBeCloseTo(front.local[i * 2 + 1] / 400); // v < 0 below the bottom line
     }
     expect(meshes.find((m) => m.piece.id === 'GLUE_WALL')!.artworkPanel).toBeNull();
-    expect(meshes.find((m) => m.piece.id === 'LEFT_EAR_BACK_CORNER')!.artworkPanel).toBe('LEFT');
+    expect(meshes.find((m) => m.piece.id === 'LEFT_SIDE_FLAP')!.artworkPanel).toBe('LEFT');
+    expect(meshes.find((m) => m.piece.id === 'FRONT_EAR_LEFT_CORNER')!.artworkPanel).toBe('FRONT');
   });
 
   it('lays the flat sheet in one plane, centred, standing on the floor', () => {
@@ -64,7 +66,10 @@ describe('assembly meshes (sheet → bag)', () => {
     expect(lines.cut.reduce((sum, s) => sum + length(s), 0)).toBeCloseTo(cutLength, 6);
     expect(lines.crease.reduce((sum, s) => sum + length(s), 0)).toBeCloseTo(creaseLength, 6);
     // The chamfered glue-flap ends are carried by the glue pieces.
-    expect(lines.cut.some((s) => s.piece.id === 'GLUE_EAR_CORNER' && s.from[0] !== s.to[0] && s.from[1] !== s.to[1])).toBe(true);
+    expect(lines.cut.some((s) => s.piece.id === 'GLUE_BOTTOM' && s.from[0] !== s.to[0] && s.from[1] !== s.to[1])).toBe(true);
+    // The trapezoid diagonals C9 ride on the trapezoids (visible from below once folded), none on the side flaps.
+    const c9 = lines.crease.filter((s) => s.from[0] !== s.to[0] && s.from[1] !== s.to[1] && Math.min(s.from[1], s.to[1]) < 0);
+    expect(new Set(c9.map((s) => s.piece.id))).toEqual(new Set(['FRONT_TRAPEZOID', 'BACK_TRAPEZOID']));
     const out = new Float32Array(lines.crease.length * 6);
     writeAssemblyLines(lines.crease, getAssemblyFrame(dims, 0.5), out);
     expect(out.every(Number.isFinite)).toBe(true);
@@ -84,5 +89,53 @@ describe('assembly meshes (sheet → bag)', () => {
       const expected = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), wall === 'FRONT' ? Math.PI : 0);
       expect(Math.abs(quaternion.dot(expected))).toBeCloseTo(1, 9);
     }
+  });
+
+  it('offsets the bottom layers outwards from the side flaps: FRONT −0.1 mm, BACK −0.2 mm (client rule [K])', () => {
+    expect(BOTTOM_LAYER_OFFSET_MM).toBe(0.1);
+    expect(getBottomLayerOffsetMm('SIDE_FLAP_LEFT')).toBe(0);
+    expect(getBottomLayerOffsetMm('FRONT_TRAPEZOID')).toBeCloseTo(0.1, 12);
+    expect(getBottomLayerOffsetMm('BACK_TRAPEZOID')).toBeCloseTo(0.2, 12);
+    const meshes = createAssemblyMeshes(dims);
+    const byId = Object.fromEntries(meshes.map((m) => [m.piece.id, m]));
+    expect(getAssemblyInwardOffsetMm(byId.FRONT_TRAPEZOID.piece)).toBeCloseTo(-0.1, 12);
+    expect(getAssemblyInwardOffsetMm(byId.BACK_TRAPEZOID.piece)).toBeCloseTo(-0.2, 12);
+    expect(getAssemblyInwardOffsetMm(byId.LEFT_SIDE_FLAP.piece)).toBeCloseTo(0, 12);
+
+    // Height (scene y, mm) of a piece's centroid-ish sample in the formed bag: side flaps on top (inside), then the
+    // FRONT ears, the FRONT trapezoid, the BACK ears and the BACK trapezoid outermost (lowest).
+    const heightOf = (id: string, q: number) => {
+      const mesh = byId[id];
+      updateAssemblyMesh(mesh, getAssemblyFrame(dims, q));
+      const pos = mesh.geometry.getAttribute('position') as BufferAttribute;
+      let sum = 0;
+      for (let i = 0; i < pos.count; i++) sum += pos.getY(i);
+      return sum / pos.count / MM_TO_SCENE;
+    };
+    const order = ['LEFT_SIDE_FLAP', 'FRONT_EAR_LEFT_DIAGONAL', 'FRONT_TRAPEZOID', 'BACK_EAR_LEFT_DIAGONAL', 'BACK_TRAPEZOID'];
+    const formed = order.map((id) => heightOf(id, 1));
+    expect(formed[0]).toBeCloseTo(0, 4);
+    expect(formed[2]).toBeCloseTo(-0.1, 4);
+    expect(formed[4]).toBeCloseTo(-0.2, 4);
+    for (let i = 1; i < formed.length; i++) expect(formed[i]).toBeLessThan(formed[i - 1]);
+    // Through the bottom phases no trapezoid vertex ever rises above the side flaps (which lie flat from q = 0.6 on).
+    for (const q of [0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95, 1]) {
+      const frame = getAssemblyFrame(dims, q);
+      const top = (id: string) => {
+        updateAssemblyMesh(byId[id], frame);
+        const pos = byId[id].geometry.getAttribute('position') as BufferAttribute;
+        let max = -Infinity;
+        for (let i = 0; i < pos.count; i++) max = Math.max(max, pos.getY(i));
+        return max;
+      };
+      const flap = heightOf('LEFT_SIDE_FLAP', q);
+      for (const id of ['FRONT_TRAPEZOID', 'BACK_TRAPEZOID', 'FRONT_EAR_LEFT_CORNER', 'BACK_EAR_LEFT_CORNER']) {
+        expect(top(id) / MM_TO_SCENE, `${id} at q = ${q}`).toBeLessThanOrEqual(flap + 1e-4);
+      }
+    }
+    // The flat sheet stays exactly flat (offsets faded out).
+    expect(heightOf('BACK_TRAPEZOID', 0)).toBeGreaterThan(-90 - 1e-4);
+    const flat = byId.BACK_TRAPEZOID.geometry.getAttribute('position') as BufferAttribute;
+    for (let i = 0; i < flat.count; i++) expect(flat.getZ(i)).toBeCloseTo(0, 9);
   });
 });

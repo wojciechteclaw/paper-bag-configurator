@@ -190,10 +190,9 @@
       "C2": "tube edge",
       "C3": "glue flap hinge (BACK/LEFT)",
       "C4": "side gusset centre",
-      "C5": "gusset centre (bottom allowance)",
       "C6": "rhombus, upper 45°",
-      "C7": "rhombus, lower 45°",
-      "C8": "flat-fold crease"
+      "C8": "flat-fold crease",
+      "C9": "bottom trapezoid, 45° (front/back)"
     },
     "artworkColors": {
       "title": "Colours in the artwork (HEX) — area per colour",
