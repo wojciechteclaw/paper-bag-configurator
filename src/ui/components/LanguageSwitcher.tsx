@@ -6,7 +6,12 @@ export function LanguageSwitcher() {
   return (
     <div className="lang-switcher">
       {SUPPORTED_LANGUAGES.map((lng) => (
-        <button key={lng} aria-pressed={i18n.resolvedLanguage === lng} onClick={() => void i18n.changeLanguage(lng)}>
+        <button
+          key={lng}
+          lang={lng}
+          aria-pressed={i18n.resolvedLanguage === lng}
+          onClick={() => void i18n.changeLanguage(lng)}
+        >
           {lng.toUpperCase()}
         </button>
       ))}

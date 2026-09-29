@@ -4,7 +4,7 @@ Prototype of a 3D paper-bag configurator for a production company. Full requirem
 
 ## Stack
 
-Vite + React 19 + TypeScript, Three.js via React Three Fiber + drei, Zustand, react-i18next (PL + EN), Vitest + Testing Library, oxlint.
+Vite + React 19 + TypeScript, Three.js via React Three Fiber + drei, Zustand, react-i18next (PL default + EN + DE), Vitest + Testing Library, oxlint.
 
 ## Commands
 
@@ -33,7 +33,7 @@ Before declaring work done: `npm run typecheck && npm test && npm run lint`.
 
 ## Conventions
 
-- Code, identifiers and comments in English. All user-facing text via `t()` with keys in both `src/i18n/locales/pl.json` and `en.json`.
+- Code, identifiers and comments in English. All user-facing text via `t()` with keys in every language of each locale family (`src/i18n/locales/{,dieline.,coverage.,export.}{pl,en,de}.json`; parity is tested). Numbers via `createNumberFormatter` (`src/i18n/numberFormat.ts`).
 - Units: millimetres in the domain; convert to scene units only inside `src/renderer`.
 - Tests colocated as `*.test.ts(x)`.
 

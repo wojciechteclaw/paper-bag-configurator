@@ -5,6 +5,7 @@ import { ARTWORK_PALETTE_RULES } from '../domain/config/productCatalog';
 import type { Dieline } from '../domain/dieline';
 import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { BagConfiguration } from '../domain/types';
+import { createNumberFormatter } from '../i18n/numberFormat';
 import { exportFileBaseName, formatNumber, formatPercent, type ExportContext } from './format';
 import { buildParameterSections, type ParameterSection } from './parameters';
 
@@ -96,10 +97,10 @@ export const PRODUCT_SHEET_VIEWS: readonly { page: ProductSheetViewPage['id']; f
  * (`PrintSpec.colorAnalysis`) and how many raw shades were merged into how many colours.
  */
 export function artworkPaletteNotes(palette: ArtworkPaletteResult, { t, language }: ExportContext): string[] {
-  const minShare = new Intl.NumberFormat(language.startsWith('pl') ? 'pl-PL' : 'en-GB', {
+  const minShare = createNumberFormatter(language, {
     style: 'percent',
     maximumFractionDigits: 2,
-  }).format(palette.settings.minAreaShare);
+  })(palette.settings.minAreaShare);
   return [
     t('coverage.palette.note', {
       tolerance: formatNumber(palette.settings.mergeTolerance, language, 1),

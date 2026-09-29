@@ -1,32 +1,29 @@
 // Formatting helpers of the export builders. Pure (Intl only), no DOM.
 
 import type { BagConfiguration } from '../domain/types';
+import { createNumberFormatter } from '../i18n/numberFormat';
 
 /** Minimal translate function (i18next's `t` fits it). */
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 export type ExportContext = {
   t: Translate;
-  /** UI language used for number formatting ('pl' | 'en'). */
+  /** UI language used for number formatting ('pl' | 'en' | 'de'). */
   language: string;
 };
 
-const locale = (language: string) => (language.startsWith('pl') ? 'pl-PL' : 'en-GB');
-
 /** Formats a number with up to `maxDigits` decimals in the UI language (no grouping below 10 000 in Polish). */
 export function formatNumber(value: number, language: string, maxDigits = 1): string {
-  return new Intl.NumberFormat(locale(language), { maximumFractionDigits: maxDigits, minimumFractionDigits: 0 }).format(
-    value,
-  );
+  return createNumberFormatter(language, { maximumFractionDigits: maxDigits, minimumFractionDigits: 0 })(value);
 }
 
 /** Ratio 0–1 → "12,3 %" / "12.3%" style percentage with fixed decimals. */
 export function formatPercent(ratio: number, language: string, digits = 1): string {
-  return new Intl.NumberFormat(locale(language), {
+  return createNumberFormatter(language, {
     style: 'percent',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
-  }).format(ratio);
+  })(ratio);
 }
 
 /** Rounds to `digits` decimals (for spreadsheet cells, which keep numbers numeric). */

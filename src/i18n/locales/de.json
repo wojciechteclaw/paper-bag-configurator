@@ -1,0 +1,204 @@
+{
+  "common": {
+    "moreInfo": "Weitere Informationen: {{field}}"
+  },
+  "app": {
+    "title": "Beutel-Konfigurator",
+    "configuration": "Konfiguration",
+    "preview": "3D-Vorschau",
+    "demo": "Demo",
+    "demoBusy": "Wird geladen…",
+    "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Flachhenkel, „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
+    "demoError": "Die Demo-Grafiken konnten nicht geladen werden."
+  },
+  "steps": {
+    "navLabel": "Konfigurationsschritte",
+    "position": "Schritt {{current}} von {{total}}",
+    "back": "Zurück",
+    "next": "Weiter",
+    "typeAndDimensions": "Typ & Abmessungen",
+    "paperAndHandle": "Papier & Griff",
+    "artwork": "Druckmotive",
+    "production": "Druck & Produktion",
+    "summary": "Zusammenfassung"
+  },
+  "productType": {
+    "label": "Beuteltyp",
+    "BLOCK": "Blockbodenbeutel",
+    "FOLDED": "Seitenfaltenbeutel",
+    "comingSoon": "demnächst"
+  },
+  "dimensions": {
+    "label": "Abmessungen",
+    "width": "Breite",
+    "height": "Höhe",
+    "depth": "Tiefe",
+    "unit": "mm",
+    "range": "{{min}}–{{max}} mm",
+    "lock": {
+      "widthMin": "min. = Tiefe ({{value}} mm)",
+      "depthMax": "max. = Breite ({{value}} mm)"
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Bitte eine Zahl eingeben",
+      "NOT_POSITIVE": "Der Wert muss größer als 0 sein",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maximum: {{max}} mm",
+      "DEPTH_EXCEEDS_WIDTH": "Die Tiefe darf die Breite nicht überschreiten",
+      "NOT_ON_STEP": "Der Wert muss ein Vielfaches von {{step}} mm sein"
+    },
+    "standardSize": {
+      "label": "Standardformat",
+      "custom": "Individuell",
+      "option": "{{width}} × {{depth}} × {{height}} mm",
+      "withClass": "{{size}} ({{sizeClass}})",
+      "class": {
+        "S": "klein",
+        "M": "mittel",
+        "L": "groß",
+        "XL": "XL"
+      },
+      "unavailable": "{{size}} — außerhalb des Bereichs",
+      "info": "Katalogformate für den gewählten Griff (B × T × H). Jede Änderung einer Abmessung ergibt ein individuelles Format.",
+      "unavailableInfo": "Ausgegraute Formate überschreiten die aktuellen Grenzen des Konfigurators:",
+      "violation": "{{size}}: {{dimension}} {{value}} mm außerhalb {{min}}–{{max}} mm",
+      "none": "Für den gewählten Griff gibt es keine Standardformate — bitte individuelle Abmessungen eingeben."
+    }
+  },
+  "handle": {
+    "label": "Griff",
+    "none": "Ohne Griff",
+    "type": "Grifftyp",
+    "TWISTED_PAPER": "Innenliegend, Papierkordel (gedreht)",
+    "FLAT_PAPER": "Innenliegend, Flachhenkel aus Papier",
+    "placementNote": "Die Griffe werden auf die Innenseite der Vorder- und Rückwand geklebt.",
+    "description": {
+      "NONE": "Klassischer Blockbodenbeutel ohne Griff — die größte Papierauswahl und eine optionale Feuchtigkeitsbarriere.",
+      "FLAT_PAPER": "Flachhenkel aus festem, mehrfach gefaltetem Kraftpapier, innen eingeklebt und mit einer Griffeinlage aus Papier verstärkt.",
+      "TWISTED_PAPER": "Papierkordelgriff (gedreht) aus festem Kraftpapier, innen eingeklebt und mit einer Griffeinlage aus Papier verstärkt."
+    },
+    "capacity": "Fassungsvermögen {{min}}–{{max}} l.",
+    "adjusted": {
+      "intro": "Das Papier wurde an den gewählten Griff angepasst:",
+      "type": "Papiersorte: {{from}} → {{to}} (die bisherige ist mit diesem Griff nicht verfügbar)",
+      "grammage": "Grammatur: {{from}} → {{to}} g/m² (verfügbarer Bereich {{min}}–{{max}} g/m²)",
+      "moistureBarrier": "Feuchtigkeitsbarriere deaktiviert (mit diesem Griff nicht verfügbar)"
+    }
+  },
+  "artwork": {
+    "label": "Druckmotive",
+    "FRONT": "Vorderseite",
+    "BACK": "Rückseite",
+    "LEFT": "Links",
+    "RIGHT": "Rechts",
+    "panelSize": "{{width}} × {{height}} mm",
+    "pixelSize": "{{width}} × {{height}} px",
+    "drop": "Datei hier ablegen",
+    "choose": "oder klicken / Eingabetaste drücken, um eine Datei zu wählen",
+    "dropZoneLabel": "Wand {{panel}}: Druckmotiv hinzufügen",
+    "fileInputLabel": "Wand {{panel}}: Druckmotiv-Datei",
+    "accepted": "PNG, JPG, WEBP, max. {{maxMb}} MB",
+    "fillNote": "Das Motiv wird auf die gesamte Wand gestreckt.",
+    "loading": "Wird geladen…",
+    "thumbnailAlt": "Vorschaubild: {{name}}",
+    "remove": "Entfernen",
+    "replace": "Ersetzen",
+    "aspectMismatch": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem der Wand ({{panelRatio}}) ab — das Motiv wird verzerrt.",
+    "errors": {
+      "UNSUPPORTED_TYPE": "Nicht unterstütztes Dateiformat. Zulässig: PNG, JPG, WEBP.",
+      "EMPTY_FILE": "Die Datei ist leer.",
+      "FILE_TOO_LARGE": "Die Datei ist zu groß (max. {{maxMb}} MB).",
+      "DECODE_FAILED": "Die Datei konnte nicht als Bild gelesen werden."
+    }
+  },
+  "paper": {
+    "label": "Papier",
+    "color": "Papierfarbe",
+    "WHITE": "Weiß",
+    "BROWN": "Braun",
+    "grammage": "Grammatur",
+    "grammageUnit": "g/m²",
+    "fsc": "FSC®-zertifiziert",
+    "type": "Papiersorte",
+    "types": {
+      "KRAFT": "Kraftpapier",
+      "RECYCLED": "Recyclingpapier",
+      "COATED": "Gestrichenes Papier",
+      "FILM_COATED": "Folienkaschiertes Papier",
+      "GREASEPROOF": "Fettdichtes Papier"
+    },
+    "grammageRange": "Bereich für den gewählten Griff: {{min}}–{{max}} g/m², in Schritten von {{step}} g/m²",
+    "moistureBarrier": "Feuchtigkeitsbarriere"
+  },
+  "print": {
+    "label": "Druck",
+    "technology": "Druckverfahren",
+    "FLEXO": "Flexodruck",
+    "colors": "Pantone-Farben",
+    "maxColors": "max. {{max}} Farben",
+    "usage": "{{current}} / {{max}}",
+    "newColor": "Pantone-Code",
+    "placeholder": "z. B. PMS 186 C",
+    "add": "Hinzufügen",
+    "removeColor": "{{code}} entfernen",
+    "none": "Keine Farben — unbedruckter Beutel.",
+    "errors": {
+      "EMPTY": "Bitte einen Farbcode eingeben.",
+      "TOO_LONG": "Der Code ist zu lang (max. {{max}} Zeichen).",
+      "DUPLICATE": "Diese Farbe ist bereits in der Liste.",
+      "LIMIT_REACHED": "Das Limit von {{max}} Farben ist erreicht.",
+      "INVALID_HEX": "Ungültige Farbe (Format #rrggbb)."
+    },
+    "previewColor": "Vorschaufarbe von {{code}}",
+    "previewNote": "Die Vorschaufarbe nähert die Pantone-Farbe am Bildschirm (RGB) an — sie wird für die Vorschau und die Schätzung der Farbdeckung verwendet."
+  },
+  "packaging": {
+    "label": "Verpackung",
+    "CARTON": "Karton",
+    "FOIL": "Folie"
+  },
+  "summary": {
+    "label": "Zusammenfassung",
+    "productType": "Beuteltyp",
+    "dimensions": "Abmessungen (B × H × T)",
+    "dimensionsValue": "{{width}} × {{height}} × {{depth}} mm",
+    "paper": "Papier",
+    "fsc": "FSC®",
+    "yes": "ja",
+    "no": "nein",
+    "handle": "Griff",
+    "artwork": "Druckmotive",
+    "noArtwork": "keine",
+    "printColors": "Pantone-Farben",
+    "noPrint": "unbedruckt",
+    "packaging": "Verpackung",
+    "json": "Konfiguration (JSON)",
+    "copy": "JSON kopieren",
+    "download": "JSON herunterladen",
+    "copied": "In die Zwischenablage kopiert.",
+    "copyFailed": "Kopieren nicht möglich — bitte den Text manuell markieren.",
+    "moistureBarrier": "Feuchtigkeitsbarriere"
+  },
+  "preview": {
+    "fold": "Aufbau & Falten",
+    "play": "Aufbau abspielen",
+    "pause": "Pause",
+    "phase": {
+      "SHEET": "Flacher Bogen",
+      "TUBE": "A: Schlauch formen",
+      "TRIANGLES": "B: Seitendreiecke nach innen",
+      "FRONT_FLAP": "C1: vordere Klappe auf den Boden",
+      "BACK_FLAP": "C2: hintere Klappe oben (Leim)",
+      "FORMED": "Geformter Beutel",
+      "FOLD": "Flachlegen"
+    },
+    "modesLabel": "Vorschaumodus",
+    "modes": {
+      "DIELINE": "Stanzkontur",
+      "SHEET": "Bogen",
+      "BOX": "3D-Quader",
+      "STANDING": "3D stehend",
+      "FLAT": "Flach"
+    }
+  }
+}

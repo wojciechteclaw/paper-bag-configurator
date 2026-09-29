@@ -158,3 +158,23 @@ describe('dieline page fit', () => {
     expect(formatScaleNote(1 / 3.37, exportContext('en'))).toBe('scale 1:3.4 (dimensions in mm)');
   });
 });
+
+describe('buildProductSheetData (DE)', () => {
+  const data = buildProductSheetData(configuration, sampleCoverage(), dieline, exportContext('de'), samplePalette());
+  const compact = (text?: string) => text?.replace(/\s/g, '');
+
+  it('uses German titles, labels and file name', () => {
+    expect(data.fileBaseName).toBe('blockbodenbeutel-200x400x150');
+    expect(data.title).toBe('Produktdatenblatt');
+    expect(data.subtitle).toBe('Blockbodenbeutel 200 × 400 × 150 mm');
+    expect(rowValue(data, 'width')).toMatchObject({ value: 200, unit: 'mm', label: 'Breite (B)' });
+    expect(rowValue(data, 'handleVariant')?.value).toBe('Innenliegend, Papierkordel (gedreht)');
+    expect(data.pantone.headers).toMatchObject({ code: 'Pantone-Code / Vorschau', percent: '% des Bogens' });
+  });
+
+  it('formats numbers with a decimal comma', () => {
+    expect(compact(data.pantone.rows[0].percent)).toBe('12,50%');
+    expect(compact(data.pantone.rows[0].area)).toBe('434,9cm²');
+    expect(formatScaleNote(1 / 3.37, exportContext('de'))).toBe('Maßstab 1:3,4 (Maße in mm)');
+  });
+});

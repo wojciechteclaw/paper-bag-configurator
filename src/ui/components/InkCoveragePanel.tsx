@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ARTWORK_PALETTE_RULES, COLOR_ANALYSIS_LIMITS } from '../../domain/config/productCatalog';
+import { createNumberFormatter } from '../../i18n/numberFormat';
 import { normalizeColorAnalysis, type ArtworkPaletteResult, type InkCoverageResult } from '../../domain/printCoverage';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { useInkCoverage } from '../coverage/useInkCoverage';
@@ -41,8 +42,8 @@ function CoverageDetails({ result }: { result: InkCoverageResult }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const percent = (ratio: number) =>
-    new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratio);
-  const cm2 = (area: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(area / MM2_PER_CM2);
+    createNumberFormatter(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 })(ratio);
+  const cm2 = (area: number) => createNumberFormatter(locale, { maximumFractionDigits: 0 })(area / MM2_PER_CM2);
 
   const rows = result.colors.map((color) => ({ key: color.code, label: color.code, hex: color.hex, ratio: color.sheetRatio }));
   if (result.unassignedArea > 0) {
@@ -86,10 +87,10 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? i18n.language;
   const percent = (ratio: number) =>
-    new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratio);
-  const cm2 = (area: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(area / MM2_PER_CM2);
-  const deltaE = (value: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
-  const share = (ratio: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(ratio);
+    createNumberFormatter(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 })(ratio);
+  const cm2 = (area: number) => createNumberFormatter(locale, { maximumFractionDigits: 1 })(area / MM2_PER_CM2);
+  const deltaE = (value: number) => createNumberFormatter(locale, { maximumFractionDigits: 1 })(value);
+  const share = (ratio: number) => createNumberFormatter(locale, { style: 'percent', maximumFractionDigits: 2 })(ratio);
 
   return (
     <details className="coverage__palette">
@@ -172,7 +173,7 @@ function ColorMergeControls({ palette }: { palette: ArtworkPaletteResult }) {
   const settings = normalizeColorAnalysis(stored);
   const { min, max, step } = COLOR_ANALYSIS_LIMITS.mergeTolerance;
   const options = [...new Set([...COLOR_ANALYSIS_LIMITS.minAreaShareOptions, settings.minAreaShare])].sort((a, b) => a - b);
-  const share = (ratio: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(ratio);
+  const share = (ratio: number) => createNumberFormatter(locale, { style: 'percent', maximumFractionDigits: 2 })(ratio);
   const toleranceText = t('coverage.analysis.toleranceValue', { value: settings.mergeTolerance });
 
   return (

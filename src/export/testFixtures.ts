@@ -5,9 +5,10 @@ import { createArtwork, createConfiguration, createHandle } from '../domain/fact
 import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
 import i18n from '../i18n';
+import type { Language } from '../i18n';
 import type { ExportContext } from './format';
 
-export const exportContext = (language: 'pl' | 'en'): ExportContext => ({
+export const exportContext = (language: Language): ExportContext => ({
   t: i18n.getFixedT(language) as ExportContext['t'],
   language,
 });

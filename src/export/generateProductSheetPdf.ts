@@ -10,7 +10,7 @@ import { buildDielineSvg } from '../dieline/exportSvg';
 import { DIELINE_STYLE, type DielineScene } from '../dieline/scene';
 import type { PaperColor } from '../domain/types';
 import { embedSceneImagesForPdf } from './flattenArtwork';
-import type { ExportContext } from './format';
+import { formatNumber, type ExportContext } from './format';
 import { PDF_FONT_FAMILY, registerPdfFonts, withEmbeddedSvgFont, type PdfFontLoader } from './pdfFont';
 import {
   fitToBox,
@@ -227,8 +227,7 @@ function drawArtworkColorsTable(pdf: Pdf, table: ArtworkColorTable, top: number)
   }
 }
 
-const formatValue = (value: number, { language }: ExportContext) =>
-  new Intl.NumberFormat(language.startsWith('pl') ? 'pl-PL' : 'en-GB', { maximumFractionDigits: 1 }).format(value);
+const formatValue = (value: number, { language }: ExportContext) => formatNumber(value, language, 1);
 
 /** Page 2 (landscape): the dieline SVG fitted to the page, scale note and line legend. */
 async function drawDielinePage(pdf: Pdf, input: ProductSheetPdfInput, svg2pdf: typeof import('svg2pdf.js').svg2pdf) {
@@ -321,6 +320,10 @@ function drawFooters(pdf: Pdf, data: ProductSheetData, context: ExportContext) {
   }
 }
 
+/** Document language of the PDF (jsPDF's code list) for a UI language. */
+const pdfLanguage = (language: string): 'pl' | 'de-DE' | 'en-GB' =>
+  language.startsWith('pl') ? 'pl' : language.startsWith('de') ? 'de-DE' : 'en-GB';
+
 /** Builds the product sheet PDF and returns it as a Blob. */
 export async function buildProductSheetPdf(input: ProductSheetPdfInput): Promise<Blob> {
   const [{ jsPDF }, { svg2pdf }] = await Promise.all([import('jspdf'), import('svg2pdf.js')]);
@@ -328,7 +331,7 @@ export async function buildProductSheetPdf(input: ProductSheetPdfInput): Promise
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
   await registerPdfFonts(pdf, input.fonts);
   pdf.setProperties({ title: `${data.title} — ${data.subtitle}`, subject: data.subtitle, creator: 'Paper bag configurator' });
-  pdf.setLanguage(context.language.startsWith('pl') ? 'pl' : 'en-GB');
+  pdf.setLanguage(pdfLanguage(context.language));
 
   drawParametersPage(pdf, data, context);
   await drawDielinePage(pdf, input, svg2pdf);

@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
+import { createNumberFormatter } from '../../i18n/numberFormat';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { ExportActions } from './ExportActions';
 
@@ -77,10 +78,10 @@ export function ConfigurationSummary() {
           <dd>
             {t('coverage.analysis.summaryValue', {
               tolerance: colorAnalysis.mergeTolerance,
-              minShare: new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language, {
+              minShare: createNumberFormatter(i18n.resolvedLanguage ?? i18n.language, {
                 style: 'percent',
                 maximumFractionDigits: 2,
-              }).format(colorAnalysis.minAreaShare),
+              })(colorAnalysis.minAreaShare),
             })}
           </dd>
 

@@ -1,0 +1,95 @@
+{
+  "dieline": {
+    "title": "2D-Stanzkontur",
+    "svgTitle": "Stanzkontur des Beutels {{width}} × {{height}} × {{depth}} mm",
+    "canvasLabel": "Stanzkontur des Beutels {{width}} × {{height}} × {{depth}} mm, Bogen {{sheetWidth}} × {{sheetHeight}} mm",
+    "layers": {
+      "legend": "Ebenen",
+      "artwork": "Druckmotive",
+      "creases": "Rilllinien",
+      "zones": "Beschnitt & Zonen",
+      "annotations": "Bemaßung",
+      "labels": "Beschriftungen"
+    },
+    "zoom": {
+      "in": "Vergrößern",
+      "out": "Verkleinern",
+      "fit": "In Ansicht einpassen"
+    },
+    "export": {
+      "svg": "SVG exportieren",
+      "pdf": "PDF exportieren",
+      "busy": "Wird exportiert…",
+      "error": "Die Stanzkontur konnte nicht exportiert werden.",
+      "fileName": "stanzkontur"
+    },
+    "label": {
+      "FRONT": "VORDERSEITE",
+      "BACK": "RÜCKSEITE",
+      "LEFT": "LINKE SEITE",
+      "RIGHT": "RECHTE SEITE",
+      "glueFlap": "Klebelasche",
+      "frontFlap": "Bodenklappe (vorn)",
+      "backFlap": "Bodenklappe (hinten)",
+      "sideFlap": "Seitliche Bodenzugabe"
+    },
+    "dimension": {
+      "width": "B {{value}} mm",
+      "depth": "T {{value}} mm",
+      "height": "H {{value}} mm",
+      "allowance": "Bodenzugabe {{value}} mm",
+      "glueFlap": "s {{value}}",
+      "sheetWidth": "Bogen {{value}} mm",
+      "sheetHeight": "Bogen {{value}} mm"
+    },
+    "legend": {
+      "cut": "Schnittlinie",
+      "crease": "Rilllinie",
+      "creaseValley": "Talrille (V, Druckseite)",
+      "creaseMountain": "Bergrille (M, Druckseite)",
+      "patch": "Griffeinlage (innen)",
+      "bleed": "Beschnitt 3 mm",
+      "safety": "Sicherheitsabstand",
+      "allowance": "Bodenzugabe (ohne Druckmotiv)",
+      "allowancePrinted": "Bodenzugabe mit Druckmotiv (Farbe auf dem Boden)",
+      "glue": "Leim",
+      "glueReverse": "Leim auf der Innenseite (hintere Klappe oben)"
+    },
+    "panel": {
+      "FRONT": "Vorderseite",
+      "BACK": "Rückseite",
+      "LEFT": "Linke Seite",
+      "RIGHT": "Rechte Seite"
+    },
+    "edit": {
+      "artworkLabel": "Druckmotiv: {{panel}}. Klicken zum Bearbeiten; Pfeiltasten verschieben, + und − skalieren, R dreht, 0 setzt zurück.",
+      "toolbar": "Druckmotiv bearbeiten: {{panel}}",
+      "modeFill": "auf die Wand gestreckt",
+      "modeFillExtended": "auf Wand und Boden gestreckt",
+      "extendToBottom": "Bis zum Boden verlängern",
+      "extendToBottomHint": "Vergrößert die Motivfläche um die Bodenzugabe ((T + 30) / 2 unterhalb der Bodenlinie): Das Motiv wird auch auf die Bodenklappen, Ohren und Einschlagdreiecke dieser Wand gedruckt.",
+      "alignHorizontal": "Horizontal ausrichten",
+      "alignVertical": "Vertikal ausrichten",
+      "align": {
+        "LEFT": "Linksbündig ausrichten",
+        "CENTER": "Horizontal zentrieren",
+        "RIGHT": "Rechtsbündig ausrichten",
+        "TOP": "Oben ausrichten",
+        "MIDDLE": "Vertikal zentrieren",
+        "BOTTOM": "Unten ausrichten"
+      },
+      "modeCustom": "Skalierung {{scale}} %, Versatz {{x}} / {{y}} mm, Drehung {{rotation}}°",
+      "fill": "Strecken",
+      "contain": "Einpassen",
+      "cover": "Füllen",
+      "scaleDown": "Motiv verkleinern",
+      "scaleUp": "Motiv vergrößern",
+      "rotate": "Um 90° drehen",
+      "reset": "Zurücksetzen",
+      "done": "Fertig",
+      "handle": "Skalierungsgriff",
+      "hint": "Motiv ziehen, um es zu verschieben; eine Ecke oder das Mausrad skaliert es. Hintergrund ziehen, um die Ansicht zu verschieben."
+    },
+    "empty": "Noch keine Druckmotive. Fügen Sie sie im Schritt „Druckmotive“ hinzu — sie erscheinen hier sofort."
+  }
+}

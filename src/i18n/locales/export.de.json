@@ -1,0 +1,209 @@
+{
+  "export": {
+    "actions": {
+      "legend": "Konfiguration exportieren",
+      "intro": "Produktdatenblatt (PDF: Parameter, Motivfarben, Stanzkontur mit Druckmotiven, 3D-Ansichten des aufgestellten und des gefalteten Beutels) oder eine Übersichtsmappe für Excel.",
+      "pdf": "PDF herunterladen",
+      "xlsx": "Excel herunterladen",
+      "error": "Die Datei konnte nicht erstellt werden. Bitte erneut versuchen.",
+      "done": "Die Datei wurde heruntergeladen.",
+      "progress": {
+        "coverage": "Farbdeckung wird geschätzt…",
+        "views": "3D-Ansichten werden gerendert ({{done}}/{{total}})…",
+        "document": "Dokument wird erstellt…"
+      }
+    },
+    "fileName": {
+      "BLOCK": "blockbodenbeutel",
+      "FOLDED": "seitenfaltenbeutel"
+    },
+    "section": {
+      "product": "Produkt",
+      "paper": "Papier",
+      "handle": "Griff",
+      "print": "Druck & Verpackung",
+      "construction": "Konstruktion & Bogen",
+      "artwork": "Druckmotive der Wände"
+    },
+    "param": {
+      "productType": "Beuteltyp",
+      "width": "Breite (B)",
+      "height": "Höhe (H)",
+      "depth": "Tiefe (T)",
+      "standardSize": "Standardformat",
+      "paperType": "Papiersorte",
+      "paperColor": "Papierfarbe",
+      "grammage": "Grammatur",
+      "fsc": "FSC®-zertifiziert",
+      "moistureBarrier": "Feuchtigkeitsbarriere",
+      "handleVariant": "Griffvariante",
+      "handleMaterial": "Griffmaterial",
+      "handleColor": "Grifffarbe",
+      "ropeDiameter": "Kordeldurchmesser",
+      "stripWidth": "Bandbreite",
+      "loopLength": "Schlaufenlänge",
+      "patchWidth": "Breite der Griffeinlage",
+      "patchHeight": "Höhe der Griffeinlage",
+      "handleMounting": "Befestigung",
+      "printTechnology": "Druckverfahren",
+      "colorCount": "Anzahl der Farben",
+      "pantoneColors": "Pantone-Farben",
+      "packaging": "Verpackung",
+      "bottomAllowance": "Bodenzugabe (T + 30) / 2",
+      "glueFlap": "Klebelasche",
+      "sheetWidth": "Bogenbreite",
+      "sheetHeight": "Bogenhöhe",
+      "sheetArea": "Bogenfläche",
+      "colorMergeTolerance": "Zusammenfassen ähnlicher Motivfarben (ΔE00)",
+      "colorMinAreaShare": "Minimale Farbfläche im Motiv (Anteil am Farbauftrag)"
+    },
+    "handleMaterial": {
+      "KRAFT": "festes Kraftpapier"
+    },
+    "handleMounting": "innen an Vorder- und Rückwand, mit Griffeinlage aus Papier",
+    "unit": {
+      "cm2": "cm²",
+      "mm2": "mm²"
+    },
+    "placementMode": {
+      "FILL": "Wand ausfüllen",
+      "CUSTOM": "individuelle Position"
+    },
+    "coverage": {
+      "none": "Die Farbdeckung konnte nicht geschätzt werden.",
+      "noColors": "Keine Pantone-Farben — die Deckung wird nur als Gesamtwert angegeben."
+    },
+    "pdf": {
+      "title": "Produktdatenblatt",
+      "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
+      "parameters": "Parameter",
+      "footer": "Konfiguration {{id}}",
+      "page": "Seite {{page}} von {{total}}"
+    },
+    "pantone": {
+      "title": "Pantone-Farben und Farbdeckung",
+      "swatch": "Farbe",
+      "code": "Pantone-Code / Vorschau",
+      "percent": "% des Bogens",
+      "area": "Fläche [{{unit}}]"
+    },
+    "dieline": {
+      "title": "Stanzkontur mit Druckmotiven",
+      "scale": "Maßstab 1:{{ratio}} (Maße in mm)"
+    },
+    "views": {
+      "unfolded": {
+        "title": "3D-Ansichten — aufgestellter Beutel",
+        "note": "Vollständig aufgestellter Quader (0 % gefaltet) aus vier 3/4-Perspektiven, sodass jede Wand sichtbar ist."
+      },
+      "folded": {
+        "title": "3D-Ansichten — gefalteter Beutel",
+        "note": "20 % gefaltet (Faltung beginnt, Seitenfalten eingeschlagen) — Vorder- und Rückseite 3/4; 100 % gefaltet (Beutel flachgelegt) — Vorder- und Rückseite."
+      },
+      "angle": {
+        "FRONT_3_4": "Vorderseite 3/4",
+        "BACK_3_4": "Rückseite 3/4",
+        "LEFT_3_4": "Linke Seite 3/4",
+        "RIGHT_3_4": "Rechte Seite 3/4",
+        "FRONT": "Vorderseite",
+        "BACK": "Rückseite"
+      },
+      "caption": "{{angle}} · {{fold}} gefaltet",
+      "unavailable": "3D-Ansicht nicht verfügbar"
+    },
+    "xlsx": {
+      "sheet": {
+        "parameters": "Parameter",
+        "panels": "Wände & Druckmotive",
+        "coverage": "Pantone & Farbdeckung",
+        "dieline": "Stanzkontur",
+        "colors": "Motivfarben"
+      },
+      "col": {
+        "section": "Bereich",
+        "parameter": "Parameter",
+        "value": "Wert",
+        "unit": "Einheit",
+        "panel": "Wand",
+        "panelWidth": "Wandbreite",
+        "panelHeight": "Wandhöhe",
+        "artworkFile": "Motivdatei",
+        "imageWidth": "Bildbreite",
+        "imageHeight": "Bildhöhe",
+        "placementMode": "Platzierungsmodus",
+        "offsetX": "Versatz X",
+        "offsetY": "Versatz Y",
+        "scale": "Skalierung",
+        "rotation": "Drehung",
+        "extendToBottom": "Bis zum Boden verlängert",
+        "artworkAreaHeight": "Höhe der Motivfläche",
+        "pantoneCode": "Pantone-Code",
+        "hex": "Vorschau-HEX",
+        "sheetShare": "Deckung des Bogens",
+        "inkArea": "Farbfläche",
+        "sheetArea": "Bogenfläche",
+        "wallArea": "Wandfläche",
+        "wallShare": "Deckung der Wand",
+        "column": "Bogenspalte",
+        "xFrom": "x von",
+        "xTo": "x bis",
+        "columnWidth": "Breite",
+        "wallHeight": "Wandhöhe",
+        "allowanceHeight": "Bodenzugabe",
+        "lineId": "Linie",
+        "lineKind": "Art",
+        "code": "Code",
+        "description": "Beschreibung",
+        "x1": "x1",
+        "y1": "y1",
+        "x2": "x2",
+        "y2": "y2",
+        "length": "Länge",
+        "x": "x",
+        "y": "y",
+        "width": "Breite",
+        "height": "Höhe",
+        "swatch": "Farbe",
+        "nearestPantone": "Pantone (nächste)",
+        "deltaE": "ΔE zu Pantone",
+        "inkShare": "Anteil am Farbauftrag"
+      },
+      "note": "Hinweis",
+      "panelCoverage": "Deckung je Wand",
+      "dielineSheet": "Bogen",
+      "dielineColumns": "Wandspalten",
+      "dielineLines": "Schnitt- und Rilllinien",
+      "handlePatches": "Griffeinlagen (innen)",
+      "bottomLineY": "Bodenlinie (y)",
+      "bleed": "Beschnitt",
+      "origin": "Koordinatensystem",
+      "originValue": "Ursprung in der linken unteren Bogenecke (Schlauchende), x nach rechts, y nach oben, Druckseite",
+      "cutOutline": "Bogenkontur",
+      "lineKind": {
+        "cut": "Schnitt",
+        "crease": "Rillung"
+      }
+    },
+    "creaseCode": {
+      "C1": "Bodenlinie",
+      "C2": "Schlauchkante",
+      "C3": "Knicklinie der Klebelasche (RÜCKSEITE/LINKS)",
+      "C4": "Mitte der Seitenfalte",
+      "C5": "Mitte der Seitenfalte (Bodenzugabe)",
+      "C6": "Raute, obere 45°",
+      "C7": "Raute, untere 45°",
+      "C8": "Rilllinie zum Flachlegen"
+    },
+    "artworkColors": {
+      "title": "Farben in den Druckmotiven (HEX) — Fläche je Farbe",
+      "swatch": "Farbe",
+      "hex": "HEX",
+      "pantone": "Pantone (nächste)",
+      "deltaE": "ΔE",
+      "area": "Fläche [{{unit}}]",
+      "percent": "% des Bogens",
+      "none": "Die Motivfarben konnten nicht erkannt werden.",
+      "empty": "Keine Farbe in den Druckmotiven."
+    }
+  }
+}

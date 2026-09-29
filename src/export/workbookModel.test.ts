@@ -146,3 +146,29 @@ describe('buildXlsxBuffer', () => {
     expect((colors.getCell('A3').fill as { fgColor?: { argb?: string } }).fgColor?.argb).toBe('FFC8102E');
   });
 });
+
+describe('buildWorkbookModel (DE)', () => {
+  const de = buildWorkbookModel(configuration, sampleCoverage(), dieline, exportContext('de'), samplePalette());
+
+  it('uses German sheet names, headers, labels and file name', () => {
+    expect(de.fileBaseName).toBe('blockbodenbeutel-200x400x150');
+    expect(de.sheets.map((s) => s.name)).toEqual(['Parameter', 'Wände & Druckmotive', 'Pantone & Farbdeckung', 'Motivfarben', 'Stanzkontur']);
+    for (const s of de.sheets) {
+      expect(s.name.length).toBeLessThanOrEqual(31);
+      expect(s.name).not.toMatch(/[\\/?*[\]:]/);
+    }
+    const parameters = block(de, 'parameters', 'parameters');
+    expect(parameters.columns.map((c) => c.header)).toEqual(['Bereich', 'Parameter', 'Wert', 'Einheit']);
+    const rows = parameters.rows.map(values);
+    expect(rows).toContainEqual(['Produkt', 'Breite (B)', 200, 'mm']);
+    expect(rows).toContainEqual(['Papier', 'Grammatur', 80, 'g/m²']);
+    expect(rows).toContainEqual(['Konstruktion & Bogen', 'Bodenzugabe (T + 30) / 2', 90, 'mm']);
+    expect(block(de, 'panels', 'panels').columns.map((c) => c.header)).toContain('Drehung [°]');
+    expect(block(de, 'coverage', 'pantone').columns.map((c) => c.header)).toEqual([
+      'Pantone-Code',
+      'Vorschau-HEX',
+      'Deckung des Bogens [%]',
+      'Farbfläche [mm²]',
+    ]);
+  });
+});

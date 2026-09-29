@@ -1,0 +1,44 @@
+{
+  "coverage": {
+    "title": "Farbdeckung",
+    "computing": "wird aktualisiert…",
+    "empty": "Fügen Sie Druckmotive hinzu, um die Farbdeckung zu schätzen.",
+    "total": "Gesamt",
+    "ofSheet": "des Bogens (≈ {{ink}} von {{sheet}} cm²)",
+    "perColor": "Deckung je Pantone-Farbe",
+    "unassigned": "keine zugeordnete Farbe",
+    "unavailable": "Druckmotive konnten für die Schätzung nicht gelesen werden: {{panels}}.",
+    "estimateNote": "Geschätzt aus den Pixeln der platzierten Druckmotive, begrenzt auf die Wände (ohne Beschnitt; die Bodenzugabe nur bei bis zum Boden verlängerten Wänden), in % der Bogenfläche der Stanzkontur. Ein Näherungswert für die Kalkulation, keine Produktionsfarbseparation.",
+    "hints": {
+      "NO_PANTONE_COLORS": "Fügen Sie im Schritt „Druck & Produktion“ Pantone-Farben hinzu, um die Deckung je Farbe zu sehen.",
+      "POOR_COLOR_MATCH": "Einige Motivfarben liegen weit von allen Pantone-Vorschaufarben entfernt — prüfen Sie die Farbliste und die Vorschaufarben im Schritt „Druck & Produktion“."
+    },
+    "palette": {
+      "title": "Farben in den Druckmotiven (HEX)",
+      "swatch": "Farbe",
+      "hex": "HEX",
+      "pantone": "Pantone (nächste)",
+      "area": "Fläche [{{unit}}]",
+      "percent": "% des Bogens",
+      "other": "Sonstige (übrige Farbtöne: {{count}})",
+      "empty": "Keine Farbe in den Druckmotiven.",
+      "note": "In den Pixeln der platzierten Druckmotive erkannte Farben (gleiche Regeln wie bei der Farbdeckung), in CIELAB nach CIEDE2000 zusammengefasst: Farbtöne mit einem Abstand unter ΔE00 {{tolerance}} gelten als eine Farbe, geglättete Kantenpixel (Mischung zweier Farben) werden der näheren zugeordnet, Farben unter {{minShare}} des Farbauftrags gehen in der nächsten ähnlichen Farbe oder in „Sonstige“ auf; höchstens {{max}} Farben. Der HEX-Wert ist eine tatsächliche Pixelfarbe der Gruppe. Nächste Pantone-Farbe und ΔE beziehen sich auf die Vorschaufarben der Druckfarbenliste."
+    },
+    "analysis": {
+      "tolerance": "Ähnliche Farben zusammenfassen",
+      "toleranceValue": "ΔE00 {{value}}",
+      "exact": "exakt",
+      "strong": "stark zusammenfassen",
+      "minShare": "Minimale Farbfläche",
+      "minShareNone": "keine Grenze",
+      "minShareOption": "{{value}} des Farbauftrags",
+      "hint": "Fasst Farbtöne zusammen, die als eine Farbe gedruckt werden: geglättete Kanten, JPEG-Kompression, Verläufe. Farben unterhalb der minimalen Farbfläche gehen in der nächsten ähnlichen Farbe (oder in „Sonstige“) auf.",
+      "shades_one": "{{count}} Farbton",
+      "shades_other": "{{count}} Farbtöne",
+      "merged_one": "{{shades}} zu {{count}} Farbe zusammengefasst",
+      "merged_other": "{{shades}} zu {{count}} Farben zusammengefasst",
+      "summaryLabel": "Farben der Druckmotive",
+      "summaryValue": "ähnliche Farben zusammengefasst bei ΔE00 {{tolerance}}, minimale Farbfläche {{minShare}} des Farbauftrags"
+    }
+  }
+}
