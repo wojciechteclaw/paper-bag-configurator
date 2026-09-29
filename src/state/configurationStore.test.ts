@@ -200,6 +200,33 @@ describe('setPanelArtwork', () => {
     expect(revoke).toHaveBeenCalledWith('blob:b');
     expect(config().panels.FRONT.artwork).toBeNull();
   });
+
+  it('resets the placement to FILL when the artwork is replaced or removed', () => {
+    store().setPanelArtwork('FRONT', artwork('blob:a'));
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 5, offsetY: 5, scale: 2, rotation: 0 });
+    store().setPanelArtwork('FRONT', artwork('blob:b'));
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL' });
+  });
+});
+
+describe('panel placement', () => {
+  it('sets a normalized placement on one panel only', () => {
+    store().setPanelPlacement('LEFT', { mode: 'CUSTOM', offsetX: 999, offsetY: -10, scale: 50, rotation: 90 });
+    // LEFT is 150 × 400 mm: the centre stays on the wall, scale ≤ 10.
+    expect(config().panels.LEFT.placement).toEqual({ mode: 'CUSTOM', offsetX: 75, offsetY: -10, scale: 10, rotation: 90 });
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL' });
+  });
+
+  it('resets the placement to FILL', () => {
+    store().setPanelPlacement('BACK', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 180 });
+    store().resetPanelPlacement('BACK');
+    expect(config().panels.BACK.placement).toEqual({ mode: 'FILL' });
+  });
+
+  it('keeps the configuration JSON-serialisable', () => {
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 270 });
+    expect(JSON.parse(JSON.stringify(config()))).toEqual(config());
+  });
 });
 
 describe('print, packaging and quantity', () => {

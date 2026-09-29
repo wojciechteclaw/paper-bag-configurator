@@ -98,7 +98,12 @@ export function BagPreview3D({ configuration, foldProgress = 0 }: BagPreview3DPr
         <Lightformer form="rect" intensity={0.5} position={[5, 1, -2]} rotation-y={-Math.PI / 2} scale={[6, 4, 1]} />
       </Environment>
 
-      <BagModel dimensions={dimensions} paperColor={paper.color} foldProgress={foldProgress} />
+      <BagModel
+        dimensions={dimensions}
+        paperColor={paper.color}
+        panels={configuration.panels}
+        foldProgress={foldProgress}
+      />
       {/* TODO(3d-renderer): <HandleModel handle={configuration.handle} … /> — handles are not implemented yet. */}
 
       {/* Slightly below the bag bottom so the shadow plane never z-fights with it (visible through the open top). */}

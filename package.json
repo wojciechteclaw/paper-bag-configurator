@@ -16,9 +16,11 @@
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "i18next": "^26.4.2",
+    "jspdf": "^4.2.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.15",
+    "svg2pdf.js": "^2.8.1",
     "three": "^0.186.1",
     "zustand": "^5.0.15"
   },

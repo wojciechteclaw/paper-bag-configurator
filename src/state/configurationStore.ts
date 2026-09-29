@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { FILL_PLACEMENT, normalizePlacement } from '../domain/artworkPlacement';
 import { BAG_TYPES } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage, constrainQuantity } from '../domain/constraints';
 import { createConfiguration, createHandle } from '../domain/factories';
@@ -9,8 +10,10 @@ import {
   getSupportedHandleTypes,
   type PaperAdjustment,
 } from '../domain/handleVariants';
+import { getPanelSize } from '../domain/panels';
 import type {
   Artwork,
+  ArtworkPlacement,
   BagConfiguration,
   BagType,
   Dimensions,
@@ -47,8 +50,12 @@ type ConfigurationState = {
    * Returns what had to be adjusted (empty when nothing changed) so the UI can tell the user.
    */
   setHandle: (type: HandleType | null) => PaperAdjustment[];
-  /** Replaces or removes panel artwork; the previous object URL is revoked. */
+  /** Replaces or removes panel artwork; the previous object URL is revoked and the placement resets to FILL. */
   setPanelArtwork: (position: PanelPosition, artwork: Artwork | null) => void;
+  /** Sets how the artwork sits on the panel (normalized: scale limits, centre kept on the wall, 90° steps). */
+  setPanelPlacement: (position: PanelPosition, placement: ArtworkPlacement) => void;
+  /** Back to FILL (image stretched over the whole wall). */
+  resetPanelPlacement: (position: PanelPosition) => void;
   /** Returns the validation error, or null when the colour was added. */
   addPantoneColor: (code: string) => PantoneError | null;
   removePantoneColor: (index: number) => void;
@@ -127,8 +134,20 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
     setPanelArtwork: (position, artwork) => {
       const previous = get().configuration.panels[position].artwork;
       if (previous && previous.fileUrl !== artwork?.fileUrl) revokeArtworkUrl(previous);
-      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], artwork } } }));
+      const placement = artwork && artwork.id === previous?.id ? get().configuration.panels[position].placement : FILL_PLACEMENT;
+      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], artwork, placement } } }));
     },
+
+    setPanelPlacement: (position, placement) =>
+      update(({ panels, dimensions }) => ({
+        panels: {
+          ...panels,
+          [position]: { ...panels[position], placement: normalizePlacement(placement, getPanelSize(position, dimensions)) },
+        },
+      })),
+
+    resetPanelPlacement: (position) =>
+      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], placement: FILL_PLACEMENT } } })),
 
     addPantoneColor: (code) => {
       const { configuration } = get();

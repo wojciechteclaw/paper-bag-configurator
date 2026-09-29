@@ -72,6 +72,12 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
 - UI powinien ostrzegać, gdy proporcje grafiki różnią się od proporcji ścianki (grafika będzie zdeformowana).
 - Docelowo: **moduł pozycjonowania grafiki** (przesunięcie, skala, obrót, cover/contain). `ArtworkPlacement` jest
   punktem rozszerzenia — mapowanie UV musi być liczone przez wymienną funkcję strategii, nie zaszyte w geometrii.
+- **Moduł pozycjonowania (29.09.2026, wykrój 2D „podgląd + edycja”):** `ArtworkPlacement` = `{ mode: 'FILL' }` (domyślnie)
+  lub `{ mode: 'CUSTOM', offsetX, offsetY, scale, rotation }` — przesunięcie środka grafiki względem środka ścianki
+  w mm, `scale` względem dopasowania „contain” (1 = cała grafika mieści się w ściance, bez deformacji), obrót co 90°.
+  Szybkie akcje: rozciągnij (FILL), dopasuj (contain), wypełnij (cover), reset. Wspólna funkcja
+  `computePanelUvTransform` (`src/domain/artworkPlacement.ts`) liczy transformację tekstury dla 3D i macierz obrazu
+  dla wykroju 2D. Nowa grafika na ściance zaczyna od FILL. Poza ścianką grafika jest przycinana (w 3D: goły papier).
 
 ## 4. Podgląd 3D
 
@@ -121,10 +127,19 @@ Przełącznik trybów w panelu podglądu:
 
 1. **Wykrój 2D** — płaski arkusz z grafikami (podgląd + edycja: przesuwanie/skalowanie grafiki na ściance).
 2. **3D pełne** — prostopadłościan (foldProgress = 0).
-3. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki).
+3. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (krok suwaka 1%). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
 4. **3D złożona na płasko** — foldProgress = 1.
 
 Przełączenie trybu 3D animuje przejście. **Suwak złożenia zostaje jako dodatek** (tylko w trybach 3D): płynny podgląd całego składania; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane na razie **per ścianka**.
+
+### 4d. Pokrycie farbą (wywiad 29.09.2026)
+
+W kroku **Grafiki**, aktualizowane na żywo:
+
+- **Pokrycie farbą łącznie** — procent powierzchni **arkusza (wykroju)** faktycznie pokrytej farbą, liczony z pikseli grafik po pozycjonowaniu (`ArtworkPlacement`), przyciętych do ścianek.
+- **Pokrycie per kolor Pantone** — rozbicie na kolory z listy nadruku (krok 4); każdy piksel z farbą przypisany do najbliższego koloru z listy (każdy kolor Pantone ma przypisany podgląd RGB/HEX wybierany przez użytkownika).
+- „Brak farby”: piksele przezroczyste; na papierze **białym** także piksele bliskie bieli; na papierze **brązowym** biel jest farbą (biały nadruk).
+- Wynik to przybliżenie do wyceny (zużycie farby), nie separacja produkcyjna. Liczenie jako czysta funkcja domenowa na tablicach pikseli (testowalna), próbkowanie na zmniejszonych obrazach.
 
 ### 4b. Wykrój (dieline) — wywiad 29.09.2026
 
@@ -214,4 +229,9 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Gramatury: czy dostępne są wszystkie wartości co 10 g/m² w zakresach wariantów (50–120 / 70–110 / 70–120; przyjęte w katalogu jako `grammage.step`), czy tylko wybrane?
 - Nakład: czy obowiązuje krok (np. co 1 000 szt.) lub górny limit? Obecnie tylko minimum 30 000, liczba całkowita.
 - Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów).
+- Wykrój: rozmiar łatki uchwytu — encja `Handle.patch` z katalogu (80 × 50 mm) vs `docs/PRODUCTION.md` §9.5
+  (`Lp = min(170, W − 20)`, `Hp = 45`). Wykrój używa `Handle.patch`, a wzór z §9.5 tylko, gdy łatki brak.
+- Wykrój PDF: standardowe fonty jsPDF nie mają polskich znaków spoza WinAnsi — teksty w PDF są transliterowane
+  (ł → l). Osadzić font Unicode?
+- Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.

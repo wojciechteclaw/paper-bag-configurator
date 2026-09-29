@@ -12,7 +12,8 @@
 //         │ /  T  \ │     45° creases from the bottom corners to the apex
 //   (0,0) └─────────┘ (D,0)
 //
-// Fold state (`foldProgress`) is VIEW state and never part of BagConfiguration.
+// L/R/T is the coarse split of SPEC §4a; `blockBottom.ts` refines L into SIDE_BACK_UPPER / SIDE_BACK_LOWER
+// (pleat y = D/2, docs/PRODUCTION.md §3.3). Fold state (`foldProgress`) is VIEW state, never in BagConfiguration.
 
 import type { Dimensions } from '../types';
 
@@ -74,47 +75,5 @@ export function polygonArea(polygon: Polygon2): number {
   return sum / 2;
 }
 
-const clamp01 = (value: number) => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0);
-
-export type SideGussetFoldState = {
-  /** Fold angle θ = foldProgress · 90°, radians. */
-  angle: number;
-  /** Distance between the (planar) front and back walls: D · cos θ. */
-  frontBackDistance: number;
-  /** How far the centre crease has moved into the bag from the side plane: (D/2) · sin θ. */
-  creaseInset: number;
-};
-
-/** Kinematics of the side gusset for `foldProgress` ∈ [0, 1] (clamped; 0 = open box, 1 = folded flat). */
-export function getSideGussetFoldState(depth: number, foldProgress: number): SideGussetFoldState {
-  const angle = (clamp01(foldProgress) * Math.PI) / 2;
-  return {
-    angle,
-    frontBackDistance: depth * Math.cos(angle),
-    creaseInset: (depth / 2) * Math.sin(angle),
-  };
-}
-
-/**
- * Position of a point of the rigid region L or R after folding, in the horizontal "gusset plane" of the side:
- * - `inset`: distance from the (unfolded) side plane towards the bag centre, ≥ 0;
- * - `along`: signed position along the front–back axis, measured from the mid-plane between the walls,
- *   positive towards the wall hinged at panel-local x = 0.
- * L hinges on the wall at x = 0, R on the wall at x = D; both hinge on each other at the centre crease.
- * Height (y) is unchanged by the side fold. Region T is not rigid in this model (it folds with the bottom,
- * see docs/PRODUCTION.md) and is therefore not handled here.
- */
-export function foldSideRegionPoint(
-  region: 'L' | 'R',
-  x: number,
-  depth: number,
-  foldProgress: number,
-): { inset: number; along: number } {
-  const { angle, frontBackDistance } = getSideGussetFoldState(depth, foldProgress);
-  const half = frontBackDistance / 2;
-  // Distance of the point from the region's own hinge edge (wall edge), measured inside the rigid region.
-  const fromHinge = region === 'L' ? x : depth - x;
-  const inset = fromHinge * Math.sin(angle);
-  const towardsCentre = half - fromHinge * Math.cos(angle);
-  return { inset, along: region === 'L' ? towardsCentre : -towardsCentre };
-}
+// Fold kinematics (ψ, φ, g, θ as functions of foldProgress, docs/PRODUCTION.md §10.5) live in `foldKinematics.ts`;
+// the full crease/region model incl. the flat-fold pleat and the block bottom lives in `blockBottom.ts`.

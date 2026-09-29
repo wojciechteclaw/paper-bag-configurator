@@ -1,0 +1,78 @@
+{
+  "dieline": {
+    "title": "Wykrój 2D",
+    "svgTitle": "Wykrój torby {{width}} × {{height}} × {{depth}} mm",
+    "canvasLabel": "Wykrój torby {{width}} × {{height}} × {{depth}} mm, arkusz {{sheetWidth}} × {{sheetHeight}} mm",
+    "layers": {
+      "legend": "Warstwy",
+      "artwork": "Grafiki",
+      "creases": "Bigi",
+      "zones": "Spad i strefy",
+      "annotations": "Wymiary",
+      "labels": "Opisy"
+    },
+    "zoom": {
+      "in": "Przybliż",
+      "out": "Oddal",
+      "fit": "Dopasuj widok"
+    },
+    "export": {
+      "svg": "Eksport SVG",
+      "pdf": "Eksport PDF",
+      "busy": "Eksportowanie…",
+      "error": "Nie udało się wyeksportować wykroju.",
+      "fileName": "wykroj"
+    },
+    "label": {
+      "FRONT": "PRZÓD",
+      "BACK": "TYŁ ½",
+      "LEFT": "BOK LEWY",
+      "RIGHT": "BOK PRAWY",
+      "glueFlap": "zakładka klejowa",
+      "frontFlap": "klapa dna (przód)",
+      "backFlap": "klapa dna (tył)",
+      "sideFlap": "zapas boku"
+    },
+    "dimension": {
+      "width": "W {{value}} mm",
+      "depth": "D {{value}} mm",
+      "height": "H {{value}} mm",
+      "allowance": "zapas dna {{value}} mm",
+      "glueFlap": "s {{value}}",
+      "sheetWidth": "arkusz {{value}} mm",
+      "sheetHeight": "arkusz {{value}} mm"
+    },
+    "legend": {
+      "cut": "cięcie",
+      "crease": "big",
+      "patch": "łatka uchwytu (wewnątrz)",
+      "bleed": "spad 3 mm",
+      "safety": "strefa bezpieczna",
+      "allowance": "zapas na dno",
+      "glue": "klej"
+    },
+    "panel": {
+      "FRONT": "Przód",
+      "BACK": "Tył",
+      "LEFT": "Bok lewy",
+      "RIGHT": "Bok prawy"
+    },
+    "edit": {
+      "artworkLabel": "Grafika: {{panel}}. Kliknij, aby edytować; strzałki przesuwają, + i − skalują, R obraca, 0 resetuje.",
+      "toolbar": "Edycja grafiki: {{panel}}",
+      "modeFill": "rozciągnięta na ściankę",
+      "modeCustom": "skala {{scale}}%, przesunięcie {{x}} / {{y}} mm, obrót {{rotation}}°",
+      "fill": "Rozciągnij",
+      "contain": "Dopasuj",
+      "cover": "Wypełnij",
+      "scaleDown": "Pomniejsz grafikę",
+      "scaleUp": "Powiększ grafikę",
+      "rotate": "Obróć o 90°",
+      "reset": "Resetuj",
+      "done": "Gotowe",
+      "handle": "Uchwyt skalowania",
+      "hint": "Przeciągnij grafikę, aby ją przesunąć; narożnik lub kółko myszy skaluje. Tło przeciągnięte przesuwa widok."
+    },
+    "empty": "Brak grafik. Dodaj je w kroku „Grafiki” — pojawią się tu od razu."
+  }
+}

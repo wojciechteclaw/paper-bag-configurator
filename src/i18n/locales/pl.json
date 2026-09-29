@@ -184,6 +184,13 @@
     "moistureBarrier": "bariera na wilgoć"
   },
   "preview": {
-    "fold": "Złożenie"
+    "fold": "Złożenie",
+    "modesLabel": "Tryb podglądu",
+    "modes": {
+      "DIELINE": "Wykrój",
+      "BOX": "3D pełne",
+      "STANDING": "3D po zgięciu",
+      "FLAT": "Złożona"
+    }
   }
 }

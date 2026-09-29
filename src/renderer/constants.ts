@@ -4,11 +4,18 @@ import type { PaperColor } from '../domain/types';
 export const MM_TO_SCENE = 0.01;
 
 /**
- * Render-only separation between paper layers when the bag is folded flat, in mm. Paper thickness is not part of
- * the domain; without this the front wall, both gusset halves and the back wall would be coplanar at 100 % and
- * z-fight. It scales with sin θ, so the open bag (0 %) is geometrically exact.
+ * Render-only separation between paper layers when the bag is folded flat, in mm per layer. Paper thickness is not
+ * part of the domain; without it every region would be coplanar at 100 % and z-fight (and the faces' polygon offset
+ * would let lines of hidden layers show through FRONT, so it must clearly exceed that offset). It fades in over
+ * foldProgress 0.85 → 1, so the open and standing bag are geometrically exact (docs/PRODUCTION.md §10.5).
  */
-export const PAPER_LAYER_GAP_MM = 0.5;
+export const PAPER_LAYER_GAP_MM = 1.2;
+
+/**
+ * Lines on the bottom underside (flap seam, tuck diagonals…) float this far off the outer surface so they are
+ * visible from below but hidden when looking into the bag through the open top. Render-only, mm.
+ */
+export const BOTTOM_LINE_LIFT_MM = 0.3;
 
 export type PaperPalette = {
   /** Base colour of panels without artwork (and of all inner surfaces). */

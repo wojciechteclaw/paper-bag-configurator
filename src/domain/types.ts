@@ -61,13 +61,28 @@ export type Artwork = {
   sizeBytes: number;
 };
 
+/** Artwork rotation in 90° steps (counter-clockwise, seen from outside the bag). */
+export type ArtworkRotation = 0 | 90 | 180 | 270;
+
 /**
- * How artwork is placed on a panel. MVP only supports FILL (image mapped to the full panel).
- * Reserved for the future positioning module (offset/scale/rotation, cover/contain).
+ * How artwork is placed on a panel (the positioning module, `src/domain/artworkPlacement.ts`).
+ * - `FILL` — the image is stretched over the whole visible wall (UV 0..1); the default.
+ * - `CUSTOM` — the image keeps its aspect ratio. `scale` is relative to the "contain" fit (1 = the whole image
+ *   fits the visible wall, touching two edges), `offsetX` / `offsetY` move the image centre away from the wall
+ *   centre in mm (x to the right, y up, panel-local, seen from outside), `rotation` turns it in 90° steps.
+ *   Parts outside the wall are clipped by the panel (or, on the dieline, run into the bleed / bottom allowance).
  */
-export type ArtworkPlacement = {
-  mode: 'FILL';
-};
+export type ArtworkPlacement =
+  | { mode: 'FILL' }
+  | {
+      mode: 'CUSTOM';
+      offsetX: number;
+      offsetY: number;
+      scale: number;
+      rotation: ArtworkRotation;
+    };
+
+export type ArtworkPlacementMode = ArtworkPlacement['mode'];
 
 export type BagPanel = {
   id: string;

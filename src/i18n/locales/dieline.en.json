@@ -1,0 +1,78 @@
+{
+  "dieline": {
+    "title": "2D dieline",
+    "svgTitle": "Bag dieline {{width}} × {{height}} × {{depth}} mm",
+    "canvasLabel": "Bag dieline {{width}} × {{height}} × {{depth}} mm, sheet {{sheetWidth}} × {{sheetHeight}} mm",
+    "layers": {
+      "legend": "Layers",
+      "artwork": "Artwork",
+      "creases": "Creases",
+      "zones": "Bleed & zones",
+      "annotations": "Dimensions",
+      "labels": "Labels"
+    },
+    "zoom": {
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit to view"
+    },
+    "export": {
+      "svg": "Export SVG",
+      "pdf": "Export PDF",
+      "busy": "Exporting…",
+      "error": "The dieline could not be exported.",
+      "fileName": "dieline"
+    },
+    "label": {
+      "FRONT": "FRONT",
+      "BACK": "BACK ½",
+      "LEFT": "LEFT SIDE",
+      "RIGHT": "RIGHT SIDE",
+      "glueFlap": "glue flap",
+      "frontFlap": "bottom flap (front)",
+      "backFlap": "bottom flap (back)",
+      "sideFlap": "side allowance"
+    },
+    "dimension": {
+      "width": "W {{value}} mm",
+      "depth": "D {{value}} mm",
+      "height": "H {{value}} mm",
+      "allowance": "bottom allowance {{value}} mm",
+      "glueFlap": "s {{value}}",
+      "sheetWidth": "sheet {{value}} mm",
+      "sheetHeight": "sheet {{value}} mm"
+    },
+    "legend": {
+      "cut": "cut",
+      "crease": "crease",
+      "patch": "handle patch (inside)",
+      "bleed": "bleed 3 mm",
+      "safety": "safe area",
+      "allowance": "bottom allowance",
+      "glue": "glue"
+    },
+    "panel": {
+      "FRONT": "Front",
+      "BACK": "Back",
+      "LEFT": "Left side",
+      "RIGHT": "Right side"
+    },
+    "edit": {
+      "artworkLabel": "Artwork: {{panel}}. Click to edit; arrow keys move, + and − scale, R rotates, 0 resets.",
+      "toolbar": "Editing artwork: {{panel}}",
+      "modeFill": "stretched over the wall",
+      "modeCustom": "scale {{scale}}%, offset {{x}} / {{y}} mm, rotation {{rotation}}°",
+      "fill": "Stretch",
+      "contain": "Fit",
+      "cover": "Cover",
+      "scaleDown": "Scale artwork down",
+      "scaleUp": "Scale artwork up",
+      "rotate": "Rotate 90°",
+      "reset": "Reset",
+      "done": "Done",
+      "handle": "Scale handle",
+      "hint": "Drag the artwork to move it; a corner or the mouse wheel scales it. Drag the background to pan."
+    },
+    "empty": "No artwork yet. Add it in the “Artwork” step — it shows up here right away."
+  }
+}

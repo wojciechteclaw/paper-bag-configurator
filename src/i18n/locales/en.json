@@ -184,6 +184,13 @@
     "moistureBarrier": "moisture barrier"
   },
   "preview": {
-    "fold": "Fold"
+    "fold": "Fold",
+    "modesLabel": "Preview mode",
+    "modes": {
+      "DIELINE": "Dieline",
+      "BOX": "3D box",
+      "STANDING": "3D standing",
+      "FLAT": "Flat"
+    }
   }
 }

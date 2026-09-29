@@ -2,180 +2,149 @@
 //
 // Face mapping (viewer standing in front of the bag, looking at FRONT):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y. The top (+Y) is OPEN: no top face, no turn-in.
-// Every panel uses panel-local coordinates (u, v) in mm *as seen from outside*: u to the right, v upwards,
-// origin at the bottom-left corner. UV = (u / panelWidth, v / panelHeight), so artwork mapped with FILL covers
-// the whole panel and stays continuous across the side-panel regions L, R, T (it only breaks when folded).
-// Triangles are counter-clockwise in (u, v), i.e. front faces point outwards.
+// Every panel uses panel-local coordinates (u, v) in mm *as seen from outside* (BOTTOM: seen from below), origin at
+// the bottom-left corner (src/domain/geometry/blockBottom.ts). UV = (u / panelWidth, v / panelHeight) of the visible
+// wall, so artwork covers the wall 0..H and stays continuous across the fold regions — it only breaks on the creases
+// once folded. Triangles are counter-clockwise in (u, v), i.e. front faces point outwards.
 //
-// Geometries are built once per dimension set; the fold animation only rewrites their position attributes.
+// Regions and kinematics come from the domain (docs/PRODUCTION.md §10): FRONT; BACK = BACK_UPPER + BACK_LOWER (Z-fold
+// on the pleat y = D/2); each side = SIDE_FRONT, SIDE_BACK_UPPER, SIDE_BACK_LOWER, SIDE_T; BOTTOM = one rigid W × D
+// region hinged on the front bottom crease. Geometries are built once per dimension set; the fold animation only
+// rewrites their position attributes.
 
 import { BufferAttribute, BufferGeometry } from 'three';
 import {
-  foldSideRegionPoint,
-  getSideGussetFoldState,
-  getSidePanelCreases,
-  getSidePanelRegions,
-  type Polygon2,
-  type Segment2,
-} from '../domain/geometry/sideGusset';
-import type { Dimensions, PanelPosition } from '../domain/types';
-import { MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
+  findRegion,
+  getBottomCreases,
+  getPanelCreases,
+  getPanelRegions,
+  type Crease,
+  type FoldPanelId,
+  type FoldRegionId,
+  type PanelRegion,
+} from '../domain/geometry/blockBottom';
+import { foldPoint, getFoldPose, type FoldPose, type Vec3 } from '../domain/geometry/foldKinematics';
+import type { Dimensions } from '../domain/types';
+import { BOTTOM_LINE_LIFT_MM, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 
-export type BagPanelId = PanelPosition | 'BOTTOM';
+export type BagPanelId = FoldPanelId;
 export const BAG_PANEL_IDS: readonly BagPanelId[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT', 'BOTTOM'];
 
-/** Rigid/deformable part a vertex belongs to. CREASE = centre crease line itself (midway between L and R). */
-const Region = { FLAT: 0, L: 1, R: 2, T: 3, CREASE: 4 } as const;
-type Region = (typeof Region)[keyof typeof Region];
-
-/** Scalars of one fold pose, computed once per update (mm). */
-export type BagFrame = {
-  width: number;
-  height: number;
-  depth: number;
-  foldProgress: number;
-  sin: number;
-  /** Distance of the front/back wall plane from the mid-plane z = 0 (includes the render-only layer gap). */
-  wallOffset: number;
-  /** Render-only layer gap scaled by sin θ. */
-  gap: number;
-};
-
-export function getBagFrame({ width, height, depth }: Dimensions, foldProgress: number): BagFrame {
-  const { angle, frontBackDistance } = getSideGussetFoldState(depth, foldProgress);
-  const sin = Math.sin(angle);
-  const gap = PAPER_LAYER_GAP_MM * sin;
-  // Layers at 100 % from front to back: FRONT (+3g), L (+g), R (−g), BACK (−3g).
-  return { width, height, depth, foldProgress, sin, gap, wallOffset: frontBackDistance / 2 + 3 * gap };
-}
+const REGION_IDS: readonly FoldRegionId[] = [
+  'FRONT',
+  'BACK_UPPER',
+  'BACK_LOWER',
+  'SIDE_FRONT',
+  'SIDE_BACK_UPPER',
+  'SIDE_BACK_LOWER',
+  'SIDE_T',
+  'BOTTOM',
+];
+const regionCode = (id: FoldRegionId) => REGION_IDS.indexOf(id);
 
 /**
- * Writes the scene-space position (x, y, z) of panel-local point (u, v) into `out` at `offset`.
+ * Stacking order of the layers in the flat bag, seen from the front (docs/PRODUCTION.md §10.5). Near p = 1 every
+ * region lands in one plane; each layer is pushed back by `layer · PAPER_LAYER_GAP_MM` (render-only, faded in over
+ * p ∈ [0.85, 1]) so they never z-fight. The open and partly folded bag stay geometrically exact.
+ */
+const LAYER: Record<FoldRegionId, number> = {
+  FRONT: 0,
+  SIDE_FRONT: 1,
+  SIDE_T: 2,
+  SIDE_BACK_UPPER: 3,
+  SIDE_BACK_LOWER: 3,
+  BACK_UPPER: 4,
+  BACK_LOWER: 5,
+  BOTTOM: 6,
+};
+
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** One fold pose plus the render-only offsets, computed once per update (mm). */
+export type BagFrame = {
+  pose: FoldPose;
+  /** Per-layer push-back towards −Z near the flat state. */
+  layerShift: number;
+  /** Shift along Z so the bag stays centred between FRONT and BACK while folding. */
+  zCentre: number;
+};
+
+export function getBagFrame(dimensions: Dimensions, foldProgress: number): BagFrame {
+  const pose = getFoldPose(dimensions, foldProgress);
+  return {
+    pose,
+    layerShift: PAPER_LAYER_GAP_MM * smoothstep(0.85, 1, pose.foldProgress),
+    zCentre: pose.gap / 2,
+  };
+}
+
+const scratch: Vec3 = { x: 0, y: 0, z: 0 };
+
+/**
+ * Writes the scene-space position of panel-local point (u, v) of `region` into `out` at `offset`.
+ * `lift` (mm) moves the point off the outer surface of the BOTTOM along its outward normal.
  */
 function placePoint(
   panel: BagPanelId,
-  region: Region,
+  region: FoldRegionId,
   u: number,
   v: number,
   f: BagFrame,
   out: Float32Array,
   offset: number,
+  lift = 0,
 ) {
-  const halfW = f.width / 2;
-  let x: number;
-  let y = v;
-  let z: number;
-  switch (panel) {
-    case 'FRONT':
-      x = -halfW + u;
-      z = f.wallOffset;
-      break;
-    case 'BACK':
-      x = halfW - u;
-      z = -f.wallOffset;
-      break;
-    case 'BOTTOM':
-      // TODO(docs/PRODUCTION.md): interim, non-rigid bottom — its depth just follows the front–back distance.
-      // Replace with the real block-bottom kinematics (hinge on the back-bottom edge, turn-ins) once documented.
-      x = -halfW + u;
-      y = 0;
-      z = f.depth > 0 ? -f.wallOffset + (v / f.depth) * 2 * f.wallOffset : 0;
-      break;
-    default: {
-      // LEFT / RIGHT side gusset. `along` > 0 points to the wall hinged at local u = 0.
-      let inset: number;
-      let along: number;
-      if (region === Region.T) {
-        // TODO(docs/PRODUCTION.md): interim — T is the affine triangle between the two moved bottom corners and
-        // the crease apex (not rigid). It will fold with the bottom once the bottom kinematics is implemented.
-        inset = v * f.sin;
-        along = f.depth > 0 ? f.wallOffset * (1 - (2 * u) / f.depth) : 0;
-      } else {
-        const hinged = region === Region.R ? 'R' : 'L';
-        const p = foldSideRegionPoint(hinged, u, f.depth, f.foldProgress);
-        inset = p.inset;
-        along = p.along;
-        if (region !== Region.CREASE && f.depth > 0) {
-          // Render-only layer gap: +3g at the wall hinge → ±g at the centre crease.
-          const fromHinge = region === Region.L ? u : f.depth - u;
-          const shift = f.gap * (3 - (4 * fromHinge) / f.depth);
-          along += region === Region.L ? shift : -shift;
-        }
-      }
-      // RIGHT (+X) seen from outside: u runs from the front (+Z) to the back. LEFT (−X): from the back to the front.
-      if (panel === 'RIGHT') {
-        x = halfW - inset;
-        z = along;
-      } else {
-        x = -halfW + inset;
-        z = -along;
-      }
-    }
+  const w = foldPoint(f.pose, panel, region, u, v, scratch);
+  let { y, z } = w;
+  if (lift !== 0) {
+    // Outward normal of the rotated bottom: (0, −cos φ, −sin φ).
+    y -= lift * Math.cos(f.pose.phi);
+    z -= lift * Math.sin(f.pose.phi);
   }
-  out[offset] = x * MM_TO_SCENE;
+  out[offset] = (w.x - f.pose.width / 2) * MM_TO_SCENE;
   out[offset + 1] = y * MM_TO_SCENE;
-  out[offset + 2] = z * MM_TO_SCENE;
+  out[offset + 2] = (z + f.zCentre - LAYER[region] * f.layerShift) * MM_TO_SCENE;
 }
 
 export type PanelMesh = {
   id: BagPanelId;
   geometry: BufferGeometry;
-  /**
-   * Panel-local (u, v) in mm per vertex. Wall panels may later carry the bottom allowance strip at
-   * v ∈ [-allowance, 0) (domain `getWallPanelBounds`); `placePoint` already maps negative v straight down the wall,
-   * and UVs stay normalised to the visible wall (v < 0 → uv.y < 0). Not rendered yet (docs/PRODUCTION.md).
-   */
+  /** Panel-local (u, v) in mm per vertex. */
   local: Float32Array;
+  /** Index into REGION_IDS per vertex. */
   regions: Uint8Array;
 };
 
-type RegionPolygon = { region: Region; polygon: Polygon2 };
-
-const rect = (w: number, h: number): Polygon2 => [
-  { x: 0, y: 0 },
-  { x: w, y: 0 },
-  { x: w, y: h },
-  { x: 0, y: h },
-];
-
-function panelLayout(id: BagPanelId, d: Dimensions): { size: [number, number]; parts: RegionPolygon[] } {
+function panelSize(id: BagPanelId, d: Dimensions): [number, number] {
   switch (id) {
     case 'FRONT':
     case 'BACK':
-      return { size: [d.width, d.height], parts: [{ region: Region.FLAT, polygon: rect(d.width, d.height) }] };
+      return [d.width, d.height];
     case 'BOTTOM':
-      // u → +X, v → +Z (v = 0 at the back); seen from below, so the outward normal is −Y.
-      return { size: [d.width, d.depth], parts: [{ region: Region.FLAT, polygon: rect(d.width, d.depth) }] };
-    default: {
-      const { L, R, T } = getSidePanelRegions(d);
-      return {
-        size: [d.depth, d.height],
-        parts: [
-          { region: Region.L, polygon: L },
-          { region: Region.R, polygon: R },
-          { region: Region.T, polygon: T },
-        ],
-      };
-    }
+      return [d.width, d.depth];
+    default:
+      return [d.depth, d.height];
   }
 }
 
 /**
- * Non-indexed geometry (flat normals per region, so creases read as sharp folds). Side panels get one geometry
- * group per region (L, R, T — all material index 0) sharing the panel's continuous UV space.
+ * Non-indexed geometry (flat normals per region, so creases read as sharp folds). One geometry group per fold region
+ * (all material index 0), all sharing the panel's continuous UV space.
  */
 export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMesh {
-  const { size, parts } = panelLayout(id, dimensions);
-  const [sw, sh] = size;
+  const [sw, sh] = panelSize(id, dimensions);
   const local: number[] = [];
-  const regions: Region[] = [];
+  const regions: number[] = [];
   const geometry = new BufferGeometry();
-  for (const { region, polygon } of parts) {
+  for (const { id: region, polygon } of getPanelRegions(id, dimensions)) {
     const start = regions.length;
     for (let i = 1; i < polygon.length - 1; i++) {
       for (const p of [polygon[0], polygon[i], polygon[i + 1]]) {
         local.push(p.x, p.y);
-        regions.push(region);
+        regions.push(regionCode(region));
       }
     }
     geometry.addGroup(start, regions.length - start, 0);
@@ -197,59 +166,89 @@ export function updatePanelMesh(mesh: PanelMesh, frame: BagFrame) {
   const position = mesh.geometry.getAttribute('position') as BufferAttribute;
   const out = position.array as Float32Array;
   for (let i = 0; i < mesh.regions.length; i++) {
-    placePoint(mesh.id, mesh.regions[i] as Region, mesh.local[i * 2], mesh.local[i * 2 + 1], frame, out, i * 3);
+    placePoint(mesh.id, REGION_IDS[mesh.regions[i]], mesh.local[i * 2], mesh.local[i * 2 + 1], frame, out, i * 3);
   }
   position.needsUpdate = true;
   mesh.geometry.computeVertexNormals();
   mesh.geometry.computeBoundingSphere();
 }
 
-type LineSpec = { panel: BagPanelId; region: Region; from: [number, number]; to: [number, number] };
+export type LineSpec = {
+  panel: BagPanelId;
+  region: FoldRegionId;
+  from: [number, number];
+  to: [number, number];
+  /** mm off the outer surface (bottom underside lines only, so they don't show through from inside). */
+  lift?: number;
+};
 
-/** Panel boundary lines: 4 vertical wall edges, the open top rim and the bottom outline (14 segments). */
-export function getEdgeSpecs({ width: W, height: H, depth: D }: Dimensions): LineSpec[] {
-  const specs: LineSpec[] = [];
-  const add = (panel: BagPanelId, region: Region, from: [number, number], to: [number, number]) =>
-    specs.push({ panel, region, from, to });
-  for (const panel of ['FRONT', 'BACK'] as const) {
-    add(panel, Region.FLAT, [0, 0], [0, H]);
-    add(panel, Region.FLAT, [W, 0], [W, H]);
-    add(panel, Region.FLAT, [0, H], [W, H]);
-  }
+type Pt = [number, number];
+
+/** Line on `panel`, carried by the region containing its midpoint (segments never cross a crease). */
+function onRegion(panel: BagPanelId, regions: readonly PanelRegion[], from: Pt, to: Pt, lift?: number): LineSpec {
+  const mid = { x: (from[0] + to[0]) / 2, y: (from[1] + to[1]) / 2 };
+  const region = findRegion(regions, mid)?.id ?? regions[0].id;
+  return { panel, region, from, to, lift };
+}
+
+/**
+ * Panel boundary lines (same role as drei `Edges`): the four vertical wall edges (split at the BACK pleat), the open
+ * top rim and the bottom outline (which is also the bottom fold line of all four walls). 16 segments.
+ */
+export function getEdgeSpecs(d: Dimensions): LineSpec[] {
+  const { width: W, height: H, depth: D } = d;
+  const h = Math.min(D / 2, H);
+  const regionsOf = (panel: BagPanelId) => getPanelRegions(panel, d);
+  const front = regionsOf('FRONT');
+  const back = regionsOf('BACK');
+  const bottom = regionsOf('BOTTOM');
+  const specs: LineSpec[] = [
+    onRegion('FRONT', front, [0, 0], [0, H]),
+    onRegion('FRONT', front, [W, 0], [W, H]),
+    onRegion('FRONT', front, [0, H], [W, H]),
+    onRegion('BACK', back, [0, 0], [0, h]),
+    onRegion('BACK', back, [0, h], [0, H]),
+    onRegion('BACK', back, [W, 0], [W, h]),
+    onRegion('BACK', back, [W, h], [W, H]),
+    onRegion('BACK', back, [0, H], [W, H]),
+  ];
   for (const panel of ['LEFT', 'RIGHT'] as const) {
-    add(panel, Region.L, [0, H], [D / 2, H]);
-    add(panel, Region.R, [D / 2, H], [D, H]);
+    const side = regionsOf(panel);
+    specs.push(onRegion(panel, side, [0, H], [D / 2, H]), onRegion(panel, side, [D / 2, H], [D, H]));
   }
-  add('BOTTOM', Region.FLAT, [0, 0], [W, 0]);
-  add('BOTTOM', Region.FLAT, [W, 0], [W, D]);
-  add('BOTTOM', Region.FLAT, [W, D], [0, D]);
-  add('BOTTOM', Region.FLAT, [0, D], [0, 0]);
+  specs.push(
+    onRegion('BOTTOM', bottom, [0, 0], [W, 0]),
+    onRegion('BOTTOM', bottom, [W, 0], [W, D]),
+    onRegion('BOTTOM', bottom, [W, D], [0, D]),
+    onRegion('BOTTOM', bottom, [0, D], [0, 0]),
+  );
   return specs;
 }
 
-/** Side-panel crease lines from the domain helper (3 per side). */
-export function getCreaseSpecs(dimensions: Dimensions): LineSpec[] {
-  const { centre, left, right } = getSidePanelCreases(dimensions);
-  const pt = (s: Segment2): [[number, number], [number, number]] => [
-    [s.from.x, s.from.y],
-    [s.to.x, s.to.y],
-  ];
-  return (['LEFT', 'RIGHT'] as const).flatMap((panel) => {
-    const [c0, c1] = pt(centre);
-    const [l0, l1] = pt(left);
-    const [r0, r1] = pt(right);
-    return [
-      { panel, region: Region.CREASE, from: c0, to: c1 },
-      { panel, region: Region.L, from: l0, to: l1 },
-      { panel, region: Region.R, from: r0, to: r1 },
-    ];
-  });
+const toPts = (c: Crease): [Pt, Pt] => [
+  [c.segment.from.x, c.segment.from.y],
+  [c.segment.to.x, c.segment.to.y],
+];
+
+/**
+ * Crease lines from the domain: the BACK pleat, the side creases (centre, two 45°, pleat on the back half) and the
+ * lines on the bottom underside (flap seam + overlap edge, tuck diagonals, ear centre creases). 17 segments.
+ */
+export function getCreaseSpecs(d: Dimensions): LineSpec[] {
+  const specs: LineSpec[] = [];
+  for (const panel of ['BACK', 'LEFT', 'RIGHT'] as const) {
+    const regions = getPanelRegions(panel, d);
+    for (const c of getPanelCreases(panel, d)) specs.push(onRegion(panel, regions, ...toPts(c)));
+  }
+  const bottom = getPanelRegions('BOTTOM', d);
+  for (const c of getBottomCreases(d)) specs.push(onRegion('BOTTOM', bottom, ...toPts(c), BOTTOM_LINE_LIFT_MM));
+  return specs;
 }
 
 /** Writes line segments as [x1,y1,z1,x2,y2,z2, …] in scene units into `out` (length = specs.length · 6). */
 export function writeLineSegments(specs: readonly LineSpec[], frame: BagFrame, out: Float32Array) {
   specs.forEach((s, i) => {
-    placePoint(s.panel, s.region, s.from[0], s.from[1], frame, out, i * 6);
-    placePoint(s.panel, s.region, s.to[0], s.to[1], frame, out, i * 6 + 3);
+    placePoint(s.panel, s.region, s.from[0], s.from[1], frame, out, i * 6, s.lift);
+    placePoint(s.panel, s.region, s.to[0], s.to[1], frame, out, i * 6 + 3, s.lift);
   });
 }

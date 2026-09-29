@@ -2,23 +2,27 @@ import { Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { BackSide, FrontSide, type InterleavedBufferAttribute } from 'three';
-import type { Dimensions, PaperColor } from '../domain/types';
+import { FILL_PLACEMENT } from '../domain/artworkPlacement';
+import { getPanelSize } from '../domain/panels';
+import type { BagPanel, BagPanels, Dimensions, PaperColor } from '../domain/types';
 import {
+  BAG_PANEL_IDS,
   createPanelMesh,
   getBagFrame,
   getCreaseSpecs,
   getEdgeSpecs,
   updatePanelMesh,
   writeLineSegments,
-  BAG_PANEL_IDS,
   type BagFrame,
+  type PanelMesh,
 } from './bagGeometry';
-import { PAPER_PALETTES } from './constants';
+import { PAPER_PALETTES, type PaperPalette } from './constants';
+import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTransform } from './panelTexture';
 
 // Procedural block-bottom bag body. Face mapping (see bagGeometry.ts):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y; the top is open (no top face, no turn-in).
-// Each panel is its own mesh with its own outer material, so per-panel artwork can be attached later
-// (UVs are already laid out per panel, continuous across the side regions L, R, T).
+// Each panel is its own mesh with its own outer material, so every PanelPosition maps to exactly one artwork
+// texture (UVs continuous across the fold regions of the panel). The bottom has no artwork (plain paper).
 // TODO(3d-renderer): HandleModel (TWISTED_PAPER / FLAT_PAPER + inner patches) attached to FRONT/BACK.
 
 /** Exponential damping rate of the fold animation (1/s). Higher = snappier. */
@@ -30,6 +34,8 @@ type LineRef = ComponentRef<typeof Line>;
 type BagModelProps = {
   dimensions: Dimensions;
   paperColor: PaperColor;
+  /** Per-panel artwork and placement (from BagConfiguration). */
+  panels: BagPanels;
   /** Target fold state 0..1 (view state); the model animates towards it. */
   foldProgress: number;
 };
@@ -46,7 +52,52 @@ function writeLine(line: LineRef | null, specs: Parameters<typeof writeLineSegme
 const placeholderPoints = (segments: number) =>
   Array.from({ length: segments * 2 }, (): [number, number, number] => [0, 0, 0]);
 
-export function BagModel({ dimensions, paperColor, foldProgress }: BagModelProps) {
+const PAPER_MATERIAL = { roughness: 0.85, metalness: 0, envMapIntensity: 0.4 } as const;
+// Push faces back in depth so edge/crease lines drawn on them never z-fight.
+const POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } as const;
+const artworkProgramKey = () => ARTWORK_PROGRAM_KEY;
+
+type PanelViewProps = {
+  mesh: PanelMesh;
+  palette: PaperPalette;
+  dimensions: Dimensions;
+  panel: BagPanel | null;
+};
+
+/** One panel: outer face (artwork or paper) + inner face (always plain paper, visible through the open top). */
+function PanelView({ mesh, palette, dimensions, panel }: PanelViewProps) {
+  const artwork = panel?.artwork ?? null;
+  const texture = usePanelTexture(artwork?.fileUrl);
+  const panelSize = panel ? getPanelSize(panel.position, dimensions) : { width: 0, height: 0 };
+  usePanelUvTransform(texture, panelSize, artwork?.width ?? 0, artwork?.height ?? 0, panel?.placement ?? FILL_PLACEMENT);
+
+  return (
+    <group name={`panel-${mesh.id}`}>
+      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'outer' }}>
+        {texture ? (
+          // New material per texture: switching map on/off needs a shader recompile.
+          <meshStandardMaterial
+            key={texture.uuid}
+            color={palette.paper}
+            map={texture}
+            side={FrontSide}
+            onBeforeCompile={clipArtworkToImage}
+            customProgramCacheKey={artworkProgramKey}
+            {...PAPER_MATERIAL}
+            {...POLYGON_OFFSET}
+          />
+        ) : (
+          <meshStandardMaterial key="paper" color={palette.paper} side={FrontSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
+        )}
+      </mesh>
+      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'inner' }}>
+        <meshStandardMaterial color={palette.paper} side={BackSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
+      </mesh>
+    </group>
+  );
+}
+
+export function BagModel({ dimensions, paperColor, panels, foldProgress }: BagModelProps) {
   const { width, height, depth } = dimensions;
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
@@ -89,36 +140,16 @@ export function BagModel({ dimensions, paperColor, foldProgress }: BagModelProps
     pose(next);
   });
 
-  const paperMaterial = { roughness: 0.85, metalness: 0, envMapIntensity: 0.4 } as const;
-
   return (
     <group name="bag">
       {meshes.map((mesh) => (
-        <group key={mesh.id} name={`panel-${mesh.id}`}>
-          {/* Outer face — future per-panel artwork goes on this material. */}
-          <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'outer' }}>
-            <meshStandardMaterial
-              color={palette.paper}
-              side={FrontSide}
-              {...paperMaterial}
-              // Push faces back in depth so edge/crease lines drawn on them never z-fight.
-              polygonOffset
-              polygonOffsetFactor={1}
-              polygonOffsetUnits={1}
-            />
-          </mesh>
-          {/* Inner face (visible through the open top): plain paper, never artwork. */}
-          <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'inner' }}>
-            <meshStandardMaterial
-              color={palette.paper}
-              side={BackSide}
-              {...paperMaterial}
-              polygonOffset
-              polygonOffsetFactor={1}
-              polygonOffsetUnits={1}
-            />
-          </mesh>
-        </group>
+        <PanelView
+          key={mesh.id}
+          mesh={mesh}
+          palette={palette}
+          dimensions={dims}
+          panel={mesh.id === 'BOTTOM' ? null : panels[mesh.id]}
+        />
       ))}
 
       {/* Positions are rewritten in place every pose; bounding volumes are stale, so skip frustum culling. */}

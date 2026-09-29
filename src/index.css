@@ -168,6 +168,23 @@ legend { font-weight: 600; padding: 0 4px; }
 .fold-slider input[type='range'] { width: min(240px, 40vw); accent-color: var(--accent, #8a5a2b); }
 .fold-slider output { min-width: 3.5em; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted, #6b675e); }
 
+/* Preview mode switcher (segmented control, SPEC §4c) */
+.preview-stage__top {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 1;
+  max-width: calc(100% - 24px);
+}
+.preview-modes {
+  display: flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+}
+.preview-modes__option {
+  padding: 5px 12px; border: 0; border-radius: 999px; background: transparent; white-space: nowrap; font-size: 13px;
+}
+.preview-modes__option:hover:not(:disabled) { background: var(--surface-muted); }
+.preview-modes__option[aria-pressed='true'] { background: var(--accent); color: var(--accent-contrast); }
+
 /* Handle variant cards (step 2) */
 .variant-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 4px 0 8px; }
 .variant-card {

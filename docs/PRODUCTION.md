@@ -430,8 +430,8 @@ zakładki na długości `a` przy końcu dna, żeby ograniczyć grubość w dnie 
 
 C4 w praktyce biegnie przez cały rękaw (`Y ∈ [−a, H]`), bo tuber bigiuje fałdę na całej długości.
 Wewnątrz rombu (`|Y| < D/2`) jest jednak nieaktywny. W eksporcie SVG rysować go przez rombu tylko
-jako warstwę informacyjną [Z]. C8 jest formowany przy układaniu torby na płasko w bottomerze. Nie wiadomo,
-czy jest bigowany wcześniej na wstędze (§11).
+jako warstwę informacyjną [Z]. **C8 jest fizyczną linią bigowania [K]** (decyzja klienta, 29.09.2026) —
+rysowany na wykroju w warstwie bigów oraz w 3D, na całej szerokości BACK i na tylnych połówkach boków.
 
 **Strefy informacyjne (nie cięcie, nie big):** pas kleju klap dna: FRONT i BACK `Y ∈ [−a, −a+30]`.
 Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrznym [T]. Zakładka `s`.
@@ -651,7 +651,7 @@ Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D)
 3. **Szew wzdłużny**: na BACK (środek czy przesunięty)? Jaka szerokość zakładki (proponujemy 20 mm)?
 4. **Kolejność klap dna**: czy przednia klapa jest na wierzchu (zakładamy tak), czy tylna?
 5. **Na którą ściankę dno kładzie się w torbie płaskiej** (zakładamy BACK, z zawiasem na przednim bigu)?
-   Czy big `D/2` na tyle jest bigowany na wstędze, czy tylko formowany przy składaniu?
+   ~~Czy big `D/2` na tyle jest bigowany na wstędze?~~ Rozstrzygnięte: tak, to linia bigowania (C8) [K].
 6. **Strefy kleju dna**: tylko zakładka 30 mm, czy też uszy? Czy stosujecie łatę lub wkładkę dna?
 7. **Uchwyty bez zawinięcia górnego**: czy to realny wariant produkcyjny (wytrzymałość łatki przy
    krawędzi cięcia)? Minimalne W dla uchwytów skręcanych i płaskich? Wymiary łatki, rozstaw końców,
