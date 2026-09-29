@@ -296,7 +296,7 @@ export function DielineView() {
         await exportDielineSvgFile(scene, `${baseName}.svg`, svgTitle);
       } else {
         const { exportDielinePdfFile } = await import('./exportPdf');
-        await exportDielinePdfFile(scene, `${baseName}.pdf`, svgTitle);
+        await exportDielinePdfFile(scene, `${baseName}.pdf`, svgTitle, paper.color);
       }
     } catch {
       setExportError(true);
@@ -537,17 +537,22 @@ export function DielineView() {
                   fill={allowance.printed ? 'none' : DIELINE_STYLE.allowanceFill}
                 />
               ))}
-              {scene.zones.map((zone) => (
-                <rect
-                  key={zone.id}
-                  x={zone.x}
-                  y={zone.y}
-                  width={zone.width}
-                  height={zone.height}
-                  data-zone={zone.kind}
-                  {...ZONE_PROPS[zone.kind]}
-                />
-              ))}
+              {scene.zones.map((zone) =>
+                zone.points ? (
+                  <polygon key={zone.id} points={zone.points} data-zone={zone.kind} {...ZONE_PROPS[zone.kind]} />
+                ) : (
+                  <rect
+                    key={zone.id}
+                    x={zone.x}
+                    y={zone.y}
+                    width={zone.width}
+                    height={zone.height}
+                    data-zone={zone.kind}
+                    data-face={zone.face}
+                    {...(zone.face === 'REVERSE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
+                  />
+                ),
+              )}
               {scene.patches.map((patch) => (
                 <rect
                   key={patch.id}
@@ -570,8 +575,9 @@ export function DielineView() {
                   y1={line.y1}
                   x2={line.x2}
                   y2={line.y2}
-                  className="dl-crease"
+                  className={line.kind === 'MOUNTAIN' ? 'dl-crease dl-crease--mountain' : 'dl-crease dl-crease--valley'}
                   data-code={line.code}
+                  data-kind={line.kind}
                 />
               ))}
             </g>
@@ -664,13 +670,15 @@ export function DielineView() {
       <div className="dieline-view__footer">
         <ul className="dieline-view__legend">
           <li><span className="swatch swatch--cut" />{t('dieline.legend.cut')}</li>
-          <li><span className="swatch swatch--crease" />{t('dieline.legend.crease')}</li>
+          <li><span className="swatch swatch--crease" />{t('dieline.legend.creaseValley')}</li>
+          <li><span className="swatch swatch--crease-mountain" />{t('dieline.legend.creaseMountain')}</li>
           <li><span className="swatch swatch--patch" />{t('dieline.legend.patch')}</li>
           <li><span className="swatch swatch--bleed" />{t('dieline.legend.bleed')}</li>
           <li><span className="swatch swatch--safety" />{t('dieline.legend.safety')}</li>
           <li><span className="swatch swatch--allowance" />{t('dieline.legend.allowance')}</li>
           <li><span className="swatch swatch--allowance-printed" />{t('dieline.legend.allowancePrinted')}</li>
           <li><span className="swatch swatch--glue" />{t('dieline.legend.glue')}</li>
+          <li><span className="swatch swatch--glue-reverse" />{t('dieline.legend.glueReverse')}</li>
         </ul>
         <p className="dieline-view__hint">{hasArtwork ? t('dieline.edit.hint') : t('dieline.empty')}</p>
       </div>

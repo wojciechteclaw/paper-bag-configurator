@@ -238,3 +238,51 @@ export const PRINT_COVERAGE_RULES = {
   /** Artwork is decoded once per file into a canvas of at most this many px on the long side. */
   sampleMaxSidePx: 256,
 } as const;
+
+/**
+ * Colours actually present in the placed artwork (docs/SPEC.md §4d, "Kolory w grafikach"). Ink pixels are sampled
+ * like the ink coverage (same rules above), binned, merged agglomeratively in CIELAB (CIEDE2000) with the
+ * user-set `ColorAnalysisSettings`; see `artworkPalette.ts` for the algorithm.
+ */
+export const ARTWORK_PALETTE_RULES = {
+  /** Histogram resolution: bits kept per sRGB channel (5 → 32 768 bins); lowered automatically for photos. */
+  binBits: 5,
+  /** Upper bound of non-empty bins entering the agglomerative merge (bits are reduced until it holds). */
+  maxWorkingBins: 512,
+  /** At most this many colours are listed; the rest is reported as "other". */
+  maxColors: 16,
+  /**
+   * Anti-aliasing: a shade within this sRGB distance (0–255 per channel, Euclidean) of the straight segment between
+   * two larger colours (or a colour and the white paper) is a blend of them and goes to the nearer one.
+   */
+  edgeMaxDistance: 12,
+  /** …only when its area is at most this fraction of the smaller of the two colours (a real third colour is larger). */
+  edgeMaxAreaRatio: 0.1,
+  /** A colour under the minimum share is absorbed by the nearest listed colour within `tolerance × this` ΔE00. */
+  minorAbsorbFactor: 2,
+} as const;
+
+/** Defaults of `PrintSpec.colorAnalysis` (client decision 29.09.2026: merge similar colours). */
+export const COLOR_ANALYSIS_DEFAULTS = {
+  /** CIEDE2000 ΔE00 — ≈ 10 merges JPEG noise, gradients of one ink and anti-aliasing, keeps distinct inks apart. */
+  mergeTolerance: 10,
+  /** 0.5 % of the total ink. */
+  minAreaShare: 0.005,
+} as const;
+
+/** UI / normalisation limits of `PrintSpec.colorAnalysis`. */
+export const COLOR_ANALYSIS_LIMITS = {
+  mergeTolerance: { min: 0, max: 30, step: 1 },
+  minAreaShare: { min: 0, max: 0.05 },
+  /** Options of the "minimum spot size" select (share of the total ink). */
+  minAreaShareOptions: [0, 0.001, 0.0025, 0.005, 0.01, 0.02] as readonly number[],
+} as const;
+
+/**
+ * Preview colour of the bare paper (sRGB hex) — the single source for the 3D paper material and for flattening
+ * transparent artwork onto the paper in the PDF exports (approximation of the stock, not a print specification).
+ */
+export const PAPER_PREVIEW_COLORS: Record<PaperColor, string> = {
+  WHITE: '#f4f2ec',
+  BROWN: '#b88a5a',
+};

@@ -5,7 +5,11 @@
   "app": {
     "title": "Bag configurator",
     "configuration": "Configuration",
-    "preview": "3D preview"
+    "preview": "3D preview",
+    "demo": "Demo",
+    "demoBusy": "Loading…",
+    "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, flat handle, \"wave\" artwork on all walls, extended to the bottom",
+    "demoError": "The demo artwork could not be loaded."
   },
   "steps": {
     "navLabel": "Configurator steps",
@@ -176,10 +180,22 @@
     "moistureBarrier": "moisture barrier"
   },
   "preview": {
-    "fold": "Fold",
+    "fold": "Assembly & fold",
+    "play": "Play assembly",
+    "pause": "Pause",
+    "phase": {
+      "SHEET": "Flat sheet",
+      "TUBE": "A: forming the tube",
+      "TRIANGLES": "B: side triangles in",
+      "FRONT_FLAP": "C1: front flap onto the bottom",
+      "BACK_FLAP": "C2: back flap on top (glued)",
+      "FORMED": "Formed bag",
+      "FOLD": "Folding flat"
+    },
     "modesLabel": "Preview mode",
     "modes": {
       "DIELINE": "Dieline",
+      "SHEET": "Sheet",
       "BOX": "3D box",
       "STANDING": "3D standing",
       "FLAT": "Flat"

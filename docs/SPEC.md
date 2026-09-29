@@ -91,7 +91,15 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
 
 ### 4a. Podgląd złożenia (wywiad, 29.09.2026)
 
-Suwak **„Złożenie” 0–100%** pokazuje przejście od torby rozłożonej (0%) do złożonej na płasko (100%).
+Suwak **„Składanie” 0–100%** to jedna ciągła oś czasu (decyzja klienta 29.09.2026): **płaski arkusz (0 %)** → rękaw
+(faza A) → trójkąty boków do środka (B) → klapa przednia (C1) → klapa tylna na wierzch (C2) → **uformowana torba
+(40 %, „3D pełne”)** → stojąca (55 %) → **złożona na płasko (100 %)**. Część 0–40 % to składanie z arkusza
+(`assemblyKinematics.ts`, `docs/PRODUCTION.md` §10.8), część 40–100 % to dotychczasowe złożenie na płasko (§10.5,
+przemapowane). Podział 40/60 trzyma wszystkie presety na siatce 1 % (0 / 0,4 / 0,55 / 1). Obok suwaka nazwa bieżącego
+etapu i przycisk odtwórz / pauza (cała oś w ok. 14 s; odtwarzanie z końca zaczyna od arkusza). W stanie widoku
+(`previewStore`) jest jedna wartość `progress`; `getTimelineState` wylicza z niej postęp składania, postęp złożenia i etap.
+W fazach B–C trójkąty i klapy zamykają się razem (narożnik „ciągnie” obie ścianki — bez rozcinania papieru), klapa
+przednia lekko przodem, tylna na końcu na wierzchu.
 
 Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `depth × height`:
 
@@ -125,12 +133,13 @@ Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `de
 
 Przełącznik trybów w panelu podglądu:
 
-1. **Wykrój 2D** — płaski arkusz z grafikami (podgląd + edycja: przesuwanie/skalowanie grafiki na ściance).
-2. **3D pełne** — prostopadłościan (foldProgress = 0).
-3. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (krok suwaka 1%). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
-4. **3D złożona na płasko** — foldProgress = 1.
+1. **Wykrój 2D** — płaski arkusz z grafikami (podgląd + edycja: przesuwanie/skalowanie grafiki na ściance). Osobny widok, poza osią czasu.
+2. **Arkusz** — wykrój w 3D, wszystkie ścianki w jednej płaszczyźnie, grafika widoczna (początek osi czasu, 0 %).
+3. **3D pełne** — uformowana torba, prostopadłościan (koniec składania z arkusza, 40 %; foldProgress = 0).
+4. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (na osi czasu: 0,4 + 0,6 · 0,25 = **55 %**). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
+5. **3D złożona na płasko** — foldProgress = 1 (100 %).
 
-Przełączenie trybu 3D animuje przejście. **Suwak złożenia zostaje jako dodatek** (tylko w trybach 3D): płynny podgląd całego składania; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane na razie **per ścianka**.
+Tryby 3D to **presety na osi czasu**; przełączenie animuje przejście przez wszystkie etapy pomiędzy (np. z „Złożona” do „Arkusz”). **Suwak** (tylko w trybach 3D) pozwala przejść całą oś płynnie; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane na razie **per ścianka**.
 
 ### 4d. Pokrycie farbą (wywiad 29.09.2026)
 
@@ -150,16 +159,23 @@ W kroku **Grafiki**, aktualizowane na żywo:
 - UI: próbka każdej grafiki dekodowana raz na `fileUrl` (maks. 256 px na dłuższym boku, `createImageBitmap` z przeskalowaniem, cache), przeliczenie z opóźnieniem 200 ms w `requestIdleCallback`.
 - Ograniczenia: fotografie / przejścia tonalne są przypisywane „na najbliższy kolor” (bez rastra i nakładania farb), więc suma per kolor = pokrycie łączne i nie przekracza 100 %; biała farba pod innymi kolorami na brązowym papierze (podkład) nie jest liczona osobno.
 
+**Kolory w grafikach (HEX) — łączenie podobnych kolorów (decyzja klienta 29.09.2026):**
+
+- Problem: surowe piksele zawierają wiele prawie identycznych odcieni (wygładzanie krawędzi, kompresja JPEG, przejścia tonalne, drobne plamki). Rozwiązanie: łączenie podobnych kolorów, sterowane ustawieniem zapisanym w konfiguracji `PrintSpec.colorAnalysis = { mergeTolerance, minAreaShare }` (domyślnie `COLOR_ANALYSIS_DEFAULTS`: ΔE00 10 i 0,5 % farby; brak pola w starszych danych → wartości domyślne przez `normalizeColorAnalysis`; akcja store `setColorAnalysis`, wartości przycinane do `COLOR_ANALYSIS_LIMITS`). Te same wartości trafiają do tabeli w UI, do Podsumowania / JSON i do eksportu PDF / Excel (parametry + uwaga pod tabelą kolorów z użytą tolerancją i „N odcieni połączono w M kolorów”).
+- Algorytm `computeArtworkPalette` (deterministyczny): (1) próbkowanie jak w pokryciu farbą, każdy odrębny kolor sRGB = „odcień” z powierzchnią; (2) histogram (5 bitów/kanał, zmniejszany do ≤ 512 niepustych komórek dla fotografii); (3) **łączenie aglomeracyjne**: najbliższa para grup łączona, dopóki jej **CIEDE2000 ΔE00** < tolerancja; kolor grupy = średnia Lab ważona powierzchnią (ΔE00 zamiast CIE76, bo jedna tolerancja działa podobnie dla kolorów nasyconych i szarości); (4) **krawędzie wygładzane** (tolerancja > 0): odcień leżący w sRGB na odcinku między dwoma znacznie większymi kolorami (lub kolorem a białym papierem) to ich mieszanka — przypisany do bliższego końca; prawdziwy trzeci kolor chroni jego wielkość (> 10 % mniejszego z końców); (5) kolory < minimalnej plamy dołączają do najbliższego koloru z listy w promieniu 2 × tolerancja ΔE00, inaczej trafiają do „inne” (przy tolerancji 0 zawsze do „inne” — dawne zachowanie); (6) maks. 16 kolorów. **HEX** to rzeczywisty kolor piksela: najczęstszy odcień grupy w promieniu max(2, tolerancja / 2) ΔE00 od średniej (albo odcień najbliższy średniej). Nazwa najbliższego Pantone jak dotąd (ΔE76 do podglądu).
+- UI (sekcja „Kolory w grafikach (HEX)” w panelu pokrycia): suwak „Łączenie podobnych kolorów” 0–30 ΔE00 („dokładnie” ↔ „mocno łącz”), lista „Minimalna plama koloru” (bez limitu, 0,1 %, 0,25 %, 0,5 %, 1 %, 2 % farby), komunikat „12 odcieni połączono w 4 kolory”; przeliczenie na żywo z tym samym opóźnieniem (zmiana tylko ustawień przelicza samą paletę).
+
 ### 4b. Wykrój (dieline) — wywiad 29.09.2026
 
 Płaski rozkład arkusza jednej torby generowany z konfiguracji.
 
-- **Wyjścia:** podgląd 2D w UI (obok / zamiennie z 3D), eksport **SVG** (warstwy: cięcie, bigowanie, grafika, oznaczenia), eksport **PDF** (skala 1:1, mm).
+- **Wyjścia:** podgląd 2D w UI (obok / zamiennie z 3D), eksport **SVG** (warstwy wg klienta: `cut` — czerwona linia, `crease_valley`, `crease_mountain`, `glue`, `print` — grafika, oraz `annotations`; bigi V / M widziane od strony druku, `docs/PRODUCTION.md` §9.3), eksport **PDF** (skala 1:1, mm).
 - **Geometria:**
   - ścianki w rzędzie rękawa w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka klejowa wzdłużna** (BACK w jednym kawałku); **szew na krawędzi rękawa między BACK a LEFT**, **zakładka 10 mm** doczepiona do zewnętrznej krawędzi BACK i klejona do wolnej krawędzi LEFT — decyzja klienta (29.09.2026), stała w `productionRules.ts`; szczegóły w `docs/PRODUCTION.md` §9 (np. 200 × 400 × 150 → arkusz 710 × 490 mm),
   - wysokość arkusza = `H + (D + 30) / 2` (zapas na dno pod każdą ścianką),
   - linie bigowania: krawędzie ścianek, linia dna, bigi fałd bocznych (środek + 45°), bigi klap dna wg `docs/PRODUCTION.md`,
-  - linie cięcia: obrys arkusza (+ ewentualne nacięcia klap dna).
+  - linie cięcia: obrys arkusza z **końcami zakładki klejowej ściętymi pod 45°** [K] (bez nacięć klap dna),
+  - klej dna: pas OV = 30 mm na końcu rękawa; klapa tylna na wierzchu [K], więc klej na stronie zadrukowanej klapy przedniej.
 - **Grafiki:** wgrane grafiki nałożone na swoje ścianki (ten sam tryb `ArtworkPlacement` co w 3D), przełącznik pokaż/ukryj; widać, co wchodzi w dno i zakładkę.
 - **Oznaczenia:** linie wymiarowe (W, D, H, zapas na dno, zakładka), spad i strefa bezpieczna, nazwy ścianek, obrys łatek uchwytów na przodzie i tyle.
 - **Architektura:** geometria wykroju to czysta funkcja domenowa (`src/domain/dieline`), jedno źródło prawdy dla podglądu, SVG i PDF; widok 2D i eksporty są osobnymi adapterami.

@@ -26,7 +26,10 @@ describe('DielineView', () => {
     const { container } = render(<DielineView />);
     expect(screen.getByRole('img', { name: /arkusz 710 × 490 mm/ })).toBeInTheDocument();
     expect(container.querySelectorAll('[data-layer="cut"] path')).toHaveLength(1);
-    expect(container.querySelectorAll('[data-layer="crease"] [data-code="C8"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-layer="crease"] [data-code="C8"]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-layer="crease"] .dl-crease--mountain').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('[data-layer="crease"] .dl-crease--valley').length).toBeGreaterThan(0);
+    expect(container.querySelector('polygon[data-zone="GLUE_FLAP"]')).not.toBeNull();
     expect(screen.getByText('W 200 mm')).toBeInTheDocument();
     expect(screen.getByText('PRZÓD')).toBeInTheDocument();
     expect(screen.getByText(/Brak grafik/)).toBeInTheDocument();

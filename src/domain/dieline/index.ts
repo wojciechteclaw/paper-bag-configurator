@@ -1,3 +1,3 @@
 export * from './types';
-export { buildDieline, getArtworkClipRect, getHandlePatchSize, panelToSheet, sheetToPanel } from './buildDieline';
+export { buildDieline, CREASE_FOLDS, getArtworkClipRect, getHandlePatchSize, panelToSheet, sheetToPanel } from './buildDieline';
 export type { DielineOptions } from './buildDieline';

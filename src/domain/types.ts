@@ -133,10 +133,23 @@ export type PantoneColor = {
   hex: string;
 };
 
+/**
+ * How the colours detected in the artwork ("Kolory w grafikach", docs/SPEC.md §4d) are grouped. Stored with the
+ * configuration so the live table and the PDF / Excel exports use the same values.
+ */
+export type ColorAnalysisSettings = {
+  /** Shades closer than this CIEDE2000 ΔE00 are merged into one colour; 0 = no merging. */
+  mergeTolerance: number;
+  /** Colours with less than this share (0–1) of the total ink are absorbed into the nearest listed colour or "other". */
+  minAreaShare: number;
+};
+
 /** Print spec. Empty `pantoneColors` = unprinted bag. */
 export type PrintSpec = {
   technology: PrintTechnology;
   pantoneColors: PantoneColor[];
+  /** Missing in data saved before 29.09.2026 — read it through `normalizeColorAnalysis`. */
+  colorAnalysis: ColorAnalysisSettings;
 };
 
 export type PackagingType = 'CARTON' | 'FOIL';

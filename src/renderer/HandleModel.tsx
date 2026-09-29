@@ -1,14 +1,20 @@
+import { Line } from '@react-three/drei';
 import { useEffect, useMemo } from 'react';
-import { DoubleSide, type BufferGeometry, type Group } from 'three';
+import { Color, DoubleSide, type BufferGeometry, type Group } from 'three';
 import { getHandleLayout } from '../domain/geometry/handles';
-import type { Dimensions, Handle } from '../domain/types';
+import type { Dimensions, Handle, PaperColor } from '../domain/types';
+import { PAPER_PALETTES } from './constants';
 import {
   createPatchGeometry,
+  createPatchOutlinePoints,
+  createPatchShadowGeometry,
   createRopeGeometry,
   createStripGeometry,
   createTwistTexture,
   HANDLE_POLYGON_OFFSET,
   HANDLE_WALLS,
+  PATCH_SHADOW,
+  PATCH_TONE,
   handleHalfExtent,
   handleStackThickness,
   twistRepeat,
@@ -24,6 +30,8 @@ export type HandleWallGroups = Record<HandleWall, Group | null>;
 type HandleModelProps = {
   handle: Handle;
   dimensions: Dimensions;
+  /** Handle and patch paper colour — follows the bag paper (`getHandlePaperColor`). */
+  paperColor: PaperColor;
   /** Filled with the two wall groups; BagModel writes their transforms (userData.stackThickness / halfExtent in mm). */
   wallGroups: { current: HandleWallGroups };
 };
@@ -32,7 +40,7 @@ type HandleModelProps = {
 // the handle and patch never show through FRONT / BACK / the gussets from outside.
 const HANDLE_MATERIAL = { roughness: 0.9, metalness: 0, envMapIntensity: 0.35, ...HANDLE_POLYGON_OFFSET } as const;
 
-export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps) {
+export function HandleModel({ handle, dimensions, paperColor, wallGroups }: HandleModelProps) {
   const { type, width: handleWidth, length, color, patch } = handle;
   const { width, height, depth } = dimensions;
   const patchW = patch?.width;
@@ -58,15 +66,18 @@ export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps
 
   const built = useMemo(() => {
     const patchGeometry = createPatchGeometry(layout);
+    const shadowGeometry = createPatchShadowGeometry(layout);
+    const outline = createPatchOutlinePoints(layout);
     if (layout.params.type === 'TWISTED_PAPER') {
       const rope = createRopeGeometry(layout);
-      return { patchGeometry, handleGeometry: rope.geometry as BufferGeometry, ropeLength: rope.length };
+      return { patchGeometry, shadowGeometry, outline, handleGeometry: rope.geometry as BufferGeometry, ropeLength: rope.length };
     }
-    return { patchGeometry, handleGeometry: createStripGeometry(layout), ropeLength: 0 };
+    return { patchGeometry, shadowGeometry, outline, handleGeometry: createStripGeometry(layout), ropeLength: 0 };
   }, [layout]);
   useEffect(
     () => () => {
       built.patchGeometry.dispose();
+      built.shadowGeometry.dispose();
       built.handleGeometry.dispose();
     },
     [built],
@@ -82,7 +93,9 @@ export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps
 
   const stackThickness = handleStackThickness(layout);
   const halfExtent = handleHalfExtent(layout);
-  const handleColor = layout.params.color;
+  const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.BROWN;
+  const handleColor = palette.paper;
+  const patchColor = useMemo(() => '#' + new Color(palette.paper).multiplyScalar(PATCH_TONE).getHexString(), [palette.paper]);
 
   return (
     <group name="handles">
@@ -113,8 +126,12 @@ export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps
             )}
           </mesh>
           <mesh geometry={built.patchGeometry} frustumCulled={false} userData={{ patch: wall }}>
-            <meshStandardMaterial color={handleColor} side={DoubleSide} {...HANDLE_MATERIAL} />
+            <meshStandardMaterial color={patchColor} side={DoubleSide} {...HANDLE_MATERIAL} />
           </mesh>
+          <mesh geometry={built.shadowGeometry} frustumCulled={false} renderOrder={1} userData={{ patchShadow: wall }}>
+            <meshBasicMaterial color="#000000" transparent opacity={PATCH_SHADOW.opacity} depthWrite={false} side={DoubleSide} {...HANDLE_POLYGON_OFFSET} />
+          </mesh>
+          <Line points={built.outline} color={palette.edge} lineWidth={1} frustumCulled={false} />
         </group>
       ))}
     </group>

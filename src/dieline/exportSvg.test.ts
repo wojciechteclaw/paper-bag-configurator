@@ -3,7 +3,7 @@ import { containPlacement, fillPlacement } from '../domain/artworkPlacement';
 import { buildDieline } from '../domain/dieline';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import { buildDielineSvg } from './exportSvg';
-import { buildDielineScene } from './scene';
+import { buildDielineScene, DIMENSION_TEXT_SIZE } from './scene';
 
 function scene(withArtwork = true) {
   const configuration = createConfiguration('BLOCK');
@@ -31,26 +31,45 @@ describe('buildDielineSvg', () => {
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
     expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
     const root = doc.documentElement;
-    // Sheet 710 × 490 + margins 34/8 → viewBox and physical size agree 1:1.
-    expect(root.getAttribute('viewBox')).toBe('-34 -34 752 532');
-    expect(root.getAttribute('width')).toBe('752mm');
-    expect(root.getAttribute('height')).toBe('532mm');
+    // Sheet 710 × 490 + margins 51/8 → viewBox and physical size agree 1:1.
+    expect(root.getAttribute('viewBox')).toBe('-51 -51 769 549');
+    expect(root.getAttribute('width')).toBe('769mm');
+    expect(root.getAttribute('height')).toBe('549mm');
     const layers = [...root.querySelectorAll('g[id]')].filter((g) => g.parentElement === root);
     expect(layers.map((g) => [g.id, g.getAttribute('inkscape:label')])).toEqual([
-      ['artwork', 'Artwork'],
-      ['annotations', 'Annotations'],
-      ['crease', 'Crease'],
-      ['cut', 'Cut'],
+      ['print', 'print'],
+      ['annotations', 'annotations'],
+      ['glue', 'glue'],
+      ['crease_valley', 'crease_valley'],
+      ['crease_mountain', 'crease_mountain'],
+      ['cut', 'cut'],
     ]);
-    expect(root.querySelector('#cut path')?.getAttribute('d')).toBe('M0 490 L710 490 L710 0 L0 0 Z');
-    expect(root.querySelectorAll('#crease line').length).toBeGreaterThan(10);
+    // Sheet outline with the glue flap chamfered 45° at both ends [K] (SVG y down: tube end at 490), red stroke.
+    const cut = root.querySelector('#cut path')!;
+    expect(cut.getAttribute('d')).toBe('M0 490 L700 490 L710 480 L710 10 L700 0 L0 0 Z');
+    expect(cut.getAttribute('stroke')).toBe('#e1001a');
+    const valley = [...root.querySelectorAll('#crease_valley line')];
+    const mountain = [...root.querySelectorAll('#crease_mountain line')];
+    expect(valley.length + mountain.length).toBeGreaterThan(10);
+    expect(valley.every((l) => l.getAttribute('data-kind') === 'VALLEY')).toBe(true);
+    expect(mountain.every((l) => l.getAttribute('data-kind') === 'MOUNTAIN')).toBe(true);
+    // Gusset centre (C4) and 45° diagonals (C6) are mountains; tube edges (C2) and the bottom line (C1) valleys.
+    expect(mountain.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C4', 'C6']));
+    expect(valley.map((l) => l.getAttribute('data-code'))).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C7']));
+    // Distinguishable styles.
+    expect(valley[0].getAttribute('stroke-dasharray')).not.toBe(mountain[0].getAttribute('stroke-dasharray'));
+    // Glue layer: chamfered glue flap polygon + bottom glue bands (print side on FRONT, inside face on BACK).
+    expect(root.querySelector('#glue polygon#glue-flap')?.getAttribute('points')).toBe('700,490 710,480 710,10 700,0');
+    expect(root.querySelector('#bottom-flap-glue-FRONT')?.getAttribute('data-face')).toBe('PRINT');
+    expect(root.querySelector('#bottom-flap-glue-BACK')?.getAttribute('data-face')).toBe('REVERSE');
+    expect(root.querySelector('#bottom-flap-glue-BACK')?.getAttribute('fill')).toBe('none');
     expect(root.querySelector('title')?.textContent).toBe('Bag <1>');
   });
 
   it('embeds artwork (replaced hrefs), clipped per panel column', () => {
     const svg = buildDielineSvg(scene(), { hrefs: { 'blob:front': 'data:image/png;base64,AAAA' } });
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
-    const images = [...doc.querySelectorAll('#artwork image')];
+    const images = [...doc.querySelectorAll('#print image')];
     expect(images).toHaveLength(2); // FRONT + BACK (one whole column)
     expect(doc.querySelector('#artwork-FRONT')?.getAttribute('href')).toBe('data:image/png;base64,AAAA');
     // Not embedded → original href kept.
@@ -134,5 +153,43 @@ describe('PDF text safety', () => {
   it('transliterates Polish letters outside WinAnsi for jsPDF standard fonts', async () => {
     const { toWinAnsi } = await import('./exportPdf');
     expect(toWinAnsi('TYŁ ½ — łatka, PRZÓD, zakładka')).toBe('TYL ½ - latka, PRZÓD, zakladka');
+  });
+});
+
+describe('dieline annotations (client feedback)', () => {
+  const configuration = createConfiguration('BLOCK');
+  const scene = buildDielineScene(buildDieline(configuration), configuration.panels, {
+    label: (key) => key,
+    dimension: (key) => key,
+  });
+
+  it('draws dimensions with the enlarged (5×) text', () => {
+    expect(DIMENSION_TEXT_SIZE).toBe(17.5);
+    expect(scene.dimensions.length).toBeGreaterThan(0);
+    expect(scene.dimensions.every((d) => d.text.size === DIMENSION_TEXT_SIZE)).toBe(true);
+  });
+
+  it('keeps every dimension text inside the sheet extent and the two tiers apart', () => {
+    const approxLength = (text: string) => text.length * DIMENSION_TEXT_SIZE * 0.56;
+    for (const d of scene.dimensions) {
+      const length = approxLength(d.text.text);
+      if (d.text.rotate) {
+        expect(d.text.y - length / 2).toBeGreaterThanOrEqual(-0.001);
+        expect(d.text.y + length / 2).toBeLessThanOrEqual(scene.sheet.height + 0.001);
+      } else {
+        expect(d.text.x - length / 2).toBeGreaterThanOrEqual(-0.001);
+        expect(d.text.x + length / 2).toBeLessThanOrEqual(scene.sheet.width + 0.001);
+      }
+    }
+    const width = scene.dimensions.find((d) => d.key === 'width')!;
+    const sheetWidth = scene.dimensions.find((d) => d.key === 'sheetWidth')!;
+    // Outer tier line sits above the inner tier text (baseline − cap height).
+    expect(width.text.y - DIMENSION_TEXT_SIZE * 0.75).toBeGreaterThan(sheetWidth.line.y1);
+    // The whole outer tier text fits in the drawing (viewBox top).
+    expect(sheetWidth.text.y - DIMENSION_TEXT_SIZE * 0.75).toBeGreaterThanOrEqual(scene.viewBox[1]);
+  });
+
+  it('labels only the panels — no allowance / flap / glue flap descriptions', () => {
+    expect(scene.labels.map((l) => l.text).sort()).toEqual(['BACK', 'FRONT', 'LEFT', 'RIGHT']);
   });
 });

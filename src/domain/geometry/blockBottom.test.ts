@@ -130,8 +130,8 @@ describe('block bottom', () => {
 
   it('lists seam, overlap edge, tuck diagonals and ear creases on the underside', () => {
     const creases = getBottomCreases(dims);
-    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_SEAM')!.segment.from.y).toBe(60);
-    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_OVERLAP')!.segment.from.y).toBe(90);
+    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_SEAM')!.segment.from.y).toBe(90); // outer BACK flap edge [K]
+    expect(creases.find((c) => c.kind === 'BOTTOM_FLAP_OVERLAP')!.segment.from.y).toBe(60);
     expect(creases.filter((c) => c.kind === 'BOTTOM_TUCK_DIAGONAL')).toHaveLength(4);
     const ears = creases.filter((c) => c.kind === 'BOTTOM_EAR_CENTRE');
     expect(ears.map((c) => c.segment.from.x).sort((a, b) => a - b)).toEqual([75, 125]);
@@ -184,9 +184,12 @@ describe('bottom pieces in their wall artwork space (SPEC §4f)', () => {
     near(pieces.EAR_RIGHT_FRONT.toPanel({ x: 180, y: 130 }), pieces.TUCK_RIGHT.toPanel({ x: 180, y: 130 }));
   });
 
-  it('shows only the two flaps from below, covering the whole bottom', () => {
+  it('shows only the two flaps from below (BACK flap outermost, client rule), covering the whole bottom', () => {
     const visible = getVisibleBottomPieces(d);
-    expect(visible.map((p) => p.id)).toEqual(['FRONT_FLAP', 'BACK_FLAP']);
+    expect(visible.map((p) => p.id)).toEqual(['BACK_FLAP', 'FRONT_FLAP']);
+    expect(getBottomPieces(d).find((p) => p.id === 'BACK_FLAP')!.layer).toBe(0);
+    expect(visible[0].polygon.map((p) => p.y).sort((x, y) => x - y)).toEqual([0, 0, a, a]);
+    expect(visible[1].polygon.map((p) => p.y).sort((x, y) => x - y)).toEqual([a, a, 150, 150]);
     expect(visible.reduce((sum, p) => sum + Math.abs(polygonArea(p.polygon)), 0)).toBeCloseTo(200 * 150);
   });
 });

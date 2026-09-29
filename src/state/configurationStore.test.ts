@@ -3,7 +3,8 @@ import { DEFAULT_PLACEMENT } from '../domain/artworkPlacement';
 import { ARTWORK_EXTEND_TO_BOTTOM_DEFAULT } from '../domain/config/productionRules';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import { validateDimensions } from '../domain/validation/dimensions';
-import { BAG_TYPES } from '../domain/config/productCatalog';
+import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, COLOR_ANALYSIS_LIMITS } from '../domain/config/productCatalog';
+import type { PrintSpec } from '../domain/types';
 import { useConfigurationStore } from './configurationStore';
 import { CONFIGURATOR_STEPS, useConfiguratorUiStore } from './configuratorUiStore';
 import { usePreviewStore } from './previewStore';
@@ -320,6 +321,25 @@ describe('print and packaging', () => {
     store().setPackaging('FOIL');
     expect(config().packaging).toBe('FOIL');
   });
+
+  it('starts with the catalog colour-analysis defaults and sets / clamps them', () => {
+    expect(config().print.colorAnalysis).toEqual(COLOR_ANALYSIS_DEFAULTS);
+    store().setColorAnalysis({ mergeTolerance: 4 });
+    expect(config().print.colorAnalysis).toEqual({ mergeTolerance: 4, minAreaShare: COLOR_ANALYSIS_DEFAULTS.minAreaShare });
+    store().setColorAnalysis({ minAreaShare: 0.01 });
+    expect(config().print.colorAnalysis).toEqual({ mergeTolerance: 4, minAreaShare: 0.01 });
+    store().setColorAnalysis({ mergeTolerance: 99, minAreaShare: -1 });
+    expect(config().print.colorAnalysis).toEqual({ mergeTolerance: COLOR_ANALYSIS_LIMITS.mergeTolerance.max, minAreaShare: 0 });
+    store().setColorAnalysis({ mergeTolerance: Number.NaN });
+    expect(config().print.colorAnalysis.mergeTolerance).toBe(COLOR_ANALYSIS_DEFAULTS.mergeTolerance);
+  });
+
+  it('migrates configurations saved without colour-analysis settings', () => {
+    const { colorAnalysis: _omitted, ...legacyPrint } = config().print;
+    useConfigurationStore.setState({ configuration: { ...config(), print: legacyPrint as PrintSpec } });
+    store().setColorAnalysis({ minAreaShare: 0.02 });
+    expect(config().print.colorAnalysis).toEqual({ mergeTolerance: COLOR_ANALYSIS_DEFAULTS.mergeTolerance, minAreaShare: 0.02 });
+  });
 });
 
 describe('setProductType', () => {
@@ -355,10 +375,11 @@ describe('configurator UI store', () => {
 });
 
 describe('fold preview state (docs/SPEC.md §4a/§4c)', () => {
-  it('foldProgress never appears on the configuration or its JSON serialisation', () => {
-    usePreviewStore.getState().setFoldProgress(0.42);
+  it('the preview timeline never appears on the configuration or its JSON serialisation', () => {
+    usePreviewStore.getState().setProgress(0.42);
     expect(config()).not.toHaveProperty('foldProgress');
+    expect(config()).not.toHaveProperty('progress');
     const json = JSON.stringify(config());
-    expect(json).not.toMatch(/foldProgress/);
+    expect(json).not.toMatch(/foldProgress|"progress"/);
   });
 });

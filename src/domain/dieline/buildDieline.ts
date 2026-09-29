@@ -5,6 +5,8 @@ import { DIELINE_RULES } from '../config/productionRules';
 import { getBottomAllowance } from '../geometry/tube';
 import type { BagConfiguration, Handle, PanelPosition } from '../types';
 import type {
+  CreaseCode,
+  CreaseFold,
   Dieline,
   DielineDimension,
   DielineHandlePatch,
@@ -30,6 +32,24 @@ const rect = (x0: number, y0: number, x1: number, y1: number): Rect => ({
   height: Math.abs(y1 - y0),
 });
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+/**
+ * Fold direction of every crease code seen from the print side — client spec [K] (docs/PRODUCTION.md §9.3):
+ * tube edges C2/C3 and the bottom line C1 VALLEY; gusset centre axis C4 (and its continuation C5 between the ears)
+ * MOUNTAIN; lower diamond diagonals in the side allowance C7 VALLEY; upper 45° flat-fold diagonals C6 (= spec line 5)
+ * MOUNTAIN. C8 (our flat-fold pleat, not in the client spec) is split per part — see `buildDieline`; the value here
+ * is its side/glue-flap part.
+ */
+export const CREASE_FOLDS: Readonly<Record<CreaseCode, CreaseFold>> = {
+  C1: 'VALLEY',
+  C2: 'VALLEY',
+  C3: 'VALLEY',
+  C4: 'MOUNTAIN',
+  C5: 'MOUNTAIN',
+  C6: 'MOUNTAIN',
+  C7: 'VALLEY',
+  C8: 'VALLEY',
+};
 
 /**
  * Handle patch size: the handle entity's patch when set, otherwise the client rule 100 × 20 mm [K] (§9.5); never
@@ -86,12 +106,25 @@ export function buildDieline(
   const glueFlap = rect(tubeEnd, 0, sheetWidth, sheetHeight);
 
   // ——— Cut: the sheet outline (no bottom-flap slits, §9.3) ———
-  const cuts = [[p(0, 0), p(sheetWidth, 0), p(sheetWidth, sheetHeight), p(0, sheetHeight)]];
+  // Client rule [K]: both ends of the glue flap are chamfered at 45° — from the hinge C3 at the top / bottom edge to
+  // the free edge s in and s along (a trapezoid, area s · (L − s)).
+  const chamfer = Math.min(s, sheetHeight / 2);
+  const glueFlapOutline = [
+    p(tubeEnd, 0),
+    p(sheetWidth, chamfer),
+    p(sheetWidth, sheetHeight - chamfer),
+    p(tubeEnd, sheetHeight),
+  ];
+  const cuts = [
+    s > 0
+      ? [p(0, 0), glueFlapOutline[0], glueFlapOutline[1], glueFlapOutline[2], glueFlapOutline[3], p(0, sheetHeight)]
+      : [p(0, 0), p(sheetWidth, 0), p(sheetWidth, sheetHeight), p(0, sheetHeight)],
+  ];
 
-  // ——— Creases ———
+  // ——— Creases (fold direction seen from the print side: CREASE_FOLDS, C8 per part — see below) ———
   const creases: DielineLine[] = [];
-  const add = (code: DielineLine['code'], id: string, from: Point2, to: Point2) => {
-    if (Math.hypot(to.x - from.x, to.y - from.y) > 1e-9) creases.push({ id, code, from, to });
+  const add = (code: CreaseCode, id: string, from: Point2, to: Point2, kind: CreaseFold = CREASE_FOLDS[code]) => {
+    if (Math.hypot(to.x - from.x, to.y - from.y) > 1e-9) creases.push({ id, code, kind, from, to });
   };
   add('C1', 'C1', p(0, y0), p(sheetWidth, y0));
   // Tube edges LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK; the fourth one (BACK/LEFT) is the glue flap hinge C3.
@@ -115,20 +148,32 @@ export function buildDieline(
   add('C7', 'C7-GLUE', p(tubeEnd, y0), p(tubeEnd + flapRun, y0 - flapRun));
   // C8 flat-fold crease y = D/2 on the whole BACK and on the halves of the sides adjacent to BACK: LEFT x ∈ [0, D/2]
   // at the start of the sheet; RIGHT x ∈ [D/2, D], BACK and the glue flap (lying on LEFT's back half) at the end.
-  add('C8', 'C8-1', p(0, y0 + h), p(seg('LEFT').x0 + D / 2, y0 + h));
-  add('C8', 'C8-2', p(seg('RIGHT').x0 + D / 2, y0 + h), p(sheetWidth, y0 + h));
+  // Its fold direction changes at the BACK/side tube edges (docs/PRODUCTION.md §9.3): MOUNTAIN on BACK (the lower
+  // strip turns out and up, print side against print side), VALLEY on the side halves and the glue flap (the only
+  // assignment of the apex vertex that is flat-foldable with the client's C4 = C6 = MOUNTAIN, Maekawa |M − V| = 2).
+  add('C8', 'C8-1', p(0, y0 + h), p(seg('LEFT').x0 + D / 2, y0 + h), 'VALLEY');
+  add('C8', 'C8-2', p(seg('RIGHT').x0 + D / 2, y0 + h), p(seg('BACK').x0, y0 + h), 'VALLEY');
+  add('C8', 'C8-3', p(seg('BACK').x0, y0 + h), p(tubeEnd, y0 + h), 'MOUNTAIN');
+  add('C8', 'C8-4', p(tubeEnd, y0 + h), p(sheetWidth, y0 + h), 'VALLEY');
 
   // ——— Zones ———
   const zones: DielineZone[] = [];
   const bleed = rules.bleed;
   zones.push({ id: 'bleed', kind: 'BLEED', rect: rect(-bleed, -bleed, tubeEnd, sheetHeight + bleed) });
   zones.push({ id: 'bottom-allowance', kind: 'BOTTOM_ALLOWANCE', rect: rect(0, 0, tubeEnd, y0) });
-  zones.push({ id: 'glue-flap', kind: 'GLUE_FLAP', rect: glueFlap });
-  for (const id of ['FRONT', 'BACK'] as const) {
+  zones.push({ id: 'glue-flap', kind: 'GLUE_FLAP', rect: glueFlap, polygon: glueFlapOutline });
+  // Bottom glue band OV at the tube end, Y ∈ [−a, −a + OV] (client spec: y ∈ [H + E − OV, H + E] from the top), on
+  // both bottom flaps. Client rule [K]: the BACK flap goes on top, so the glue lies on the PRINT side of the FRONT
+  // flap's band and meets the REVERSE (inside) of the BACK flap's band.
+  for (const [id, face] of [
+    ['FRONT', 'PRINT'],
+    ['BACK', 'REVERSE'],
+  ] as const) {
     const segment = seg(id);
     zones.push({
       id: `bottom-flap-glue-${id}`,
       kind: 'BOTTOM_FLAP_GLUE',
+      face,
       rect: rect(segment.x0, 0, segment.x1, Math.min(rules.bottomFlapGlue, y0)),
     });
   }

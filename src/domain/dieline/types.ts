@@ -34,7 +34,14 @@ export type DielineSegment = {
 /** Crease codes of PRODUCTION.md §9.3. */
 export type CreaseCode = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8';
 
-export type DielineLine = { id: string; code: CreaseCode; from: Point2; to: Point2 };
+/**
+ * Fold direction of a crease seen from the PRINT side, client convention [K] (docs/PRODUCTION.md §9.3):
+ * VALLEY = the print side ends up on the OUTSIDE of the fold (tube edges, bottom line), MOUNTAIN = the print side
+ * ends up INSIDE the fold, facing itself (gusset centre axis, flat-fold 45° diagonals).
+ */
+export type CreaseFold = 'VALLEY' | 'MOUNTAIN';
+
+export type DielineLine = { id: string; code: CreaseCode; kind: CreaseFold; from: Point2; to: Point2 };
 
 export type DielineZoneKind =
   | 'BLEED'
@@ -43,7 +50,19 @@ export type DielineZoneKind =
   | 'BOTTOM_FLAP_GLUE'
   | 'GLUE_FLAP';
 
-export type DielineZone = { id: string; kind: DielineZoneKind; rect: Rect };
+/**
+ * A zone on the sheet. `face` (glue zones only): the side of the sheet the glue is applied to — PRINT (seen on the
+ * dieline) or REVERSE (the inside face; drawn as a counterpart outline). Defaults to PRINT.
+ */
+export type DielineZone = {
+  id: string;
+  kind: DielineZoneKind;
+  /** Bounding rectangle (the zone itself unless `polygon` is set). */
+  rect: Rect;
+  /** Exact outline when the zone is not a rectangle (the glue flap with its 45° chamfered ends). */
+  polygon?: Polygon2;
+  face?: 'PRINT' | 'REVERSE';
+};
 
 export type DielineHandlePatch = { id: string; panel: 'FRONT' | 'BACK'; segment: DielineSegmentId; rect: Rect };
 
@@ -84,6 +103,7 @@ export type Dieline = {
   sheet: { width: number; height: number };
   bottomLineY: number;
   segments: DielineSegment[];
+  /** Bounding rectangle of the glue flap (the flap itself is chamfered at both ends: zone `glue-flap` polygon). */
   glueFlap: Rect;
   /** Closed cut contours (the sheet outline). */
   cuts: Polygon2[];

@@ -4,7 +4,13 @@
 
 import { buildDieline, type Dieline } from '../../domain/dieline';
 import { PANEL_POSITIONS } from '../../domain/factories';
-import { computeInkCoverage, type CoveragePanelInput, type InkCoverageResult } from '../../domain/printCoverage';
+import {
+  computeArtworkPalette,
+  computeInkCoverage,
+  type ArtworkPaletteResult,
+  type CoveragePanelInput,
+  type InkCoverageResult,
+} from '../../domain/printCoverage';
 import type { BagConfiguration, PanelPosition } from '../../domain/types';
 import { buildDielineScene } from '../../dieline/scene';
 import { downloadBlob } from '../../dieline/exportSvg';
@@ -20,8 +26,13 @@ export type ExportProgress =
 
 export type ProgressCallback = (progress: ExportProgress) => void;
 
-/** Ink coverage of the current artwork, computed now (same inputs as the live estimate in the Artwork step). */
-export async function computeCoverageForExport(configuration: BagConfiguration, dieline: Dieline): Promise<InkCoverageResult> {
+/** Ink coverage and colour palette of the current artwork (same inputs as the live estimate in the Artwork step). */
+export type PrintAnalysis = { coverage: InkCoverageResult; palette: ArtworkPaletteResult };
+
+/** 3D snapshots of the product sheet: JPEG, sized for a ~87 mm wide cell at ~290 dpi. */
+export const PDF_SNAPSHOT_OPTIONS = { width: 1000, height: 750, mimeType: 'image/jpeg', quality: 0.85 } as const;
+
+export async function computePrintAnalysisForExport(configuration: BagConfiguration, dieline: Dieline): Promise<PrintAnalysis> {
   const entries = await Promise.all(
     PANEL_POSITIONS.map(async (position) => {
       const { artwork, placement } = configuration.panels[position];
@@ -33,17 +44,21 @@ export async function computeCoverageForExport(configuration: BagConfiguration, 
       return [position, input] as const;
     }),
   );
-  return computeInkCoverage({
+  const input = {
     dieline,
     panels: Object.fromEntries(entries) as Record<PanelPosition, CoveragePanelInput | null>,
     paperColor: configuration.paper.color,
     pantoneColors: configuration.print.pantoneColors,
-  });
+  };
+  return {
+    coverage: computeInkCoverage(input),
+    palette: computeArtworkPalette({ ...input, colorAnalysis: configuration.print.colorAnalysis }),
+  };
 }
 
-async function coverageOrNull(configuration: BagConfiguration, dieline: Dieline): Promise<InkCoverageResult | null> {
+async function analysisOrNull(configuration: BagConfiguration, dieline: Dieline): Promise<PrintAnalysis | null> {
   try {
-    return await computeCoverageForExport(configuration, dieline);
+    return await computePrintAnalysisForExport(configuration, dieline);
   } catch (error) {
     console.warn('Ink coverage could not be computed for the export', error);
     return null;
@@ -58,8 +73,8 @@ export async function exportProductSheetPdf(
   const { t } = context;
   onProgress?.({ phase: 'coverage' });
   const dieline = buildDieline(configuration);
-  const coverage = await coverageOrNull(configuration, dieline);
-  const data = buildProductSheetData(configuration, coverage, dieline, context);
+  const analysis = await analysisOrNull(configuration, dieline);
+  const data = buildProductSheetData(configuration, analysis?.coverage ?? null, dieline, context, analysis?.palette ?? null);
 
   const views = data.viewPages.flatMap((page) => page.views);
   onProgress?.({ phase: 'views', done: 0, total: views.length });
@@ -67,8 +82,7 @@ export async function exportProductSheetPdf(
   try {
     const { renderBagSnapshots } = await import('../../renderer/snapshot');
     const images = await renderBagSnapshots(configuration, views, {
-      mimeType: 'image/jpeg',
-      quality: 0.9,
+      ...PDF_SNAPSHOT_OPTIONS,
       onProgress: (done, total) => onProgress?.({ phase: 'views', done, total }),
     });
     views.forEach((view, i) => {
@@ -85,7 +99,7 @@ export async function exportProductSheetPdf(
     dimension: (key, value) => t(`dieline.dimension.${key}`, { value: Math.round(value * 10) / 10 }),
   });
   const { buildProductSheetPdf } = await import('../../export/generateProductSheetPdf');
-  const blob = await buildProductSheetPdf({ data, scene, snapshots, context });
+  const blob = await buildProductSheetPdf({ data, scene, snapshots, context, paperColor: configuration.paper.color });
   downloadBlob(blob, `${data.fileBaseName}.pdf`);
 }
 
@@ -96,8 +110,8 @@ export async function exportWorkbook(
 ): Promise<void> {
   onProgress?.({ phase: 'coverage' });
   const dieline = buildDieline(configuration);
-  const coverage = await coverageOrNull(configuration, dieline);
-  const model = buildWorkbookModel(configuration, coverage, dieline, context);
+  const analysis = await analysisOrNull(configuration, dieline);
+  const model = buildWorkbookModel(configuration, analysis?.coverage ?? null, dieline, context, analysis?.palette ?? null);
   onProgress?.({ phase: 'document' });
   const { buildXlsxBuffer, XLSX_MIME } = await import('../../export/generateXlsx');
   const buffer = await buildXlsxBuffer(model);

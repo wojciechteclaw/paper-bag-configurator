@@ -1,63 +1,136 @@
 import { create } from 'zustand';
+import {
+  ASSEMBLY_TIMELINE_SHARE,
+  getAssemblyPhase,
+  splitPreviewTimeline,
+  toPreviewTimeline,
+  type AssemblyPhaseId,
+} from '../domain/geometry/assemblyKinematics';
 import { getStandingFoldProgress } from '../domain/geometry/foldKinematics';
 
 // View state of the preview (docs/SPEC.md §4a, §4c). Deliberately NOT part of BagConfiguration.
+//
+// One continuous 3D timeline on the fold slider (client decision): flat sheet (0) → tube → side triangles in → front
+// flap → back flap on top → formed open bag (BOX, ASSEMBLY_TIMELINE_SHARE = 0.4) → standing → folded flat (1).
+// The 3D mode buttons are presets on that timeline; the 2D dieline is a separate view.
 
-/** Preview modes: 2D dieline, open box (p = 0), naturally standing bag, folded flat (p = 1). */
-export type PreviewViewMode = 'DIELINE' | 'BOX' | 'STANDING' | 'FLAT';
-export type FoldViewMode = Exclude<PreviewViewMode, 'DIELINE'>;
+/** Preview modes: 2D dieline, and the 3D presets flat sheet / open box / naturally standing / folded flat. */
+export type PreviewViewMode = 'DIELINE' | 'SHEET' | 'BOX' | 'STANDING' | 'FLAT';
+export type TimelineViewMode = Exclude<PreviewViewMode, 'DIELINE'>;
 
-export const PREVIEW_VIEW_MODES: readonly PreviewViewMode[] = ['DIELINE', 'BOX', 'STANDING', 'FLAT'];
+export const PREVIEW_VIEW_MODES: readonly PreviewViewMode[] = ['DIELINE', 'SHEET', 'BOX', 'STANDING', 'FLAT'];
 
-/** Resolution of the fold slider (1 %); presets are rounded to it so the slider can land on them exactly. */
-export const FOLD_SLIDER_STEP = 0.01;
+/** Resolution of the timeline slider (1 %); presets are rounded to it so the slider can land on them exactly. */
+export const TIMELINE_SLIDER_STEP = 0.01;
 
-const toSliderStep = (p: number) => Math.round(p / FOLD_SLIDER_STEP) / (1 / FOLD_SLIDER_STEP);
+/** Seconds for the play button to run the whole timeline 0 → 1. */
+export const TIMELINE_PLAY_DURATION_S = 14;
+
+const toSliderStep = (t: number) => Math.round(t / TIMELINE_SLIDER_STEP) / (1 / TIMELINE_SLIDER_STEP);
 
 /**
- * Fold progress of each 3D mode. STANDING = the p at which the side's bottom triangle is inclined 45° from the
- * vertical (`getStandingFoldProgress`, ≈ 0.2497), rounded to the slider step → 0.25.
+ * Timeline value of each 3D preset. SHEET = 0, BOX = end of the assembly (0.4), FLAT = 1. STANDING = the fold at which
+ * the side's bottom triangle is inclined 45° from the vertical (`getStandingFoldProgress` ≈ 0.2497, SPEC §4c) mapped
+ * onto the timeline: 0.4 + 0.6 · 0.2497 ≈ 0.5498 → 0.55 (fold p = 0.25 exactly).
  */
-export const FOLD_PRESETS: Readonly<Record<FoldViewMode, number>> = {
-  BOX: 0,
-  STANDING: toSliderStep(getStandingFoldProgress()),
+export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
+  SHEET: 0,
+  BOX: ASSEMBLY_TIMELINE_SHARE,
+  STANDING: toSliderStep(toPreviewTimeline(1, getStandingFoldProgress())),
   FLAT: 1,
 };
 
 const PRESET_TOLERANCE = 1e-9;
 
-/** The 3D mode whose preset equals `foldProgress` exactly (within float noise), or null. */
-export function findFoldPreset(foldProgress: number): FoldViewMode | null {
-  const modes = Object.keys(FOLD_PRESETS) as FoldViewMode[];
-  return modes.find((m) => Math.abs(FOLD_PRESETS[m] - foldProgress) < PRESET_TOLERANCE) ?? null;
+/** The 3D preset that equals `progress` exactly (within float noise), or null. */
+export function findTimelinePreset(progress: number): TimelineViewMode | null {
+  const modes = Object.keys(TIMELINE_PRESETS) as TimelineViewMode[];
+  return modes.find((m) => Math.abs(TIMELINE_PRESETS[m] - progress) < PRESET_TOLERANCE) ?? null;
+}
+
+/**
+ * Stage shown next to the slider: the flat sheet, an assembly phase (A, B, C1, C2), the formed open bag (exactly the
+ * BOX preset) or the fold towards flat.
+ */
+export type TimelinePhase = 'SHEET' | AssemblyPhaseId | 'FORMED' | 'FOLD';
+
+export type TimelineState = {
+  /** Sheet → formed bag, 0..1 (`assemblyKinematics.ts`). */
+  assemblyProgress: number;
+  /** Formed open bag → folded flat, 0..1 (`foldKinematics.ts`). */
+  foldProgress: number;
+  phase: TimelinePhase;
+};
+
+/** Derived view of a timeline value (pure). */
+export function getTimelineState(progress: number): TimelineState {
+  const { assemblyProgress, foldProgress } = splitPreviewTimeline(progress);
+  const phase: TimelinePhase =
+    assemblyProgress <= 0
+      ? 'SHEET'
+      : assemblyProgress < 1
+        ? getAssemblyPhase(assemblyProgress)
+        : foldProgress <= 0
+          ? 'FORMED'
+          : 'FOLD';
+  return { assemblyProgress, foldProgress, phase };
 }
 
 type PreviewState = {
   /** Selected mode; null = 3D with a custom slider position that matches no preset. */
   viewMode: PreviewViewMode | null;
-  /** 0 = bag open, 1 = folded flat. The 3D model animates towards it. */
-  foldProgress: number;
-  /** Selects a mode; 3D modes also set foldProgress to their preset (the model animates there). */
+  /** The single 3D timeline value 0..1 (0 = flat sheet, 0.4 = formed open bag, 1 = folded flat). */
+  progress: number;
+  /** Play button: the timeline advances by itself (see `tick`). */
+  playing: boolean;
+  /** Selects a mode; 3D modes also move the timeline to their preset (the model animates there) and stop playback. */
   setViewMode: (mode: PreviewViewMode) => void;
   /**
-   * Fold slider. Clamped to [0, 1]; NaN is ignored. In 3D, selects the preset mode it lands on exactly, otherwise
-   * deselects the mode (null). In DIELINE only the stored progress changes.
+   * Timeline slider. Clamped to [0, 1]; NaN is ignored. Stops playback. In 3D, selects the preset it lands on exactly,
+   * otherwise deselects the mode (null). In DIELINE only the stored progress changes.
    */
-  setFoldProgress: (foldProgress: number) => void;
+  setProgress: (progress: number) => void;
+  /** Play / pause; playing from the end (1) restarts from the flat sheet. */
+  togglePlaying: () => void;
+  /** Advances a running playback by `deltaSeconds`; stops at 1 (the FLAT preset). */
+  tick: (deltaSeconds: number) => void;
 };
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 export const usePreviewStore = create<PreviewState>((set, get) => ({
   viewMode: 'BOX',
-  foldProgress: FOLD_PRESETS.BOX,
+  progress: TIMELINE_PRESETS.BOX,
+  playing: false,
   setViewMode: (mode) => {
-    if (mode === 'DIELINE') set({ viewMode: mode });
-    else set({ viewMode: mode, foldProgress: FOLD_PRESETS[mode] });
+    if (mode === 'DIELINE') set({ viewMode: mode, playing: false });
+    else set({ viewMode: mode, progress: TIMELINE_PRESETS[mode], playing: false });
   },
-  setFoldProgress: (foldProgress) => {
-    if (Number.isNaN(foldProgress)) return;
-    const p = Math.min(1, Math.max(0, foldProgress));
-    if (get().viewMode === 'DIELINE') set({ foldProgress: p });
-    else set({ foldProgress: p, viewMode: findFoldPreset(p) });
+  setProgress: (progress) => {
+    if (Number.isNaN(progress)) return;
+    const p = clamp01(progress);
+    if (get().viewMode === 'DIELINE') set({ progress: p, playing: false });
+    else set({ progress: p, viewMode: findTimelinePreset(p), playing: false });
+  },
+  togglePlaying: () => {
+    const { playing, progress, viewMode } = get();
+    if (playing) {
+      set({ playing: false });
+      return;
+    }
+    const start = progress >= 1 ? 0 : progress;
+    set({ playing: true, progress: start, viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(start) });
+  },
+  tick: (deltaSeconds) => {
+    const { playing, progress, viewMode } = get();
+    if (!playing || !Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
+    const next = clamp01(progress + deltaSeconds / TIMELINE_PLAY_DURATION_S);
+    const done = next >= 1;
+    set({
+      progress: next,
+      playing: !done,
+      viewMode: viewMode === 'DIELINE' ? viewMode : done ? 'FLAT' : findTimelinePreset(next),
+    });
   },
 }));
 

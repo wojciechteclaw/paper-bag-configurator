@@ -2,7 +2,7 @@
 
 import { buildDieline } from '../domain/dieline';
 import { createArtwork, createConfiguration, createHandle } from '../domain/factories';
-import type { InkCoverageResult } from '../domain/printCoverage';
+import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
 import i18n from '../i18n';
 import type { ExportContext } from './format';
@@ -34,6 +34,7 @@ export function sampleConfiguration(): BagConfiguration {
         { code: 'PMS 186 C', hex: '#c8102e' },
         { code: 'Black C', hex: '#2d2926' },
       ],
+      colorAnalysis: { mergeTolerance: 10, minAreaShare: 0.005 },
     },
     panels: {
       ...configuration.panels,
@@ -64,5 +65,31 @@ export function sampleCoverage(): InkCoverageResult {
       BACK: { wallArea: 80000, inkArea: 12185, colorAreas: [8487.5, 3697.5], unassignedArea: 0 },
     },
     hints: [],
+  };
+}
+
+/** Artwork palette consistent with `sampleCoverage` (52 185 mm² of ink): two colours + minor shades. */
+export function samplePalette(): ArtworkPaletteResult {
+  const sheetArea = 710 * 490;
+  const color = (hex: string, area: number, pantone: ArtworkPaletteResult['colors'][number]['pantone']) => ({
+    hex,
+    lab: { l: 0, a: 0, b: 0 },
+    shadeCount: 12,
+    area,
+    sheetRatio: area / sheetArea,
+    inkShare: area / 52185,
+    pantone,
+  });
+  return {
+    sheetArea,
+    inkArea: 52185,
+    sheetRatio: 52185 / sheetArea,
+    colors: [
+      color('#c8102e', 43000, { code: 'PMS 186 C', hex: '#c8102e', deltaE: 0 }),
+      color('#1f1f1f', 8500, { code: 'Black C', hex: '#2d2926', deltaE: 6.04 }),
+    ],
+    other: { area: 685, sheetRatio: 685 / sheetArea, colorCount: 3 },
+    rawColorCount: 42,
+    settings: { mergeTolerance: 10, minAreaShare: 0.005 },
   };
 }

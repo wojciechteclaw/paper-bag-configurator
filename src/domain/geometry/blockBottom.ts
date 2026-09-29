@@ -45,9 +45,9 @@ export type CreaseKind =
   | 'BOTTOM_TUCK_DIAGONAL'
   /** Centre crease between the two ears of a side allowance (x = D/2 on the bottom). */
   | 'BOTTOM_EAR_CENTRE'
-  /** Visible cut edge of the outer (front) bottom flap = the glue seam seen from below. */
+  /** Visible cut edge of the outer (BACK) bottom flap = the glue seam seen from below (client rule [K]: back on top). */
   | 'BOTTOM_FLAP_SEAM'
-  /** Cut edge of the inner (back) bottom flap, hidden under the front flap (overlap boundary). */
+  /** Cut edge of the inner (FRONT) bottom flap, hidden under the back flap (overlap boundary). */
   | 'BOTTOM_FLAP_OVERLAP';
 
 export type Crease = { kind: CreaseKind; segment: Segment2 };
@@ -145,13 +145,14 @@ export function getPanelCreases(panel: PanelPosition, d: Dims): Crease[] {
 
 /**
  * Layers of the folded block bottom in BOTTOM-local coordinates (seen from below), docs/PRODUCTION.md §3.4.2, §10.4.
- * Order from the inside of the bag outwards: tucks → ears → back flap → front flap.
+ * Order from the inside of the bag outwards: tucks → ears → front flap → back flap. Client rule [K]: the side
+ * triangles fold in first, then the FRONT flap onto the bottom, then the BACK flap over it (glued on the overlap).
  */
 export type BottomLayout = {
   outline: Polygon2;
-  /** Outer flap (allowance of FRONT), y ∈ [D − a, D]. */
+  /** Inner flap (allowance of FRONT), y ∈ [D − a, D]; folded first. */
   frontFlap: Polygon2;
-  /** Inner flap (allowance of BACK), y ∈ [0, a]. */
+  /** Outer flap (allowance of BACK), y ∈ [0, a]; folded last, on top of the front flap. */
   backFlap: Polygon2;
   /** Glue overlap of the flaps, y ∈ [D − a, a] (30 mm). */
   overlap: Polygon2;
@@ -191,8 +192,8 @@ export function getBottomLayout(d: Pick<Dimensions, 'width' | 'depth'>): BottomL
 }
 
 /**
- * Lines on the underside of the formed bottom (BOTTOM-local): the visible flap seam y = D − a, the hidden edge of
- * the back flap y = a (together they bound the 30 mm glue overlap), the tuck-triangle diagonals (the 45° creases of
+ * Lines on the underside of the formed bottom (BOTTOM-local): the visible flap seam y = a (edge of the outer BACK
+ * flap), the hidden edge of the inner FRONT flap y = D − a (together they bound the 30 mm glue overlap), the tuck-triangle diagonals (the 45° creases of
  * the side allowances, lower half of the diamond) and the ear centre creases x = D/2 between the flaps.
  * The outline itself (front/back bottom creases, side bottom lines) is the panel boundary and is not listed.
  */
@@ -210,8 +211,8 @@ export function getBottomCreases(d: Pick<Dimensions, 'width' | 'depth'>): Crease
     segment: seg(pt(W - c.segment.from.x, c.segment.from.y), pt(W - c.segment.to.x, c.segment.to.y)),
   }));
   return [
-    { kind: 'BOTTOM_FLAP_SEAM', segment: seg(pt(0, D - a), pt(W, D - a)) },
-    { kind: 'BOTTOM_FLAP_OVERLAP', segment: seg(pt(0, a), pt(W, a)) },
+    { kind: 'BOTTOM_FLAP_SEAM', segment: seg(pt(0, a), pt(W, a)) },
+    { kind: 'BOTTOM_FLAP_OVERLAP', segment: seg(pt(0, D - a), pt(W, D - a)) },
     ...left,
     ...right,
   ];
@@ -252,7 +253,7 @@ export type BottomPiece = {
   id: BottomPieceId;
   /** The wall whose allowance forms this piece. */
   panel: PanelPosition;
-  /** 0 = outermost (seen from below): front flap, back flap, ears, tucks. */
+  /** 0 = outermost (seen from below): back flap, front flap, ears, tucks. */
   layer: number;
   /** BOTTOM-local, counter-clockwise seen from below. */
   polygon: Polygon2;
@@ -282,8 +283,8 @@ export function getBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomP
     return pt(D - q.x, q.y);
   };
   return [
-    { id: 'FRONT_FLAP', panel: 'FRONT', layer: 0, polygon: layout.frontFlap, toPanel: (p) => pt(p.x, p.y - D), printedSideOut: true },
-    { id: 'BACK_FLAP', panel: 'BACK', layer: 1, polygon: layout.backFlap, toPanel: (p) => pt(W - p.x, -p.y), printedSideOut: true },
+    { id: 'BACK_FLAP', panel: 'BACK', layer: 0, polygon: layout.backFlap, toPanel: (p) => pt(W - p.x, -p.y), printedSideOut: true },
+    { id: 'FRONT_FLAP', panel: 'FRONT', layer: 1, polygon: layout.frontFlap, toPanel: (p) => pt(p.x, p.y - D), printedSideOut: true },
     { id: 'EAR_LEFT_BACK', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_BACK, toPanel: leftEarBack, printedSideOut: false },
     { id: 'EAR_LEFT_FRONT', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_FRONT, toPanel: leftEarFront, printedSideOut: false },
     { id: 'EAR_RIGHT_BACK', panel: 'RIGHT', layer: 2, polygon: layout.ears.RIGHT_BACK, toPanel: right(leftEarBack), printedSideOut: false },
@@ -294,8 +295,8 @@ export function getBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomP
 }
 
 /**
- * What is seen of the formed bottom from below: the front flap (outermost, y ∈ [D − a, D]) and the part of the back
- * flap it does not cover (y ∈ [0, D − a]). Together they tile the whole W × D bottom (the flaps span the full width
+ * What is seen of the formed bottom from below: the back flap (outermost, client rule [K], y ∈ [0, a]) and the part
+ * of the front flap it does not cover (y ∈ [a, D]). Together they tile the whole W × D bottom (the flaps span the full width
  * and a > D/2), so the ears and tucks — the LEFT/RIGHT allowances — are always hidden inside the bottom: side-wall
  * artwork extended to the bottom is printed (dieline, ink coverage) but never visible on the finished bag.
  */
@@ -303,7 +304,7 @@ export function getVisibleBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): 
   const { width: W, depth: D } = d;
   const a = Math.min(getBottomAllowance(d), D);
   const pieces = getBottomPieces(d);
-  const front = pieces.find((p) => p.id === 'FRONT_FLAP')!;
   const back = pieces.find((p) => p.id === 'BACK_FLAP')!;
-  return [front, { ...back, polygon: rect(0, 0, W, Math.max(0, D - a)) }];
+  const front = pieces.find((p) => p.id === 'FRONT_FLAP')!;
+  return [back, { ...front, polygon: rect(0, a, W, D) }];
 }

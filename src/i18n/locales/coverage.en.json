@@ -12,6 +12,37 @@
     "hints": {
       "NO_PANTONE_COLORS": "Add Pantone colours in the \"Print & production\" step to see coverage per colour.",
       "POOR_COLOR_MATCH": "Some artwork colours are far from every Pantone preview colour — check the colour list and previews in the \"Print & production\" step."
+    },
+    "palette": {
+      "title": "Colours in the artwork (HEX)",
+      "swatch": "Colour",
+      "hex": "HEX",
+      "pantone": "Pantone (nearest)",
+      "area": "Area [{{unit}}]",
+      "percent": "% of sheet",
+      "other": "other (remaining shades: {{count}})",
+      "empty": "No ink in the artwork.",
+      "note": "Colours detected in the artwork pixels as placed (same rules as the ink coverage), merged in CIELAB by CIEDE2000: shades closer than ΔE00 {{tolerance}} are one colour, anti-aliased edge pixels (a blend of two colours) belong to the nearer one, colours under {{minShare}} of the ink join the nearest similar colour or \"other\"; at most {{max}} colours. The HEX is an actual pixel colour of the group. Nearest Pantone and ΔE refer to the preview colours of the print list."
+    },
+    "analysis": {
+      "tolerance": "Merge similar colours",
+      "toleranceValue": "ΔE00 {{value}}",
+      "exact": "exact",
+      "strong": "merge strongly",
+      "minShare": "Minimum colour spot",
+      "minShareNone": "no limit",
+      "minShareOption": "{{value}} of ink",
+      "hint": "Merges shades that print as one colour: anti-aliased edges, JPEG compression, gradients. Colours smaller than the minimum spot join the nearest similar colour (or \"other\").",
+      "shades_one": "{{count}} shade",
+      "shades_few": "{{count}} shades",
+      "shades_many": "{{count}} shades",
+      "shades_other": "{{count}} shades",
+      "merged_one": "{{shades}} merged into {{count}} colour",
+      "merged_few": "{{shades}} merged into {{count}} colours",
+      "merged_many": "{{shades}} merged into {{count}} colours",
+      "merged_other": "{{shades}} merged into {{count}} colours",
+      "summaryLabel": "Artwork colours",
+      "summaryValue": "similar colours merged at ΔE00 {{tolerance}}, minimum spot {{minShare}} of ink"
     }
   }
 }

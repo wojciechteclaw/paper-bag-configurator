@@ -1,6 +1,8 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { InkCoverageResult } from '../../domain/printCoverage';
+import { ARTWORK_PALETTE_RULES, COLOR_ANALYSIS_LIMITS } from '../../domain/config/productCatalog';
+import { normalizeColorAnalysis, type ArtworkPaletteResult, type InkCoverageResult } from '../../domain/printCoverage';
+import { useConfigurationStore } from '../../state/configurationStore';
 import { useInkCoverage } from '../coverage/useInkCoverage';
 
 const MM2_PER_CM2 = 100;
@@ -11,6 +13,7 @@ export function InkCoveragePanel() {
   const id = useId();
   const state = useInkCoverage();
   const result = state.status === 'empty' ? null : state.result;
+  const palette = state.status === 'empty' ? null : state.palette;
 
   return (
     <section className="coverage" aria-labelledby={`${id}-title`} aria-busy={state.status === 'computing'}>
@@ -23,6 +26,7 @@ export function InkCoveragePanel() {
       ) : result ? (
         <CoverageDetails result={result} />
       ) : null}
+      {palette && <ArtworkColorsTable palette={palette} />}
       {state.status === 'ready' && state.unavailablePanels.length > 0 && (
         <small className="warning">
           {t('coverage.unavailable', { panels: state.unavailablePanels.map((p) => t(`artwork.${p}`)).join(', ') })}
@@ -74,6 +78,144 @@ function CoverageDetails({ result }: { result: InkCoverageResult }) {
         </small>
       ))}
     </>
+  );
+}
+
+/** Colours detected in the placed artwork (HEX), largest area first, with the nearest listed Pantone. */
+function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const percent = (ratio: number) =>
+    new Intl.NumberFormat(locale, { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(ratio);
+  const cm2 = (area: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(area / MM2_PER_CM2);
+  const deltaE = (value: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
+  const share = (ratio: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(ratio);
+
+  return (
+    <details className="coverage__palette">
+      <summary>
+        {t('coverage.palette.title')} <small>({palette.colors.length})</small>
+      </summary>
+      <ColorMergeControls palette={palette} />
+      {palette.colors.length === 0 ? (
+        <p className="note">{t('coverage.palette.empty')}</p>
+      ) : (
+        <table className="coverage__table">
+          <thead>
+            <tr>
+              <th scope="col">{t('coverage.palette.swatch')}</th>
+              <th scope="col">{t('coverage.palette.hex')}</th>
+              <th scope="col">{t('coverage.palette.pantone')}</th>
+              <th scope="col" className="num">
+                {t('coverage.palette.area', { unit: 'cm²' })}
+              </th>
+              <th scope="col" className="num">
+                {t('coverage.palette.percent')}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {palette.colors.map((color) => (
+              <tr key={color.hex}>
+                <td>
+                  <span className="swatch" style={{ background: color.hex }} aria-hidden="true" />
+                </td>
+                <td className="mono">{color.hex}</td>
+                <td>{color.pantone ? `${color.pantone.code} (ΔE ${deltaE(color.pantone.deltaE)})` : '—'}</td>
+                <td className="num">{cm2(color.area)}</td>
+                <td className="num">{percent(color.sheetRatio)}</td>
+              </tr>
+            ))}
+            {palette.other.area > 0 && (
+              <tr>
+                <td>
+                  <span className="swatch swatch--unassigned" aria-hidden="true" />
+                </td>
+                <td colSpan={2}>{t('coverage.palette.other', { count: palette.other.colorCount })}</td>
+                <td className="num">{cm2(palette.other.area)}</td>
+                <td className="num">{percent(palette.other.sheetRatio)}</td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={3}>
+                {t('coverage.total')}
+              </th>
+              <td className="num">{cm2(palette.inkArea)}</td>
+              <td className="num">{percent(palette.sheetRatio)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+      <p className="note">
+        {t('coverage.palette.note', {
+          tolerance: deltaE(palette.settings.mergeTolerance),
+          minShare: share(palette.settings.minAreaShare),
+          max: ARTWORK_PALETTE_RULES.maxColors,
+        })}
+      </p>
+    </details>
+  );
+}
+
+/**
+ * "Łączenie podobnych kolorów": merge tolerance (ΔE00) and minimum colour spot, stored in the configuration
+ * (`print.colorAnalysis`) so the exports match; the palette recomputes live (debounced in `useInkCoverage`).
+ */
+function ColorMergeControls({ palette }: { palette: ArtworkPaletteResult }) {
+  const { t, i18n } = useTranslation();
+  const id = useId();
+  const locale = i18n.resolvedLanguage ?? i18n.language;
+  const stored = useConfigurationStore((s) => s.configuration.print.colorAnalysis);
+  const setColorAnalysis = useConfigurationStore((s) => s.setColorAnalysis);
+  const settings = normalizeColorAnalysis(stored);
+  const { min, max, step } = COLOR_ANALYSIS_LIMITS.mergeTolerance;
+  const options = [...new Set([...COLOR_ANALYSIS_LIMITS.minAreaShareOptions, settings.minAreaShare])].sort((a, b) => a - b);
+  const share = (ratio: number) => new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 2 }).format(ratio);
+  const toleranceText = t('coverage.analysis.toleranceValue', { value: settings.mergeTolerance });
+
+  return (
+    <div className="coverage__merge">
+      <label htmlFor={`${id}-tolerance`}>{t('coverage.analysis.tolerance')}</label>
+      <div className="coverage__merge-slider">
+        <small aria-hidden="true">{t('coverage.analysis.exact')}</small>
+        <input
+          id={`${id}-tolerance`}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={settings.mergeTolerance}
+          aria-valuetext={toleranceText}
+          onChange={(e) => setColorAnalysis({ mergeTolerance: Number(e.target.value) })}
+        />
+        <small aria-hidden="true">{t('coverage.analysis.strong')}</small>
+        <output htmlFor={`${id}-tolerance`}>{toleranceText}</output>
+      </div>
+      <label className="coverage__merge-min">
+        {t('coverage.analysis.minShare')}{' '}
+        <select
+          value={String(settings.minAreaShare)}
+          onChange={(e) => setColorAnalysis({ minAreaShare: Number(e.target.value) })}
+        >
+          {options.map((option) => (
+            <option key={option} value={String(option)}>
+              {option === 0 ? t('coverage.analysis.minShareNone') : t('coverage.analysis.minShareOption', { value: share(option) })}
+            </option>
+          ))}
+        </select>
+      </label>
+      {palette.rawColorCount > 0 && (
+        <p className="coverage__merge-result" aria-live="polite">
+          {t('coverage.analysis.merged', {
+            count: palette.colors.length,
+            shades: t('coverage.analysis.shades', { count: palette.rawColorCount }),
+          })}
+        </p>
+      )}
+      <small className="note">{t('coverage.analysis.hint')}</small>
+    </div>
   );
 }
 

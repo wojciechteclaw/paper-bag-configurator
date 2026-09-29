@@ -1,5 +1,5 @@
 // Unicode font for jsPDF: its standard fonts only cover WinAnsi, which garbles Polish letters (ą ć ę ł ń ś ź ż).
-// Bundled Noto Sans subsets (Latin, Latin-1, Latin Extended-A + typographic punctuation and a few symbols; SIL OFL,
+// Bundled Noto Sans subsets (Latin, Latin-1, Latin Extended-A + typographic punctuation, a few symbols and Greek Δ…; SIL OFL,
 // see fonts/OFL.txt), ~50 kB each. Fetched lazily on first PDF export — the URLs are the only thing in the bundle.
 
 import type { jsPDF } from 'jspdf';

@@ -263,3 +263,42 @@ export function createTwistTexture(size = 64): DataTexture {
 export function twistRepeat(length: number, diameter: number): number {
   return Math.max(1, Math.round(length / (TWIST_TILE_DIAMETERS * diameter)));
 }
+
+// Patch readability without shadow maps (client: "nie widać paska — brak cieni"): the patch is the bag's paper colour,
+// so it gets a slightly darker (glued) tone, an outline and a soft fake drop shadow on the wall below it.
+
+/** Tone of the glued patch relative to the paper colour. */
+export const PATCH_TONE = 0.9;
+/** Fake drop shadow: how far it extends past the patch edges (mm) and how far it is shifted down (mm). */
+export const PATCH_SHADOW = { spread: 1.5, drop: 2, opacity: 0.22 } as const;
+
+/** Outline of the patch as a closed polyline (scene units, handle-local frame), lifted just off the patch surface. */
+export function createPatchOutlinePoints(layout: HandleLayout): [number, number, number][] {
+  const { x0, x1, y0, y1 } = layout.patch;
+  const lift = 0.05;
+  const corner = (x: number, y: number): [number, number, number] => [
+    x * MM_TO_SCENE,
+    y * MM_TO_SCENE,
+    (patchOffset(layout, x, y) + lift) * MM_TO_SCENE,
+  ];
+  return [corner(x0, y0), corner(x1, y0), corner(x1, y1), corner(x0, y1), corner(x0, y0)];
+}
+
+/**
+ * Flat quad between the wall and the patch, slightly larger and shifted down: reads as the patch's contact shadow.
+ * Sits at half the wall clearance, so it never pokes through the wall or covers the patch.
+ */
+export function createPatchShadowGeometry(layout: HandleLayout): BufferGeometry {
+  const { x0, x1, y0, y1 } = layout.patch;
+  const { spread, drop } = PATCH_SHADOW;
+  const z = (HANDLE_WALL_CLEARANCE_MM / 2) * MM_TO_SCENE;
+  const xa = (x0 - spread) * MM_TO_SCENE;
+  const xb = (x1 + spread) * MM_TO_SCENE;
+  const ya = (y0 - spread - drop) * MM_TO_SCENE;
+  const yb = (y1 + spread - drop) * MM_TO_SCENE;
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array([xa, ya, z, xb, ya, z, xb, yb, z, xa, yb, z]), 3));
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+  geometry.computeVertexNormals();
+  return geometry;
+}

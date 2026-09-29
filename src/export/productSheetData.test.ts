@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getHandlePatchSize } from '../domain/dieline';
 import { fitToBox, formatScaleNote, buildProductSheetData } from './productSheetData';
-import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline } from './testFixtures';
+import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline, samplePalette } from './testFixtures';
 
 const configuration = sampleConfiguration();
 const dieline = sampleDieline(configuration);
@@ -10,7 +10,7 @@ const rowValue = (data: ReturnType<typeof buildProductSheetData>, id: string) =>
   data.parameters.sections.flatMap((s) => s.rows).find((r) => r.id === id);
 
 describe('buildProductSheetData (PL)', () => {
-  const data = buildProductSheetData(configuration, sampleCoverage(), dieline, exportContext('pl'));
+  const data = buildProductSheetData(configuration, sampleCoverage(), dieline, exportContext('pl'), samplePalette());
 
   it('names the file and the sheet after type and W × H × D', () => {
     expect(data.fileBaseName).toBe('torba-klockowa-200x400x150');
@@ -61,19 +61,51 @@ describe('buildProductSheetData (PL)', () => {
     expect(data.pantone.unassigned).toBeUndefined();
   });
 
-  it('plans the 3D views: box and standing from both angles, then the folding options', () => {
-    const [views, folding] = data.viewPages;
-    expect(views.title).toBe('Widoki 3D');
-    expect(views.views.map((v) => [v.foldProgress, v.angle])).toEqual([
+  it('plans the 3D views: 4 × unfolded (every wall), 2 × 20 % and 2 × 100 % folded, labelled with view and fold', () => {
+    const [unfolded, folded] = data.viewPages;
+    expect(unfolded.title).toBe('Widoki 3D — torba rozłożona');
+    expect(unfolded.views.map((v) => [v.foldProgress, v.angle])).toEqual([
       [0, 'FRONT_3_4'],
       [0, 'BACK_3_4'],
-      [0.25, 'FRONT_3_4'],
-      [0.25, 'BACK_3_4'],
+      [0, 'LEFT_3_4'],
+      [0, 'RIGHT_3_4'],
     ]);
-    expect(folding.title).toBe('Opcje złożonej torby');
-    expect(folding.views.map((v) => v.foldProgress)).toEqual([0.5, 0.75, 1, 1]);
-    expect(folding.views[2].caption).toBe('Złożona na płasko — przód 3/4');
-    expect(new Set([...views.views, ...folding.views].map((v) => v.id)).size).toBe(8);
+    expect(folded.title).toBe('Widoki 3D — torba złożona');
+    expect(folded.views.map((v) => [v.foldProgress, v.angle])).toEqual([
+      [0.2, 'FRONT_3_4'],
+      [0.2, 'BACK_3_4'],
+      [1, 'FRONT'],
+      [1, 'BACK'],
+    ]);
+    const compact = (text: string) => text.replace(/\s/g, '');
+    expect(compact(unfolded.views[2].caption)).toBe('Lewybok3/4·złożenie0%');
+    expect(compact(folded.views[0].caption)).toBe('Przód3/4·złożenie20%');
+    expect(compact(folded.views[3].caption)).toBe('Tył·złożenie100%');
+    expect(new Set([...unfolded.views, ...folded.views].map((v) => v.id)).size).toBe(8);
+  });
+
+  it('lists the artwork colours (HEX) by area with nearest Pantone, other shades and the total', () => {
+    const table = data.artworkColors;
+    const compact = (text: string | undefined) => text?.replace(/\s/g, '');
+    expect(table.title).toBe('Kolory w grafikach (HEX) — powierzchnia per kolor');
+    expect(table.headers).toEqual({ swatch: 'Kolor', hex: 'HEX', pantone: 'Pantone (najbliższy)', area: 'Powierzchnia [cm²]', percent: '% arkusza' });
+    expect(table.rows.map((r) => r.hex)).toEqual(['#c8102e', '#1f1f1f']);
+    expect(table.rows[1].pantone).toBe('Black C (ΔE 6)');
+    expect(compact(table.rows[0].area)).toBe('430cm²');
+    expect(compact(table.rows[0].percent)).toBe('12,36%');
+    expect(table.other?.label).toBe('inne (pozostałe odcienie: 3)');
+    expect(compact(table.other?.area)).toBe('6,9cm²');
+    expect(compact(table.total.area)).toBe('521,9cm²');
+    expect(compact(table.total.percent)).toBe('15,00%');
+  });
+
+  it('lists the colour-merge settings in the parameters and notes them under the colour table', () => {
+    expect(rowValue(data, 'colorMergeTolerance')).toMatchObject({ value: 10, label: 'Łączenie podobnych kolorów grafik (ΔE00)' });
+    expect(rowValue(data, 'colorMinAreaShare')).toMatchObject({ value: 0.5, unit: '%' });
+    const [method, merged] = data.artworkColors.notes;
+    expect(method).toContain('ΔE00 10');
+    expect(method.replace(/\s/g, '')).toContain('0,5%farby');
+    expect(merged).toBe('42 odcienie połączono w 2 kolory');
   });
 });
 
@@ -83,10 +115,13 @@ describe('buildProductSheetData edge cases', () => {
     expect(data.pantone.rows[0].percent).toBe('—');
     expect(data.pantone.total.area).toBe('—');
     expect(data.pantone.notes[0]).toMatch(/pokrycia/);
+    expect(data.artworkColors.rows).toEqual([]);
+    expect(data.artworkColors.total.area).toBe('—');
+    expect(data.artworkColors.notes).toEqual(['Nie udało się wykryć kolorów grafik.']);
   });
 
   it('shows unassigned ink and a hint without Pantone colours', () => {
-    const bare = { ...configuration, print: { technology: 'FLEXO' as const, pantoneColors: [] } };
+    const bare = { ...configuration, print: { ...configuration.print, pantoneColors: [] } };
     const coverage = { ...sampleCoverage(), colors: [], unassignedArea: 1000, unassignedSheetRatio: 1000 / (710 * 490) };
     const data = buildProductSheetData(bare, coverage, dieline, exportContext('en'));
     expect(data.pantone.rows).toEqual([]);
@@ -99,7 +134,9 @@ describe('buildProductSheetData edge cases', () => {
     expect(data.fileBaseName).toBe('block-bottom-bag-200x400x150');
     expect(data.subtitle).toBe('Block-bottom bag 200 × 400 × 150 mm');
     expect(data.pantone.rows[0].percent).toBe('12.50%');
-    expect(data.viewPages[1].title).toBe('Folded bag options');
+    expect(data.viewPages[1].title).toBe('3D views — folded bag');
+    expect(data.viewPages[1].views[2].caption).toBe('Front · 100% folded');
+    expect(data.artworkColors.headers.pantone).toBe('Pantone (nearest)');
   });
 
   it('has no handle details for a bag without a handle', () => {

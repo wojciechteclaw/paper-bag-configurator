@@ -45,12 +45,15 @@
     "legend": {
       "cut": "cut",
       "crease": "crease",
+      "creaseValley": "valley crease (V, print side)",
+      "creaseMountain": "mountain crease (M, print side)",
       "patch": "handle patch (inside)",
       "bleed": "bleed 3 mm",
       "safety": "safe area",
       "allowance": "bottom allowance (no artwork)",
       "allowancePrinted": "bottom allowance with artwork (colours on the bottom)",
-      "glue": "glue"
+      "glue": "glue",
+      "glueReverse": "glue on the inside face (back flap on top)"
     },
     "panel": {
       "FRONT": "Front",

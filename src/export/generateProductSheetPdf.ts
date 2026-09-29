@@ -1,15 +1,24 @@
 // Thin jsPDF adapter: lays out `ProductSheetData` + the dieline scene + 3D snapshots as an A4 product sheet.
 // Loaded lazily together with jsPDF / svg2pdf.js. Needs a DOM (svg2pdf renders a live SVG element).
 //
-// Pages: 1 parameters + Pantone / ink coverage (portrait), 2 dieline fitted to the page with its scale (landscape),
-// 3 3D views, 4 folded-bag options (portrait).
+// Pages: parameters + Pantone / ink coverage + artwork colours (HEX; on its own page when it does not fit) (portrait),
+// dieline fitted to the page with its scale (landscape), 3D views of the unfolded bag (4 × 3/4) and of the folded bag
+// (20 % and 100 %) as 2 × 2 grids (portrait).
 
 import type { jsPDF as JsPdf } from 'jspdf';
-import { buildDielineSvg, embedImages } from '../dieline/exportSvg';
+import { buildDielineSvg } from '../dieline/exportSvg';
 import { DIELINE_STYLE, type DielineScene } from '../dieline/scene';
+import type { PaperColor } from '../domain/types';
+import { embedSceneImagesForPdf } from './flattenArtwork';
 import type { ExportContext } from './format';
 import { PDF_FONT_FAMILY, registerPdfFonts, withEmbeddedSvgFont, type PdfFontLoader } from './pdfFont';
-import { fitToBox, formatScaleNote, type ProductSheetData, type ProductSheetViewPage } from './productSheetData';
+import {
+  fitToBox,
+  formatScaleNote,
+  type ArtworkColorTable,
+  type ProductSheetData,
+  type ProductSheetViewPage,
+} from './productSheetData';
 
 export type ProductSheetPdfInput = {
   data: ProductSheetData;
@@ -19,7 +28,9 @@ export type ProductSheetPdfInput = {
   snapshots: Record<string, string>;
   context: ExportContext;
   fonts?: PdfFontLoader;
-  /** Pre-embedded image hrefs of the scene (blob: → data:); embedded here when omitted. */
+  /** Paper colour transparent artwork is flattened onto (jsPDF / svg2pdf lose alpha). */
+  paperColor: PaperColor;
+  /** Pre-embedded, PDF-ready image hrefs of the scene (blob: → opaque data:); flattened here when omitted. */
   imageHrefs?: Record<string, string>;
 };
 
@@ -147,6 +158,73 @@ function drawParametersPage(pdf: Pdf, data: ProductSheetData, context: ExportCon
     pdf.text(lines, MARGIN, top);
     top += 3.4 * lines.length + 1;
   }
+  drawArtworkColorsTable(pdf, data.artworkColors, top + 6);
+}
+
+/** Artwork colours (HEX) with area and nearest Pantone, below `top` or on a new page when it does not fit. */
+function drawArtworkColorsTable(pdf: Pdf, table: ArtworkColorTable, top: number) {
+  const { width, height } = pageSize(pdf);
+  const rowH = 6.5;
+  const lines = table.rows.length + (table.other ? 1 : 0) + 1;
+  const needed = 16 + rowH * (lines + 1) + 4 * table.notes.length + 8;
+  if (top + needed > height - 20) {
+    pdf.addPage('a4', 'portrait');
+    top = pageHeader(pdf, table.title);
+  } else {
+    setText(pdf, 10.5, 'bold');
+    pdf.text(table.title, MARGIN, top);
+    pdf.setDrawColor(RULE);
+    pdf.setLineWidth(0.3);
+    pdf.line(MARGIN, top + 1.5, width - MARGIN, top + 1.5);
+    top += 7;
+  }
+  const right = width - MARGIN;
+  const x = { swatch: MARGIN, hex: MARGIN + 18, pantone: MARGIN + 45, area: right - 32, percent: right };
+  setText(pdf, 8.5, 'bold', MUTED);
+  pdf.text(table.headers.swatch, x.swatch, top);
+  pdf.text(table.headers.hex, x.hex, top);
+  pdf.text(table.headers.pantone, x.pantone, top);
+  pdf.text(table.headers.area, x.area, top, { align: 'right' });
+  pdf.text(table.headers.percent, x.percent, top, { align: 'right' });
+  top += 2;
+  pdf.setDrawColor(RULE);
+  pdf.setLineWidth(0.3);
+  pdf.line(MARGIN, top, right, top);
+  top += rowH - 1.5;
+
+  for (const row of table.rows) {
+    pdf.setFillColor(row.hex);
+    pdf.setDrawColor('#888888');
+    pdf.setLineWidth(0.2);
+    pdf.rect(x.swatch, top - 4, 12, 5, 'FD');
+    setText(pdf, 9, 'normal');
+    pdf.text(row.hex, x.hex, top);
+    pdf.text(row.pantone, x.pantone, top);
+    pdf.text(row.area, x.area, top, { align: 'right' });
+    pdf.text(row.percent, x.percent, top, { align: 'right' });
+    top += rowH;
+  }
+  if (table.other) {
+    setText(pdf, 9, 'normal', MUTED);
+    pdf.text(table.other.label, x.hex, top);
+    pdf.text(table.other.area, x.area, top, { align: 'right' });
+    pdf.text(table.other.percent, x.percent, top, { align: 'right' });
+    top += rowH;
+  }
+  pdf.setDrawColor(RULE);
+  pdf.setLineWidth(0.3);
+  pdf.line(MARGIN, top - rowH + 2, right, top - rowH + 2);
+  setText(pdf, 9, 'bold');
+  pdf.text(table.total.label, x.hex, top);
+  pdf.text(table.total.area, x.area, top, { align: 'right' });
+  pdf.text(table.total.percent, x.percent, top, { align: 'right' });
+  top += rowH;
+  setText(pdf, 7.5, 'normal', MUTED);
+  for (const note of table.notes) {
+    const noteLines = pdf.splitTextToSize(note, width - 2 * MARGIN) as string[];
+    pdf.text(noteLines, MARGIN, top);
+    top += 3.4 * noteLines.length + 1;
+  }
 }
 
 const formatValue = (value: number, { language }: ExportContext) =>
@@ -163,7 +241,7 @@ async function drawDielinePage(pdf: Pdf, input: ProductSheetPdfInput, svg2pdf: t
   const fit = fitToBox(vw, vh, width - 2 * MARGIN, height - top - MARGIN - legendH);
   pageHeader(pdf, data.dieline.title, `${data.subtitle} · ${formatScaleNote(fit.scale, context)}`);
 
-  const hrefs = input.imageHrefs ?? (await embedImages(scene));
+  const hrefs = input.imageHrefs ?? (await embedSceneImagesForPdf(scene, input.paperColor));
   const svgText = withEmbeddedSvgFont(buildDielineSvg(scene, { hrefs, title: data.dieline.svgTitle }));
   const element = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement;
   // svg2pdf reads computed styles, so the element has to be in the document while it renders.
@@ -198,7 +276,7 @@ async function drawDielinePage(pdf: Pdf, input: ProductSheetPdfInput, svg2pdf: t
   if (scene.patches.length > 0) sample(s.patch.stroke, s.patch.width, dash(s.patch.dash), data.dieline.legend.patch);
 }
 
-/** Pages 3–4: a 2 × 2 grid of 4:3 snapshots with captions. */
+/** 3D pages: a 2 × 2 grid of 4:3 snapshots, each captioned with its view and fold %. */
 function drawViewPage(pdf: Pdf, page: ProductSheetViewPage, input: ProductSheetPdfInput) {
   pdf.addPage('a4', 'portrait');
   const { width } = pageSize(pdf);

@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline } from './testFixtures';
+import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline, samplePalette } from './testFixtures';
 import { buildWorkbookModel, cellValue, type WorkbookModel } from './workbookModel';
 
 const configuration = sampleConfiguration();
 const dieline = sampleDieline(configuration);
-const model = buildWorkbookModel(configuration, sampleCoverage(), dieline, exportContext('pl'));
+const model = buildWorkbookModel(configuration, sampleCoverage(), dieline, exportContext('pl'), samplePalette());
 
 const sheet = (m: WorkbookModel, id: string) => m.sheets.find((s) => s.id === id)!;
 const block = (m: WorkbookModel, sheetId: string, blockId: string) => sheet(m, sheetId).blocks.find((b) => b.id === blockId)!;
 const values = (row: Parameters<typeof cellValue>[0][]) => row.map(cellValue);
 
 describe('buildWorkbookModel', () => {
-  it('has the four sheets with valid Excel names (PL and EN)', () => {
-    expect(model.sheets.map((s) => s.name)).toEqual(['Parametry', 'Ścianki i grafiki', 'Pantone i pokrycie', 'Wykrój']);
+  it('has the five sheets with valid Excel names (PL and EN)', () => {
+    expect(model.sheets.map((s) => s.name)).toEqual(['Parametry', 'Ścianki i grafiki', 'Pantone i pokrycie', 'Kolory w grafikach', 'Wykrój']);
     const en = buildWorkbookModel(configuration, null, dieline, exportContext('en'));
-    expect(en.sheets.map((s) => s.name)).toEqual(['Parameters', 'Panels & artwork', 'Pantone & coverage', 'Dieline']);
+    expect(en.sheets.map((s) => s.name)).toEqual(['Parameters', 'Panels & artwork', 'Pantone & coverage', 'Artwork colours', 'Dieline']);
     for (const s of [...model.sheets, ...en.sheets]) {
       expect(s.name.length).toBeLessThanOrEqual(31);
       expect(s.name).not.toMatch(/[\\/?*[\]:]/);
@@ -73,6 +73,32 @@ describe('buildWorkbookModel', () => {
     expect(perPanel[0]).toEqual(['Przednia', 80000, 40000, 0.5]);
   });
 
+  it('has an artwork colour sheet: swatch fill, HEX, nearest Pantone, area and shares, then other and total', () => {
+    const colors = block(model, 'colors', 'artwork-colors');
+    expect(colors.title).toBe('Kolory w grafikach (HEX) — powierzchnia per kolor');
+    expect(colors.columns.map((c) => c.header)).toEqual([
+      'Kolor',
+      'HEX',
+      'Pantone (najbliższy)',
+      'ΔE do Pantone',
+      'Powierzchnia farby [cm²]',
+      'Pokrycie arkusza [%]',
+      'Udział w farbie [%]',
+    ]);
+    expect(colors.rows[0]).toEqual([{ value: null, fill: '#c8102e' }, '#c8102e', 'PMS 186 C', 0, 430, 43000 / (710 * 490), 43000 / 52185]);
+    expect(values(colors.rows[1]).slice(1, 5)).toEqual(['#1f1f1f', 'Black C', 6, 85]);
+    expect(values(colors.rows[2]).slice(1, 5)).toEqual(['inne (pozostałe odcienie: 3)', null, null, 6.9]);
+    expect(values(colors.rows[3])).toEqual([null, 'Łącznie', null, null, 521.9, 52185 / (710 * 490), 1]);
+    const notes = block(model, 'colors', 'artwork-colors-notes').rows.map(values);
+    expect(notes[0][1]).toContain('ΔE00 10');
+    expect(notes[1]).toEqual(['Uwaga', '42 odcienie połączono w 2 kolory']);
+    const params = block(model, 'parameters', 'parameters').rows.map(values);
+    expect(params).toContainEqual(['Nadruk i pakowanie', 'Łączenie podobnych kolorów grafik (ΔE00)', 10, null]);
+    const empty = buildWorkbookModel(configuration, null, dieline, exportContext('en'));
+    expect(block(empty, 'colors', 'artwork-colors').rows).toEqual([]);
+    expect(values(block(empty, 'colors', 'artwork-colors-notes').rows[0])[1]).toBe('Artwork colours could not be detected.');
+  });
+
   it('describes the dieline: sheet, columns with x ranges, and every cut and crease line', () => {
     expect(block(model, 'dieline', 'sheet').rows.map(values).slice(0, 4)).toEqual([
       ['Arkusz — szerokość', 710, 'mm'],
@@ -90,8 +116,10 @@ describe('buildWorkbookModel', () => {
     ]);
     const lines = block(model, 'dieline', 'lines');
     expect(lines.columns.map((c) => c.header)).toContain('x1 [mm]');
-    expect(lines.rows).toHaveLength(4 + dieline.creases.length);
-    expect(values(lines.rows[0])).toEqual(['cut-1-1', 'cięcie', null, 'obrys arkusza', 0, 0, 710, 0, 710]);
+    // One row per cut-outline edge (the glue flap is chamfered at both ends → 6 edges) and per crease.
+    const cutEdges = dieline.cuts.reduce((count, polygon) => count + polygon.length, 0);
+    expect(lines.rows).toHaveLength(cutEdges + dieline.creases.length);
+    expect(values(lines.rows[0])).toEqual(['cut-1-1', 'cięcie', null, 'obrys arkusza', 0, 0, 700, 0, 700]);
     const c1 = lines.rows.map(values).find((r) => r[2] === 'C1')!;
     expect(c1.slice(1, 4)).toEqual(['big', 'C1', 'linia dna']);
     expect(block(model, 'dieline', 'patches').rows).toHaveLength(2);
@@ -113,5 +141,8 @@ describe('buildXlsxBuffer', () => {
     const coverage = workbook.getWorksheet('Pantone i pokrycie')!;
     expect(coverage.getCell('A1').value).toBe('Kolory Pantone i pokrycie farbą');
     expect(coverage.getCell('C3').numFmt).toBe('0.00%');
+    const colors = workbook.getWorksheet('Kolory w grafikach')!;
+    expect(colors.getCell('B3').value).toBe('#c8102e');
+    expect((colors.getCell('A3').fill as { fgColor?: { argb?: string } }).fgColor?.argb).toBe('FFC8102E');
   });
 });

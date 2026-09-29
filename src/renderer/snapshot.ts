@@ -12,8 +12,12 @@ import { SnapshotScene } from './SnapshotScene';
 // `frameloop: 'never'`), waits for the artwork textures, then captures one image per requested view. The
 // configuration comes in as an argument — this module never reads a store. Everything is disposed afterwards.
 
-/** Camera angle of a snapshot: 3/4 from the front-right or from the back-left, slightly above. */
-export type SnapshotAngle = 'FRONT_3_4' | 'BACK_3_4';
+/**
+ * Camera angle of a snapshot, slightly above the bag. 3/4 views: FRONT_3_4 = front + right side, BACK_3_4 = back +
+ * left side, LEFT_3_4 = left side + front, RIGHT_3_4 = right side + back (together every wall is seen);
+ * FRONT / BACK look straight at the wall (e.g. the bag folded flat).
+ */
+export type SnapshotAngle = 'FRONT_3_4' | 'BACK_3_4' | 'LEFT_3_4' | 'RIGHT_3_4' | 'FRONT' | 'BACK';
 
 export type SnapshotView = {
   foldProgress: number;
@@ -36,6 +40,10 @@ export type SnapshotOptions = {
 const ANGLE_DIRECTIONS: Record<SnapshotAngle, Vector3> = {
   FRONT_3_4: new Vector3(4, 3, 6).normalize(),
   BACK_3_4: new Vector3(-4, 3, -6).normalize(),
+  LEFT_3_4: new Vector3(-6, 3, 4).normalize(),
+  RIGHT_3_4: new Vector3(6, 3, -4).normalize(),
+  FRONT: new Vector3(0, 1.6, 6).normalize(),
+  BACK: new Vector3(0, 1.6, -6).normalize(),
 };
 
 /** Simulated seconds per frame: large enough for BagModel's damped fold animation to settle in one or two frames. */

@@ -1,15 +1,16 @@
 // Excel export (docs/SPEC.md §4e) as a pure, localized table model; the exceljs adapter only writes it.
-// Sheets: Parameters / Panels & artwork / Pantone & coverage / Dieline. Units live in the column headers.
+// Sheets: Parameters / Panels & artwork / Pantone & coverage / Artwork colours / Dieline. Units live in the column headers.
 
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
 import { getBottomAllowance } from '../domain/geometry/tube';
 import { getPanelSize } from '../domain/panels';
-import type { InkCoverageResult } from '../domain/printCoverage';
+import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
 import { exportFileBaseName, round, type ExportContext } from './format';
 import { buildParameterSections } from './parameters';
+import { artworkPaletteNotes } from './productSheetData';
 
 export type CellValue = string | number | null;
 /** A cell: plain value, or a value with a background fill (`#rrggbb`, e.g. a Pantone swatch) / bold text. */
@@ -26,7 +27,7 @@ export type WorkbookColumn = {
 /** A titled table; blocks of one sheet are written below each other with a blank row in between. */
 export type WorkbookBlock = { id: string; title?: string; columns: WorkbookColumn[]; rows: Cell[][] };
 
-export type WorkbookSheetId = 'parameters' | 'panels' | 'coverage' | 'dieline';
+export type WorkbookSheetId = 'parameters' | 'panels' | 'coverage' | 'colors' | 'dieline';
 
 export type WorkbookSheet = { id: WorkbookSheetId; name: string; blocks: WorkbookBlock[] };
 
@@ -50,8 +51,10 @@ export function buildWorkbookModel(
   configuration: BagConfiguration,
   coverage: InkCoverageResult | null,
   dieline: Dieline,
-  { t }: ExportContext,
+  context: ExportContext,
+  palette: ArtworkPaletteResult | null = null,
 ): WorkbookModel {
+  const { t } = context;
   const { dimensions, panels, print } = configuration;
   const h = (key: string, unit?: string) => (unit ? `${t(`export.xlsx.col.${key}`)} [${unit}]` : t(`export.xlsx.col.${key}`));
   const mm = t('dimensions.unit');
@@ -191,6 +194,77 @@ export function buildWorkbookModel(
     ],
   };
 
+  // ——— Artwork colours (HEX) ———
+  const cm2 = t('export.unit.cm2');
+  const paletteRows: Cell[][] = palette
+    ? [
+        ...palette.colors.map((color): Cell[] => [
+          { value: null, fill: color.hex },
+          color.hex,
+          color.pantone?.code ?? null,
+          color.pantone ? round(color.pantone.deltaE, 1) : null,
+          round(color.area / 100, 1),
+          color.sheetRatio,
+          color.inkShare,
+        ]),
+        ...(palette.other.area > 0
+          ? [
+              [
+                null,
+                t('coverage.palette.other', { count: palette.other.colorCount }),
+                null,
+                null,
+                round(palette.other.area / 100, 1),
+                palette.other.sheetRatio,
+                palette.inkArea > 0 ? palette.other.area / palette.inkArea : 0,
+              ] as Cell[],
+            ]
+          : []),
+        [
+          null,
+          { value: t('coverage.total'), bold: true },
+          null,
+          null,
+          { value: round(palette.inkArea / 100, 1), bold: true },
+          { value: palette.sheetRatio, bold: true },
+          { value: palette.inkArea > 0 ? 1 : 0, bold: true },
+        ],
+      ]
+    : [];
+  const colorsSheet: WorkbookSheet = {
+    id: 'colors',
+    name: t('export.xlsx.sheet.colors'),
+    blocks: [
+      {
+        id: 'artwork-colors',
+        title: t('export.artworkColors.title'),
+        columns: [
+          { header: h('swatch'), width: 10 },
+          { header: t('export.artworkColors.hex'), width: 30 },
+          { header: h('nearestPantone'), width: 22 },
+          { header: h('deltaE'), width: 14, numFmt: '0.0' },
+          { header: h('inkArea', cm2), width: 18, numFmt: '#,##0.0' },
+          { header: h('sheetShare', '%'), width: 16, numFmt: PERCENT },
+          { header: h('inkShare', '%'), width: 16, numFmt: PERCENT },
+        ],
+        rows: paletteRows,
+      },
+      {
+        id: 'artwork-colors-notes',
+        columns: [
+          { header: h('parameter'), width: 10 },
+          { header: h('value'), width: 30 },
+        ],
+        rows: (!palette
+          ? [t('export.artworkColors.none')]
+          : palette.colors.length === 0
+            ? [t('export.artworkColors.empty')]
+            : artworkPaletteNotes(palette, context)
+        ).map((note): Cell[] => [t('export.xlsx.note'), note]),
+      },
+    ],
+  };
+
   // ——— Dieline ———
   const sheetBlock: WorkbookBlock = {
     id: 'sheet',
@@ -322,6 +396,6 @@ export function buildWorkbookModel(
       height: dimensions.height,
       depth: dimensions.depth,
     }),
-    sheets: [parameters, panelSheet, coverageSheet, dielineSheet],
+    sheets: [parameters, panelSheet, coverageSheet, colorsSheet, dielineSheet],
   };
 }

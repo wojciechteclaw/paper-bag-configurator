@@ -9,5 +9,8 @@ export type {
   PanelCoverage,
   PixelSample,
 } from './computeInkCoverage';
-export { deltaE76, hexToRgb, normalizeHex, rgbToLab } from './color';
+export { computeArtworkPalette } from './artworkPalette';
+export type { ArtworkColor, ArtworkPaletteInput, ArtworkPaletteResult, ArtworkPaletteRules, NearestPantone } from './artworkPalette';
+export { normalizeColorAnalysis } from './colorAnalysis';
+export { deltaE2000, deltaE76, hexToRgb, labToRgb, normalizeHex, rgbToHex, rgbToLab } from './color';
 export type { Lab, Rgb } from './color';

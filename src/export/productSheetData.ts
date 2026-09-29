@@ -1,13 +1,15 @@
 // PDF product sheet (docs/SPEC.md §4e) as pure, localized data: the PDF adapter only lays it out.
 // No quantity anywhere — it is a pricing parameter, not part of the configuration.
 
+import { ARTWORK_PALETTE_RULES } from '../domain/config/productCatalog';
 import type { Dieline } from '../domain/dieline';
-import type { InkCoverageResult } from '../domain/printCoverage';
+import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { BagConfiguration } from '../domain/types';
 import { exportFileBaseName, formatNumber, formatPercent, type ExportContext } from './format';
 import { buildParameterSections, type ParameterSection } from './parameters';
 
-export type SnapshotAngleId = 'FRONT_3_4' | 'BACK_3_4';
+/** Camera angle of a 3D snapshot (same ids as the renderer's `SnapshotAngle`). */
+export type SnapshotAngleId = 'FRONT_3_4' | 'BACK_3_4' | 'LEFT_3_4' | 'RIGHT_3_4' | 'FRONT' | 'BACK';
 
 export type ProductSheetView = {
   id: string;
@@ -16,7 +18,27 @@ export type ProductSheetView = {
   caption: string;
 };
 
-export type ProductSheetViewPage = { id: 'views' | 'folding'; title: string; note?: string; views: ProductSheetView[] };
+export type ProductSheetViewPage = { id: 'unfolded' | 'folded'; title: string; note?: string; views: ProductSheetView[] };
+
+export type ArtworkColorTableRow = {
+  hex: string;
+  /** "PMS 186 C (ΔE 1,2)", or "—" without a Pantone list. */
+  pantone: string;
+  /** Formatted area, cm². */
+  area: string;
+  /** Formatted share of the sheet. */
+  percent: string;
+};
+
+export type ArtworkColorTable = {
+  title: string;
+  headers: { swatch: string; hex: string; pantone: string; area: string; percent: string };
+  rows: ArtworkColorTableRow[];
+  /** Present when minor shades were grouped as "other". */
+  other?: { label: string; area: string; percent: string };
+  total: { label: string; area: string; percent: string };
+  notes: string[];
+};
 
 export type PantoneTableRow = {
   code: string;
@@ -49,27 +71,101 @@ export type ProductSheetData = {
     legend: { cut: string; crease: string; patch: string };
     svgTitle: string;
   };
+  /** Colours detected in the placed artwork (HEX) with their area. */
+  artworkColors: ArtworkColorTable;
   viewPages: ProductSheetViewPage[];
 };
 
-/** 3D views of the sheet: full box and standing bag from both 3/4 angles, then the folding options. */
-export const PRODUCT_SHEET_VIEWS: readonly { page: ProductSheetViewPage['id']; foldProgress: number; angle: SnapshotAngleId; key: string }[] = [
-  { page: 'views', foldProgress: 0, angle: 'FRONT_3_4', key: 'box' },
-  { page: 'views', foldProgress: 0, angle: 'BACK_3_4', key: 'box' },
-  { page: 'views', foldProgress: 0.25, angle: 'FRONT_3_4', key: 'standing' },
-  { page: 'views', foldProgress: 0.25, angle: 'BACK_3_4', key: 'standing' },
-  { page: 'folding', foldProgress: 0.5, angle: 'FRONT_3_4', key: 'stage' },
-  { page: 'folding', foldProgress: 0.75, angle: 'FRONT_3_4', key: 'stage' },
-  { page: 'folding', foldProgress: 1, angle: 'FRONT_3_4', key: 'flat' },
-  { page: 'folding', foldProgress: 1, angle: 'BACK_3_4', key: 'flat' },
+/**
+ * 3D views of the sheet (client request 29.09.2026): the unfolded bag (p = 0) from all four 3/4 angles, so every wall
+ * is visible, then the folded bag: 20 % folded front / back 3/4 and 100 % folded (flat) front / back.
+ */
+export const PRODUCT_SHEET_VIEWS: readonly { page: ProductSheetViewPage['id']; foldProgress: number; angle: SnapshotAngleId }[] = [
+  { page: 'unfolded', foldProgress: 0, angle: 'FRONT_3_4' },
+  { page: 'unfolded', foldProgress: 0, angle: 'BACK_3_4' },
+  { page: 'unfolded', foldProgress: 0, angle: 'LEFT_3_4' },
+  { page: 'unfolded', foldProgress: 0, angle: 'RIGHT_3_4' },
+  { page: 'folded', foldProgress: 0.2, angle: 'FRONT_3_4' },
+  { page: 'folded', foldProgress: 0.2, angle: 'BACK_3_4' },
+  { page: 'folded', foldProgress: 1, angle: 'FRONT' },
+  { page: 'folded', foldProgress: 1, angle: 'BACK' },
 ];
+
+/**
+ * Notes under the artwork-colour table (PDF and Excel): the method with the merge settings actually used
+ * (`PrintSpec.colorAnalysis`) and how many raw shades were merged into how many colours.
+ */
+export function artworkPaletteNotes(palette: ArtworkPaletteResult, { t, language }: ExportContext): string[] {
+  const minShare = new Intl.NumberFormat(language.startsWith('pl') ? 'pl-PL' : 'en-GB', {
+    style: 'percent',
+    maximumFractionDigits: 2,
+  }).format(palette.settings.minAreaShare);
+  return [
+    t('coverage.palette.note', {
+      tolerance: formatNumber(palette.settings.mergeTolerance, language, 1),
+      minShare,
+      max: ARTWORK_PALETTE_RULES.maxColors,
+    }),
+    t('coverage.analysis.merged', {
+      count: palette.colors.length,
+      shades: t('coverage.analysis.shades', { count: palette.rawColorCount }),
+    }),
+  ];
+}
+
+/** Table of the colours detected in the artwork (HEX, nearest Pantone, area, % of sheet), largest first. */
+export function buildArtworkColorTable(palette: ArtworkPaletteResult | null, context: ExportContext): ArtworkColorTable {
+  const { t, language } = context;
+  const cm2 = t('export.unit.cm2');
+  const area = (mm2: number) => `${formatNumber(mm2 / 100, language, 1)} ${cm2}`;
+  const pct = (ratio: number) => formatPercent(ratio, language, 2);
+  const dash = '—';
+  const rows: ArtworkColorTableRow[] = (palette?.colors ?? []).map((color) => ({
+    hex: color.hex,
+    pantone: color.pantone ? `${color.pantone.code} (ΔE ${formatNumber(color.pantone.deltaE, language, 1)})` : dash,
+    area: area(color.area),
+    percent: pct(color.sheetRatio),
+  }));
+  const notes: string[] = [];
+  if (!palette) notes.push(t('export.artworkColors.none'));
+  else if (palette.colors.length === 0) notes.push(t('export.artworkColors.empty'));
+  else notes.push(...artworkPaletteNotes(palette, context));
+  return {
+    title: t('export.artworkColors.title'),
+    headers: {
+      swatch: t('export.artworkColors.swatch'),
+      hex: t('export.artworkColors.hex'),
+      pantone: t('export.artworkColors.pantone'),
+      area: t('export.artworkColors.area', { unit: cm2 }),
+      percent: t('export.artworkColors.percent'),
+    },
+    rows,
+    ...(palette && palette.other.area > 0
+      ? {
+          other: {
+            label: t('coverage.palette.other', { count: palette.other.colorCount }),
+            area: area(palette.other.area),
+            percent: pct(palette.other.sheetRatio),
+          },
+        }
+      : {}),
+    total: {
+      label: t('coverage.total'),
+      area: palette ? area(palette.inkArea) : dash,
+      percent: palette ? pct(palette.sheetRatio) : dash,
+    },
+    notes,
+  };
+}
 
 export function buildProductSheetData(
   configuration: BagConfiguration,
   coverage: InkCoverageResult | null,
   dieline: Dieline,
-  { t, language }: ExportContext,
+  context: ExportContext,
+  palette: ArtworkPaletteResult | null = null,
 ): ProductSheetData {
+  const { t, language } = context;
   const { dimensions, print } = configuration;
   const cm2 = t('export.unit.cm2');
   const dash = '—';
@@ -87,8 +183,7 @@ export function buildProductSheetData(
   else notes.push(t('coverage.estimateNote'));
   if (print.pantoneColors.length === 0) notes.push(t('export.coverage.noColors'));
 
-  const angleLabel = (angle: SnapshotAngleId) => t(`export.views.angle.${angle}`);
-  const viewPages: ProductSheetViewPage[] = (['views', 'folding'] as const).map((page) => ({
+  const viewPages: ProductSheetViewPage[] = (['unfolded', 'folded'] as const).map((page) => ({
     id: page,
     title: t(`export.views.${page}.title`),
     note: t(`export.views.${page}.note`),
@@ -96,8 +191,8 @@ export function buildProductSheetData(
       id: `${page}-${i + 1}`,
       foldProgress: v.foldProgress,
       angle: v.angle,
-      caption: t(`export.views.caption.${v.key}`, {
-        angle: angleLabel(v.angle),
+      caption: t('export.views.caption', {
+        angle: t(`export.views.angle.${v.angle}`),
         fold: formatPercent(v.foldProgress, language, 0),
       }),
     })),
@@ -140,6 +235,7 @@ export function buildProductSheetData(
       legend: { cut: t('dieline.legend.cut'), crease: t('dieline.legend.crease'), patch: t('dieline.legend.patch') },
       svgTitle: t('dieline.svgTitle', dimensions),
     },
+    artworkColors: buildArtworkColorTable(palette, context),
     viewPages,
   };
 }

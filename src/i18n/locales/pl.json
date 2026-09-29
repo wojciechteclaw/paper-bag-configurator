@@ -5,7 +5,11 @@
   "app": {
     "title": "Konfigurator toreb",
     "configuration": "Konfiguracja",
-    "preview": "Podgląd 3D"
+    "preview": "Podgląd 3D",
+    "demo": "Demo",
+    "demoBusy": "Wczytywanie…",
+    "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt płaski, grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
+    "demoError": "Nie udało się wczytać grafik demo."
   },
   "steps": {
     "navLabel": "Kroki konfiguratora",
@@ -176,10 +180,22 @@
     "moistureBarrier": "bariera na wilgoć"
   },
   "preview": {
-    "fold": "Złożenie",
+    "fold": "Składanie",
+    "play": "Odtwórz składanie",
+    "pause": "Wstrzymaj",
+    "phase": {
+      "SHEET": "Płaski arkusz",
+      "TUBE": "A: formowanie rękawa",
+      "TRIANGLES": "B: trójkąty boków do środka",
+      "FRONT_FLAP": "C1: klapa przednia na dno",
+      "BACK_FLAP": "C2: klapa tylna na wierzch (klej)",
+      "FORMED": "Torba uformowana",
+      "FOLD": "Składanie na płasko"
+    },
     "modesLabel": "Tryb podglądu",
     "modes": {
       "DIELINE": "Wykrój",
+      "SHEET": "Arkusz",
       "BOX": "3D pełne",
       "STANDING": "3D po zgięciu",
       "FLAT": "Złożona"

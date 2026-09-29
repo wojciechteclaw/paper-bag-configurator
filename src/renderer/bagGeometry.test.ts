@@ -148,17 +148,17 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
   const a = 90; // (150 + 30) / 2
   const H = dims.height;
 
-  it('builds the bottom from the FRONT flap and the visible part of the BACK flap', () => {
+  it('builds the bottom from the (outer) BACK flap and the visible part of the FRONT flap', () => {
     const pieces = createBottomPieceMeshes(dims);
     expect(pieces.map((m) => [m.id, m.piece, m.artworkPanel])).toEqual([
-      ['BOTTOM', 'FRONT_FLAP', 'FRONT'],
       ['BOTTOM', 'BACK_FLAP', 'BACK'],
+      ['BOTTOM', 'FRONT_FLAP', 'FRONT'],
     ]);
-    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual(['FRONT', 'BACK', 'LEFT', 'RIGHT', 'FRONT_FLAP', 'BACK_FLAP']);
+    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual(['FRONT', 'BACK', 'LEFT', 'RIGHT', 'BACK_FLAP', 'FRONT_FLAP']);
   });
 
   it('maps flap vertices into the source wall UV space with v < 0 (bottom-local → wall-local)', () => {
-    const [front, back] = createBottomPieceMeshes(dims);
+    const [back, front] = createBottomPieceMeshes(dims);
     const uvOf = (mesh: ReturnType<typeof createBottomPieceMeshes>[number]) => mesh.geometry.getAttribute('uv') as BufferAttribute;
     const fuv = uvOf(front);
     for (let i = 0; i < fuv.count; i++) {

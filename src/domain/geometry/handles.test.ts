@@ -6,11 +6,14 @@ import {
   getHandleLayout,
   getHandleLoopHeight,
   getHandlePatchRect,
-  HANDLE_END_SPACING_MM,
+  HANDLE_OUTER_WIDTH_MM,
+  handleEndSpacingFor,
+  PATCH_OVERHANG_MM,
   MIN_END_SPACING_FACTOR,
   PATCH_END_MARGIN,
   polylineLength,
   resolveHandleParams,
+  getHandlePaperColor,
 } from './handles';
 
 const dims = { width: 200, height: 400, depth: 150 };
@@ -45,20 +48,28 @@ describe('resolveHandleParams', () => {
 });
 
 describe('getHandleEndSpacing', () => {
-  it('is fixed at 80 mm whenever the patch fits the spacing', () => {
-    expect(HANDLE_END_SPACING_MM).toBe(80);
-    for (const W of [100, 150, 200, 260, 400]) {
-      expect(getHandleEndSpacing(W, 100, 5)).toBe(80);
-      expect(getHandleEndSpacing(W, 100, 20)).toBe(80); // 20 mm strip: edges flush with the 100 mm patch
+  it('keeps the handle 80 mm wide over its outer edges, with the patch 10 mm past it on each side [K]', () => {
+    expect(HANDLE_OUTER_WIDTH_MM).toBe(80);
+    expect(PATCH_OVERHANG_MM).toBe(10);
+    for (const W of [110, 150, 200, 260, 400]) {
+      expect(getHandleEndSpacing(W, 100, 5)).toBe(75); // rope Ø5: centre lines 75 apart → outer 80
+      expect(getHandleEndSpacing(W, 100, 20)).toBe(60); // 20 mm strip: centre lines 60 apart → outer 80
+    }
+    for (const w of [5, 20]) {
+      const outer = getHandleEndSpacing(200, 100, w) + w;
+      expect(outer).toBe(80);
+      expect((100 - outer) / 2).toBe(PATCH_OVERHANG_MM);
     }
   });
 
   it('is reduced on walls narrower than the patch so the ends stay under it', () => {
-    // W = 75 → patch clamped to 75 − 2·5 = 65 mm: 65 − 5 = 60 (rope), 65 − 20 = 45 (strip).
-    expect(getHandleEndSpacing(75, 65, 5)).toBe(60);
-    expect(getHandleEndSpacing(75, 65, 20)).toBe(45);
-    expect(getHandleEndSpacing(100, 90, 20)).toBe(70);
-    expect(getHandleEndSpacing(100, 90, 5)).toBe(80);
+    // W = 75 → patch clamped to 75 − 2·5 = 65 mm; keeping the 10 mm overhang leaves 45 mm for the handle:
+    // 45 − 5 = 40 (rope); strip: 45 − 20 = 25, but never below 2 strip widths → 40.
+    expect(getHandleEndSpacing(75, 65, 5)).toBe(40);
+    expect(getHandleEndSpacing(75, 65, 20)).toBe(MIN_END_SPACING_FACTOR * 20);
+    // W = 100 → patch 90: 70 mm for the handle → 50 (strip), 65 (rope).
+    expect(getHandleEndSpacing(100, 90, 20)).toBe(50);
+    expect(getHandleEndSpacing(100, 90, 5)).toBe(65);
   });
 
   it('never collapses below the minimum', () => {
@@ -70,8 +81,8 @@ describe('getHandleLoopHeight', () => {
   it('produces a loop whose arc length equals handle.length', () => {
     for (const L of [180, 300, 460]) {
       const layout = getHandleLayout(handleOf('TWISTED_PAPER', { length: L }), dims);
-      expect(layout.endSpacing).toBe(80);
-      expect(layout.loopHeight).toBeCloseTo(getHandleLoopHeight(80, L), 6);
+      expect(layout.endSpacing).toBe(75); // 80 mm outer − Ø5 rope
+      expect(layout.loopHeight).toBeCloseTo(getHandleLoopHeight(75, L), 6);
       const loop = layout.path.filter((p) => p.y >= dims.height);
       expect(polylineLength(loop)).toBeCloseTo(L, 0);
     }
@@ -127,10 +138,13 @@ describe('getHandleLayout', () => {
         expect(top.y).toBeCloseTo(dims.height + layout.loopHeight, 6);
       });
 
-      it('ends vertically at x = ±40 mm, PATCH_END_MARGIN above the patch bottom', () => {
-        expect(layout.endSpacing).toBe(80);
+      it('ends vertically with outer edges at ±40 mm (80 mm handle), PATCH_END_MARGIN above the patch bottom', () => {
+        const w = layout.params.width;
+        expect(layout.endSpacing).toBe(80 - w);
         expect(layout.endSpacingReduced).toBe(false);
-        expect(first).toEqual({ x: -40, y: layout.patch.y0 + PATCH_END_MARGIN });
+        expect(first).toEqual({ x: -(80 - w) / 2, y: layout.patch.y0 + PATCH_END_MARGIN });
+        // The patch overhangs the handle's outer edge by 10 mm on each side.
+        expect(layout.patch.x1 - (Math.abs(first.x) + w / 2)).toBeCloseTo(10, 9);
         expect(layout.endY).toBe(365);
       });
 
@@ -138,12 +152,14 @@ describe('getHandleLayout', () => {
         const l = getHandleLayout(handleOf(type), { ...dims, width: W });
         const w = l.params.width;
         const patchWidth = Math.min(100, W - 10);
-        const fits = patchWidth - w >= HANDLE_END_SPACING_MM;
+        const wanted = handleEndSpacingFor(w);
+        const fits = patchWidth - 2 * PATCH_OVERHANG_MM - w >= wanted;
         expect(l.patch.x1 - l.patch.x0).toBe(patchWidth);
         expect(l.patch.x1).toBeLessThanOrEqual(W / 2 - 5);
         expect(l.endSpacingReduced).toBe(!fits);
-        expect(l.endSpacing).toBe(fits ? HANDLE_END_SPACING_MM : patchWidth - w);
-        if (W >= 110) expect(l.endSpacing).toBe(80);
+        if (fits) expect(l.endSpacing).toBe(wanted);
+        else expect(l.endSpacing).toBeLessThan(wanted);
+        if (W >= 110) expect(l.endSpacing).toBe(wanted);
         for (const p of l.path.filter((q) => q.y < dims.height)) {
           expect(Math.abs(p.x) + w / 2).toBeLessThanOrEqual(l.patch.x1 + 1e-9);
           expect(p.y).toBeGreaterThanOrEqual(l.patch.y0 + PATCH_END_MARGIN - 1e-9);
@@ -162,11 +178,12 @@ describe('getHandleLayout', () => {
     });
   }
 
-  it('fits the 20 mm flat strip exactly across the 100 mm patch (legs span |x| ∈ [30, 50])', () => {
+  it('places the 20 mm flat strip within 80 mm (legs span |x| ∈ [20, 40]) and the patch 10 mm past it', () => {
     const layout = getHandleLayout(handleOf('FLAT_PAPER'), dims);
     const legX = layout.endSpacing / 2;
-    expect(legX - layout.params.width / 2).toBe(30);
-    expect(legX + layout.params.width / 2).toBe(layout.patch.x1);
+    expect(legX - layout.params.width / 2).toBe(20);
+    expect(legX + layout.params.width / 2).toBe(40);
+    expect(layout.patch.x1 - 40).toBe(10);
   });
 
   it('keeps the loop height independent of the wall width (fixed spacing)', () => {
@@ -174,5 +191,12 @@ describe('getHandleLayout', () => {
     const b = getHandleLayout(handleOf('TWISTED_PAPER'), { ...dims, width: 260 });
     expect(b.endSpacing).toBe(a.endSpacing);
     expect(b.loopHeight).toBeCloseTo(a.loopHeight, 9);
+  });
+});
+
+describe('handle paper colour (client rule)', () => {
+  it('follows the bag paper colour — white or brown', () => {
+    expect(getHandlePaperColor({ color: 'WHITE' })).toBe('WHITE');
+    expect(getHandlePaperColor({ color: 'BROWN' })).toBe('BROWN');
   });
 });

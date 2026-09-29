@@ -1,8 +1,10 @@
 // PDF export of the dieline, 1:1 in millimetres. jsPDF + svg2pdf.js are loaded lazily (dynamic import) so they
 // stay out of the main bundle.
 
+import type { PaperColor } from '../domain/types';
+import { embedSceneImagesForPdf } from '../export/flattenArtwork';
 import { registerPdfFonts, withEmbeddedSvgFont } from '../export/pdfFont';
-import { buildDielineSvg, downloadBlob, embedImages } from './exportSvg';
+import { buildDielineSvg, downloadBlob } from './exportSvg';
 import type { DielineScene } from './scene';
 
 // jsPDF's standard fonts only cover WinAnsi (Latin-1-ish): Polish letters outside it (ą ć ę ł ń ś ź ż …) would be
@@ -23,9 +25,9 @@ function withPdfSafeTexts(scene: DielineScene): DielineScene {
   };
 }
 
-export async function exportDielinePdfFile(scene: DielineScene, fileName: string, title?: string) {
+export async function exportDielinePdfFile(scene: DielineScene, fileName: string, title?: string, paperColor: PaperColor = 'WHITE') {
   const [{ jsPDF }, { svg2pdf }] = await Promise.all([import('jspdf'), import('svg2pdf.js')]);
-  const hrefs = await embedImages(scene);
+  const hrefs = await embedSceneImagesForPdf(scene, paperColor);
   const [, , width, height] = scene.viewBox;
   const pdf = new jsPDF({
     unit: 'mm',

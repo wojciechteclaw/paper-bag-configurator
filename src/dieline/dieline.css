@@ -124,11 +124,14 @@
   vector-effect: non-scaling-stroke;
 }
 
-.dl-cut { fill: none; stroke: #111; stroke-width: 1.6px; }
+.dl-cut { fill: none; stroke: #e1001a; stroke-width: 1.6px; }
+/* Valley (blue dashed) vs mountain (teal dash-dot) creases, seen from the print side — same as the SVG export layers. */
 .dl-crease { fill: none; stroke: #0a6cc2; stroke-width: 1.1px; stroke-dasharray: 6 4; }
+.dl-crease--mountain { stroke: #0f766e; stroke-width: 1.2px; stroke-dasharray: 8 3 1.5 3; }
+.dl-glue-reverse { fill: none; stroke: #b45309; stroke-width: 1px; stroke-dasharray: 3 3; }
 .dl-patch { fill: none; stroke: #c2410c; stroke-width: 1.1px; stroke-dasharray: 3 3; }
 .dl-safety { fill: none; stroke: #15803d; stroke-width: 1px; stroke-dasharray: 2 3; }
-.dl-bleed { fill: none; stroke: #dc2626; stroke-width: 1px; }
+.dl-bleed { fill: none; stroke: #ec4899; stroke-width: 1px; }
 .dl-dim { stroke: #444; stroke-width: 0.8px; }
 
 .dieline-view__text text {
@@ -201,10 +204,15 @@
   border-radius: 2px;
 }
 
-.dieline-view .swatch--cut { border-top: 2px solid #111; height: 0; }
+.dieline-view .swatch--cut { border-top: 2px solid #e1001a; height: 0; }
 .dieline-view .swatch--crease { border-top: 2px dashed #0a6cc2; height: 0; }
+.dieline-view .swatch--crease-mountain {
+  height: 2px; border-radius: 0;
+  background: repeating-linear-gradient(90deg, #0f766e 0 7px, transparent 7px 9px, #0f766e 9px 11px, transparent 11px 13px);
+}
+.dieline-view .swatch--glue-reverse { background: transparent; border: 2px dashed #b45309; }
 .dieline-view .swatch--patch { border-top: 2px dashed #c2410c; height: 0; }
-.dieline-view .swatch--bleed { border-top: 2px solid #dc2626; height: 0; }
+.dieline-view .swatch--bleed { border-top: 2px solid #ec4899; height: 0; }
 .dieline-view .swatch--safety { border-top: 2px dotted #15803d; height: 0; }
 .dieline-view .swatch--allowance { background: rgba(120, 120, 120, 0.25); }
 .dieline-view .swatch--glue { background: rgba(234, 179, 8, 0.45); }

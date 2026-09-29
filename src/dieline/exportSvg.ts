@@ -1,5 +1,7 @@
-// SVG export of the dieline: 1:1 in millimetres, one Inkscape layer per content type
-// (artwork, cut, crease, annotations). Images must be embedded (data URLs) — see `embedImages`.
+// SVG export of the dieline: 1:1 in millimetres, one Inkscape layer per content type (client spec): `print` (artwork),
+// `annotations` (dimensions, bleed / safety, allowances, handle patches, labels — information only), `glue`,
+// `crease_valley`, `crease_mountain` (fold direction seen from the print side) and `cut` (red stroke).
+// Images must be embedded (data URLs) — see `embedImages`.
 
 import { DIELINE_STYLE, matrixAttr, type DielineScene } from './scene';
 
@@ -47,12 +49,33 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
   const cut = scene.cuts.map(
     (d, i) => `<path id="cut-${i + 1}" d="${d}" fill="none" stroke="${s.cut.stroke}" stroke-width="${s.cut.width}"/>`,
   );
-  const crease = scene.creases.map((l) =>
-    line(l, `fill="none" stroke="${s.crease.stroke}" stroke-width="${s.crease.width}" stroke-dasharray="${s.crease.dash}" data-code="${l.code}"`, l.id),
-  );
+  const creaseLines = (kind: 'VALLEY' | 'MOUNTAIN') => {
+    const style = kind === 'VALLEY' ? s.crease : s.creaseMountain;
+    return scene.creases
+      .filter((l) => l.kind === kind)
+      .map((l) =>
+        line(
+          l,
+          `fill="none" stroke="${style.stroke}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" data-code="${l.code}" data-kind="${l.kind}"`,
+          l.id,
+        ),
+      );
+  };
+  const glueZones = scene.zones.filter((z) => z.kind === 'BOTTOM_FLAP_GLUE' || z.kind === 'GLUE_FLAP');
 
   const zoneRect = (z: { x: number; y: number; width: number; height: number }, attrs: string, id: string) =>
     `<rect id="${esc(id)}" x="${z.x}" y="${z.y}" width="${z.width}" height="${z.height}" ${attrs}/>`;
+  // Glue: the chamfered glue flap as a polygon; bottom-flap bands filled on the print side, outlined on the reverse.
+  const glueShape = (z: (typeof glueZones)[number]) => {
+    const face = z.face ? ` data-face="${z.face}"` : '';
+    if (z.kind === 'GLUE_FLAP') {
+      const attrs = `fill="${s.glueFlapFill}" stroke="none" data-zone="GLUE_FLAP"`;
+      return z.points ? `<polygon id="${esc(z.id)}" points="${z.points}" ${attrs}/>` : zoneRect(z, attrs, z.id);
+    }
+    return z.face === 'REVERSE'
+      ? zoneRect(z, `fill="none" stroke="${s.bottomGlueReverse.stroke}" stroke-width="${s.bottomGlueReverse.width}" stroke-dasharray="${s.bottomGlueReverse.dash}" data-zone="${z.kind}"${face}`, z.id)
+      : zoneRect(z, `fill="${s.bottomGlueFill}" stroke="none" data-zone="${z.kind}"${face}`, z.id);
+  };
   const annotations = [
     // Bottom allowance per column: grey tint where it stays bare paper, a dashed outline (no tint over the colours)
     // where the panel's artwork is extended onto the bottom (SPEC §4f).
@@ -65,7 +88,7 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
           )
         : zoneRect(z, `fill="${s.allowanceFill}" stroke="none"`, z.id),
     ),
-    ...scene.zones.map((z) => {
+    ...scene.zones.flatMap((z) => {
       switch (z.kind) {
         case 'BLEED':
           return zoneRect(z, `fill="none" stroke="${s.bleed.stroke}" stroke-width="${s.bleed.width}"`, z.id);
@@ -73,10 +96,8 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
           return zoneRect(z, `fill="none" stroke="${s.safety.stroke}" stroke-width="${s.safety.width}" stroke-dasharray="${s.safety.dash}"`, z.id);
         case 'BOTTOM_ALLOWANCE':
           return zoneRect(z, `fill="${s.allowanceFill}" stroke="none"`, z.id);
-        case 'BOTTOM_FLAP_GLUE':
-          return zoneRect(z, `fill="${s.bottomGlueFill}" stroke="none"`, z.id);
-        case 'GLUE_FLAP':
-          return zoneRect(z, `fill="${s.glueFlapFill}" stroke="none"`, z.id);
+        default:
+          return []; // glue zones: own layer
       }
     }),
     ...scene.patches.map((p) =>
@@ -95,10 +116,12 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" version="1.1" width="${vw}mm" height="${vh}mm" viewBox="${vx} ${vy} ${vw} ${vh}">`,
     `  <title>${esc(title)}</title>`,
     `  <defs>${defs.join('')}</defs>`,
-    layer('artwork', 'Artwork', artwork),
-    layer('annotations', 'Annotations', annotations),
-    layer('crease', 'Crease', crease),
-    layer('cut', 'Cut', cut),
+    layer('print', 'print', artwork),
+    layer('annotations', 'annotations', annotations),
+    layer('glue', 'glue', glueZones.map(glueShape)),
+    layer('crease_valley', 'crease_valley', creaseLines('VALLEY')),
+    layer('crease_mountain', 'crease_mountain', creaseLines('MOUNTAIN')),
+    layer('cut', 'cut', cut),
     '</svg>',
     '',
   ].join('\n');

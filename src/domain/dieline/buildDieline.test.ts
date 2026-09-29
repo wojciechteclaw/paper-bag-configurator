@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { DIELINE_RULES } from '../config/productionRules';
 import { createHandle } from '../factories';
 import type { Dimensions, Handle } from '../types';
-import { buildDieline, getArtworkClipRect, panelToSheet, sheetToPanel } from './buildDieline';
+import { buildDieline, CREASE_FOLDS, getArtworkClipRect, panelToSheet, sheetToPanel } from './buildDieline';
+import { polygonArea } from '../geometry/sideGusset';
 import type { Dieline, DielineLine } from './types';
 
 const example: Dimensions = { width: 200, height: 400, depth: 150 };
@@ -49,15 +50,11 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     expect(seg(dieline, 'BACK').x1 - seg(dieline, 'BACK').x0).toBe(200);
   });
 
-  it('cuts only the sheet outline', () => {
-    expect(dieline.cuts).toEqual([
-      [
-        { x: 0, y: 0 },
-        { x: 710, y: 0 },
-        { x: 710, y: 490 },
-        { x: 0, y: 490 },
-      ],
-    ]);
+  it('cuts only the sheet outline (no bottom-flap slits)', () => {
+    expect(dieline.cuts).toHaveLength(1);
+    const xs = dieline.cuts[0].map((q) => q.x);
+    const ys = dieline.cuts[0].map((q) => q.y);
+    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([0, 710, 0, 490]);
   });
 
   it('places the creases C1–C8 as in §9.3', () => {
@@ -90,8 +87,59 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     // Flat-fold crease: back half of LEFT (sheet start), back half of RIGHT + whole BACK + glue flap (sheet end).
     expect(byCode(dieline, 'C8').map((l) => toDoc(dieline, l))).toEqual([
       [[0, 75], [75, 75]],
-      [[425, 75], [710, 75]],
+      [[425, 75], [500, 75]],
+      [[500, 75], [700, 75]],
+      [[700, 75], [710, 75]],
     ]);
+  });
+
+  it('classifies every crease as valley / mountain seen from the print side (client spec + C8 decision)', () => {
+    const kinds = (code: DielineLine['code']) => [...new Set(byCode(dieline, code).map((l) => l.kind))];
+    expect(kinds('C1')).toEqual(['VALLEY']); // bottom line
+    expect(kinds('C2')).toEqual(['VALLEY']); // panel edges
+    expect(kinds('C3')).toEqual(['VALLEY']); // glue-flap hinge = BACK/LEFT tube edge
+    expect(kinds('C4')).toEqual(['MOUNTAIN']); // gusset centre axis
+    expect(kinds('C5')).toEqual(['MOUNTAIN']);
+    expect(kinds('C6')).toEqual(['MOUNTAIN']); // 45° flat-fold diagonals (spec line 5)
+    expect(kinds('C7')).toEqual(['VALLEY']); // bottom triangles in the side allowance
+    expect(byCode(dieline, 'C8').map((l) => [l.id, l.kind])).toEqual([
+      ['C8-1', 'VALLEY'],
+      ['C8-2', 'VALLEY'],
+      ['C8-3', 'MOUNTAIN'],
+      ['C8-4', 'VALLEY'],
+    ]);
+    expect(dieline.creases.every((l) => l.kind === 'VALLEY' || l.kind === 'MOUNTAIN')).toBe(true);
+    for (const [code, kind] of Object.entries(CREASE_FOLDS)) {
+      if (code !== 'C8') expect(kinds(code as DielineLine['code'])).toEqual([kind]);
+    }
+  });
+
+  it('chamfers both ends of the glue flap at 45° in the cut outline (client rule)', () => {
+    expect(dieline.cuts).toHaveLength(1);
+    expect(dieline.cuts[0].map((q) => [q.x, q.y])).toEqual([
+      [0, 0],
+      [700, 0],
+      [710, 10],
+      [710, 480],
+      [700, 490],
+      [0, 490],
+    ]);
+    const flap = dieline.zones.find((z) => z.id === 'glue-flap')!;
+    expect(flap.rect).toEqual({ x: 700, y: 0, width: 10, height: 490 });
+    expect(polygonArea(flap.polygon!)).toBeCloseTo(10 * (490 - 10)); // s · (sheetHeight − s)
+    expect(dieline.sheet).toEqual({ width: 710, height: 490 });
+  });
+
+  it('makes the diamond apex flat-foldable: Maekawa |M − V| = 2 with C4, both C6 and the side C8', () => {
+    for (const side of ['LEFT', 'RIGHT'] as const) {
+      const apex = { x: seg(dieline, side).x0 + 75, y: dieline.bottomLineY + 75 };
+      const at = (l: DielineLine) =>
+        [l.from, l.to].some((q) => Math.abs(q.x - apex.x) < 1e-9 && Math.abs(q.y - apex.y) < 1e-9);
+      const meeting = dieline.creases.filter(at);
+      expect(meeting.map((l) => l.code).sort()).toEqual(['C4', 'C6', 'C6', 'C8']);
+      const m = meeting.filter((l) => l.kind === 'MOUNTAIN').length;
+      expect(Math.abs(m - (meeting.length - m))).toBe(2);
+    }
   });
 
   it('scores the flat-fold crease at y = a + D/2 = 165 over the whole BACK and the BACK-adjacent halves of the sides', () => {
@@ -141,6 +189,9 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
     expect(zone('glue-flap').rect).toEqual(dieline.glueFlap);
     expect(zone('bottom-flap-glue-FRONT').rect).toEqual({ x: 150, y: 0, width: 200, height: 30 });
     expect(zone('bottom-flap-glue-BACK').rect).toEqual({ x: 500, y: 0, width: 200, height: 30 });
+    // Back flap on top [K]: glue on the print side of the FRONT flap band, meeting the inside of the BACK flap band.
+    expect(zone('bottom-flap-glue-FRONT').face).toBe('PRINT');
+    expect(zone('bottom-flap-glue-BACK').face).toBe('REVERSE');
     expect(zone('safety-FRONT').rect).toEqual({ x: 155, y: 96, width: 190, height: 388 });
     expect(zone('safety-BACK').rect).toEqual({ x: 505, y: 96, width: 190, height: 388 });
     // Sides: critical content above the rhombus, y ≥ D/2 + 5.

@@ -1,3 +1,4 @@
+import { PAPER_PREVIEW_COLORS } from '../domain/config/productCatalog';
 import type { PaperColor } from '../domain/types';
 
 /** The only mm → scene-unit conversion factor (1 scene unit = 100 mm). */
@@ -10,6 +11,13 @@ export const MM_TO_SCENE = 0.01;
  * foldProgress 0.85 → 1, so the open and standing bag are geometrically exact (docs/PRODUCTION.md §10.5).
  */
 export const PAPER_LAYER_GAP_MM = 1.2;
+
+/**
+ * Paper-thickness offset per layer during the assembly from the sheet (docs/PRODUCTION.md §10.8), mm: the glue flap
+ * inside LEFT, and the formed bottom (BACK flap outermost, then glue-flap ear, back ears, FRONT flap, front ears,
+ * side triangles). Render-only; fades in while the tube closes so the flat sheet stays exactly flat.
+ */
+export const ASSEMBLY_LAYER_GAP_MM = 0.25;
 
 /**
  * Lines on the bottom underside (flap seam, tuck diagonals…) float this far off the outer surface so they are
@@ -28,6 +36,6 @@ export type PaperPalette = {
 
 /** Single source of paper colours in the 3D preview. */
 export const PAPER_PALETTES: Record<PaperColor, PaperPalette> = {
-  WHITE: { paper: '#f4f2ec', edge: '#8c887e', crease: '#a39f95' },
-  BROWN: { paper: '#b88a5a', edge: '#6e5436', crease: '#7d6040' },
+  WHITE: { paper: PAPER_PREVIEW_COLORS.WHITE, edge: '#8c887e', crease: '#a39f95' },
+  BROWN: { paper: PAPER_PREVIEW_COLORS.BROWN, edge: '#6e5436', crease: '#7d6040' },
 };

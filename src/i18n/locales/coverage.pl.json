@@ -12,6 +12,37 @@
     "hints": {
       "NO_PANTONE_COLORS": "Dodaj kolory Pantone w kroku „Nadruk i produkcja”, aby zobaczyć pokrycie per kolor.",
       "POOR_COLOR_MATCH": "Część grafiki ma kolory odległe od kolorów podglądu Pantone — sprawdź listę kolorów i ich podgląd w kroku „Nadruk i produkcja”."
+    },
+    "palette": {
+      "title": "Kolory w grafikach (HEX)",
+      "swatch": "Kolor",
+      "hex": "HEX",
+      "pantone": "Pantone (najbliższy)",
+      "area": "Powierzchnia [{{unit}}]",
+      "percent": "% arkusza",
+      "other": "inne (pozostałe odcienie: {{count}})",
+      "empty": "Brak farby w grafikach.",
+      "note": "Kolory wykryte w pikselach grafik po pozycjonowaniu (te same zasady co pokrycie farbą), łączone w CIELAB wg CIEDE2000: odcienie bliższe niż ΔE00 {{tolerance}} to jeden kolor, piksele wygładzanych krawędzi (mieszanka dwóch kolorów) należą do bliższego z nich, kolory poniżej {{minShare}} farby dołączają do najbliższego podobnego koloru albo do „inne”; maks. {{max}} kolorów. HEX to rzeczywisty kolor piksela z grupy. Najbliższy Pantone i ΔE — względem kolorów podglądu z listy nadruku."
+    },
+    "analysis": {
+      "tolerance": "Łączenie podobnych kolorów",
+      "toleranceValue": "ΔE00 {{value}}",
+      "exact": "dokładnie",
+      "strong": "mocno łącz",
+      "minShare": "Minimalna plama koloru",
+      "minShareNone": "bez limitu",
+      "minShareOption": "{{value}} farby",
+      "hint": "Łączy odcienie, które w druku są jednym kolorem: wygładzanie krawędzi, kompresję JPEG, przejścia tonalne. Kolory mniejsze niż minimalna plama dołączają do najbliższego podobnego koloru (albo do „inne”).",
+      "shades_one": "{{count}} odcień",
+      "shades_few": "{{count}} odcienie",
+      "shades_many": "{{count}} odcieni",
+      "shades_other": "{{count}} odcienia",
+      "merged_one": "{{shades}} połączono w {{count}} kolor",
+      "merged_few": "{{shades}} połączono w {{count}} kolory",
+      "merged_many": "{{shades}} połączono w {{count}} kolorów",
+      "merged_other": "{{shades}} połączono w {{count}} koloru",
+      "summaryLabel": "Kolory w grafikach",
+      "summaryValue": "łączenie podobnych kolorów ΔE00 {{tolerance}}, minimalna plama {{minShare}} farby"
     }
   }
 }

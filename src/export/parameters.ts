@@ -6,6 +6,7 @@ import { getHandlePatchSize, type Dieline } from '../domain/dieline';
 import { resolveHandleParams } from '../domain/geometry/handles';
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
 import { PANEL_POSITIONS } from '../domain/factories';
+import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import type { BagConfiguration } from '../domain/types';
 import type { Translate } from './format';
 
@@ -72,6 +73,7 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     );
   }
 
+  const colorAnalysis = normalizeColorAnalysis(print.colorAnalysis);
   const printRows: ParameterRow[] = [
     row('printTechnology', t(`print.${print.technology}`)),
     row('colorCount', print.pantoneColors.length),
@@ -79,6 +81,8 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
       'pantoneColors',
       print.pantoneColors.length > 0 ? print.pantoneColors.map((c) => c.code).join(', ') : t('summary.noPrint'),
     ),
+    row('colorMergeTolerance', colorAnalysis.mergeTolerance),
+    row('colorMinAreaShare', Math.round(colorAnalysis.minAreaShare * 1000) / 10, '%'),
     row('packaging', t(`packaging.${configuration.packaging}`)),
   ];
 

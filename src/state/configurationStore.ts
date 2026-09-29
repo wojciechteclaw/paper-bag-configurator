@@ -20,11 +20,13 @@ import {
 } from '../domain/handleVariants';
 import { suggestPantonePreviewHex } from '../domain/printColors';
 import { normalizeHex } from '../domain/printCoverage/color';
+import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import type {
   Artwork,
   ArtworkPlacement,
   BagConfiguration,
   BagType,
+  ColorAnalysisSettings,
   Dimensions,
   HandleType,
   PackagingType,
@@ -85,6 +87,8 @@ type ConfigurationState = {
   /** Changes the preview colour of an entry; invalid hex values are ignored. */
   setPantoneColorHex: (index: number, hex: string) => void;
   removePantoneColor: (index: number) => void;
+  /** Colour-analysis settings of the artwork palette (merge tolerance, minimum share); values are clamped. */
+  setColorAnalysis: (patch: Partial<ColorAnalysisSettings>) => void;
   setPackaging: (packaging: PackagingType) => void;
 };
 
@@ -242,6 +246,16 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
 
     removePantoneColor: (index) =>
       update((c) => ({ print: { ...c.print, pantoneColors: c.print.pantoneColors.filter((_, i) => i !== index) } })),
+
+    setColorAnalysis: (patch) =>
+      update((c) => {
+        const current = normalizeColorAnalysis(c.print.colorAnalysis);
+        const colorAnalysis = normalizeColorAnalysis({
+          mergeTolerance: patch.mergeTolerance ?? current.mergeTolerance,
+          minAreaShare: patch.minAreaShare ?? current.minAreaShare,
+        });
+        return { print: { ...c.print, colorAnalysis } };
+      }),
 
     setPackaging: (packaging) => update((c) => (definitionOf(c).packaging.includes(packaging) ? { packaging } : {})),
   };

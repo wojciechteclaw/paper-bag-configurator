@@ -33,11 +33,12 @@ Oznaczenia: `W` szerokość (przód/tył, dłuższa krawędź podstawy, tylko tu
 | dno klockowe (prostokątne) | block bottom, SOS / square bottom | Płaskie dno `W × D`, na którym torba stoi. Maszyna: bottomer. |
 | zapas na dno | bottom allowance | Przedłużenie każdej ścianki poniżej linii dna, `a = (D+30)/2` [K]. Z niego powstaje dno. |
 | linia dna | bottom fold line / primary cross fold | Obwodowy big `y = 0`, na którym ścianki przechodzą w dno. |
-| klapa przednia / tylna dna | front / back bottom flap | Zapas pod FRONT / BACK (`W × a`). Kładzie się na dnie; klapy zachodzą na siebie. |
+| klapa przednia / tylna dna | front / back bottom flap | Zapas pod FRONT / BACK (`W × a`). Kładzie się na dnie; klapy zachodzą na siebie. **Klapa tylna na wierzchu** [K]. |
 | zawinięcie boczne dna (trójkąt) | corner tuck, gusset tuck | Zapas pod ścianką boczną, złożony w trójkąt 45° (dolna połowa „rombu”). |
 | „uszy” zawinięcia | ears, dog-ears | Części zapasu bocznego za liniami 45°. Są złożone na trójkąt i przyklejone do klap. |
 | romb (karo) | diamond | Kwadrat obrócony o 45° na ściance bocznej i jej zapasie, o przekątnej `D` na linii dna. Jego górna połowa to trójkąt T na ściance. |
-| zakładka klapy dna | bottom flap overlap | Pas, w którym klapa przednia zachodzi na tylną: **30 mm** (z reguły [K], patrz §3.4). |
+| zakładka klapy dna | bottom flap overlap | Pas, w którym klapa tylna zachodzi na przednią: **OV = 2E − D = 30 mm** (z reguły [K], patrz §3.2, §3.4). |
+| big dolinowy / grzbietowy | valley / mountain crease | Kierunek zgięcia widziany **od strony druku** wg konwencji klienta [K]: V — strona zadrukowana na zewnątrz zgięcia, M — strona zadrukowana do środka (§9.3). |
 | łata dna / wkładka | bottom patch / insert | Opcjonalne wzmocnienie dna (papier lub karton). Nie ma go w MVP [Z]. |
 | big „płaskiego złożenia” | flat-fold pleat | Poziomy big na BACK i na tylnych połówkach boków, na wysokości `D/2` (patrz §3.5). |
 | górna krawędź | top edge | Cięta prosto, ewentualnie ząbkowana (serrated). **Na razie bez zawinięcia górnego (top turn-in)**. To przyszły zakres. |
@@ -69,9 +70,10 @@ dochodzi opcjonalny moduł uchwytów. Przykłady: Garant (grupa W&H) TRIUMPH, Ne
       `W × D` z dwiema klapami: przednią i tylną („the perimeter of the opening … defines a regular
       rectangle”, US 6 623 162).
    3. **Nałożenie kleju** na strefy klap wokół otworu.
-   4. **Złożenie klapy tylnej**, potem **klapy przedniej na tylną** i ich sklejenie („back flap 58 is folded
-      … then front flap 56 is folded … over the already-folded-over back flap … and is glued to the
-      outer-facing surface of the back flap”, US 6 623 162).
+   4. **Złożenie klapy przedniej**, potem **klapy tylnej na przednią** i ich sklejenie na zakładce OV **[K]**
+      (decyzja klienta 29.09.2026: klapa tylna na wierzchu). Patent US 6 623 162 opisuje odwrotną kolejność
+      („back flap 58 is folded … then front flap 56 is folded … over the already-folded-over back flap”) —
+      **obowiązuje kolejność klienta**.
    5. Opcjonalna łata dna.
    6. Gotowe dno leży płasko na ściance rękawa. Torba opuszcza maszynę **złożona na płasko**,
       z dnem przyłożonym do jednej ze ścianek (§3.5).
@@ -112,6 +114,11 @@ Płaszczyzna FRONT: `z = 0` (FRONT jest nieruchomy). BACK w stanie stojącym: `z
 | wysokość arkusza (długość odcinka) | `L = H + a = H + (D + 30)/2` | **[K]** |
 | zakładka klap dna | `2a − D = 30 mm` | [W z K] |
 | szerokość zakładki wzdłużnej `s` | **10 mm**; szew na krawędzi BACK/LEFT (§9.1) | **[K]** (29.09.2026) |
+
+**Warunki formowania dna [K]** (specyfikacja klienta, oznaczenia: `E` = głębokość klapy = zapas `a`, `OV` = zakładka):
+`E = (OV + D) / 2`, `OV = 30`, **`E ≥ D/2`** (wierzchołek trójkąta boku `D/2` mieści się w zapasie) i
+**`OV = 2E − D > 0`** (klapy zachodzą na siebie — jest pas kleju). Sprawdza je `validateBottomFlaps`
+(`src/domain/validation/bottom.ts`, testy); przy regule `E = (D + 30)/2` są spełnione dla każdego `D`.
 
 **Co znaczy 30 mm.** Klapa przednia i tylna mają po `a = D/2 + 15`. Każda kładzie się na dnie od swojej
 krawędzi, więc sięga 15 mm za środek dna (`D/2`). Razem zachodzą na siebie na **30 mm**. To jest pas kleju,
@@ -194,19 +201,19 @@ Tu `u` mierzone jak na panelu (LEFT: od BACK). Uszy stykają się wzdłuż bigu 
    │      zapas BACK   W × a     │            │/ ucho T.                ucho T.\│
    └─────────────────────────────┘        y=0 └───────────────────────────────┘ (big tylny)
 
- 3) klapa tylna (W × a) na dno:            4) klapa przednia (W × a) na klapę tylną, klej:
-    y ∈ [0, a] = [0, D/2+15]                   y ∈ [D−a, D] = [D/2−15, D]
+ 3) klapa przednia (W × a) na dno:         4) klapa tylna (W × a) na klapę przednią, klej [K]:
+    y ∈ [D−a, D] = [D/2−15, D]                 y ∈ [0, a] = [0, D/2+15]
 
    y=D ┌───────────────────────────────┐    y=D ┌───────────────────────────────┐
-       │  (trójkąty/uszy widoczne)     │        │ KLAPA PRZEDNIA (wierzch)      │
- D/2+15├───────────────────────────────┤        │                               │
-       │ KLAPA TYLNA                   │ D/2−15 ├═══════ krawędź klapy, widoczny szew ══┤
-       │                               │        │ klapa tylna (widoczna część)  │
+       │ KLAPA PRZEDNIA                │        │ klapa przednia (widoczna część)│
+       │                               │ D/2+15 ├═══════ krawędź klapy, widoczny szew ══┤
+ D/2−15├───────────────────────────────┤        │                               │
+       │  (trójkąty/uszy widoczne)     │        │ KLAPA TYLNA (wierzch)         │
    y=0 └───────────────────────────────┘    y=0 └───────────────────────────────┘
                                              zakładka klejowa: y ∈ [D/2−15, D/2+15] = 30 mm
 ```
 
-Kolejność warstw od wnętrza torby na zewnątrz [W + US 6 623 162 dla kolejności klap]:
+Kolejność warstw od wnętrza torby na zewnątrz [W; kolejność klap **[K]**, odwrotnie niż US 6 623 162]:
 
 1. **Trójkąty wewnętrzne** zapasów bocznych. Są przedłużeniem ścianek bocznych, obrócone o 90° do środka
    na linii dna. To one są widoczne od środka torby przy krótkich krawędziach dna. Wierzchołki: LEFT
@@ -215,9 +222,9 @@ Kolejność warstw od wnętrza torby na zewnątrz [W + US 6 623 162 dla kolejno�
    `(0,0), (0,a), (D/2,a), (D/2,D/2)`, ucho przednie LEFT `(0,D), (0,D−a), (D/2,D−a), (D/2,D/2)` [W].
    Krawędź ucha, która była narożnikiem rękawa, ląduje na krótkiej krawędzi dna (`x = 0`), dokładnie
    pod krawędzią klapy. Dlatego nic nie wystaje poza obrys `W × D`.
-3. **Klapa tylna** `W × a`, pas `y ∈ [0, a]`.
-4. **Klapa przednia** `W × a`, pas `y ∈ [D − a, D]`, na wierzchu. Klej w pasie zakładki 30 mm
-   i na stykach klap z uszami [T].
+3. **Klapa przednia** `W × a`, pas `y ∈ [D − a, D]`.
+4. **Klapa tylna** `W × a`, pas `y ∈ [0, a]`, **na wierzchu [K]**. Klej w pasie zakładki 30 mm (na stronie
+   zadrukowanej klapy przedniej, pod wewnętrzną stroną klapy tylnej) i na stykach klap z uszami [T].
 
 Wnioski geometryczne [W]:
 
@@ -226,7 +233,7 @@ Wnioski geometryczne [W]:
   stykają.
 - Zapas zużyty na dno: `a` z każdej ścianki. Pole papieru dna: `2·W·a + 2·D·a`, a pole dna to `W·D`.
   Różnica to podwójne i potrójne warstwy (uszy, zakładka).
-- Od zewnątrz widać jedną linię: krawędź klapy przedniej w `y = D/2 − 15` (BOTTOM-local). Obrys
+- Od zewnątrz widać jedną linię: krawędź klapy tylnej w `y = a = D/2 + 15` (BOTTOM-local) [K]. Obrys
   trójkątów może lekko przebijać przez papier (embossing) jako subtelny detal renderu [Z].
 
 #### 3.4.3 Bigi na dolnych częściach czterech ścianek (nad linią dna)
@@ -299,8 +306,9 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
   bokach łamie się na bigu środkowym i na liniach 45°, na BACK na bigu `D/2`, co widać tylko po
   złożeniu [W].
 - **Co znika albo zmienia rolę**:
-  - zapas pod FRONT (`y ∈ [−a, 0]`) jest w całości widoczny od spodu jako zewnętrzna klapa dna,
-  - zapas pod BACK jest widoczny od spodu tylko w pasie `D/2 − 15` przy bigu tylnym,
+  - zapas pod BACK (`y ∈ [−a, 0]`) jest w całości widoczny od spodu jako zewnętrzna klapa dna (klapa tylna na
+    wierzchu [K]),
+  - zapas pod FRONT jest widoczny od spodu tylko w pasie `D/2 − 15` przy bigu przednim,
   - zapasy pod bokami są całkowicie schowane,
   - zakładka `s` jest schowana (klej).
 - **Na bokach** treść krytyczną trzymać powyżej rombu, czyli `v ≥ D/2 + 5 mm` [Z]. Obszar trójkąta T
@@ -419,7 +427,9 @@ Konsekwencje szwu na krawędzi (a nie na płaskiej ściance) [W]:
 ### 9.2 Zakładka wzdłużna
 
 `s = 10 mm` **[K]** (decyzja klienta, 29.09.2026), stała w `productionRules.ts` (`glueFlapWidth`).
-Opcjonalne ścięcie 45° narożników zakładki na długości `a` przy końcu dna, żeby ograniczyć grubość w dnie [Z].
+**Oba końce zakładki są ścięte pod 45° [K]** (decyzja klienta 29.09.2026): swobodna krawędź zakładki jest krótsza —
+cięcie biegnie od zawiasu C3 na górnej krawędzi ukośnie do krawędzi swobodnej (`s` w bok, `s` w dół) i tak samo na
+dolnym końcu (koniec zapasu dna). Zakładka to trapez o polu `s · (L − s)`; szerokość `s` i położenie szwu bez zmian.
 
 ### 9.3 Linie cięcia i bigowania
 
@@ -427,31 +437,53 @@ Opcjonalne ścięcie 45° narożników zakładki na długości `a` przy końcu d
 
 **Cięcie (CUT):**
 
-1. Obrys prostokąta `X ∈ [0, 2W+2D+s]`, `Y ∈ [−a, H]`. Góra: prosto (opcjonalnie ząbkowana w przyszłości).
-   Dół (koniec rękawa): prosto.
+1. Obrys arkusza `X ∈ [0, 2W+2D+s]`, `Y ∈ [−a, H]` z **ściętymi 45° końcami zakładki [K]** (§9.2): kontur
+   `(0,−a) → (X_T,−a) → (X_T+s, −a+s) → (X_T+s, H−s) → (X_T, H) → (0, H)` — 6 odcinków. Góra: prosto
+   (opcjonalnie ząbkowana w przyszłości). Dół (koniec rękawa): prosto.
 2. **Brak nacięć klap dna.** Dno klockowe z rękawa powstaje wyłącznie przez składanie. Nacięcia
    z patentów US 5 518 316 i US 5 520 464 dotyczą wariantów zgrzewanych [F]. Opcjonalne ścięcie
    narożników zakładki `s` (§9.2).
 
 **Bigi (CREASE):**
 
-| # | Linia | Odcinek(i) | Typ w torbie stojącej |
-|---|---|---|---|
-| C1 | linia dna | `Y = 0`, `X ∈ [0, 2W+2D+s]` | 90° (ścianka–dno) |
-| C2 | krawędzie rękawa | `X ∈ {D, W+D, W+2D}` (LEFT/FRONT, FRONT/RIGHT, RIGHT/BACK), `Y ∈ [−a, H]` | 90° (grzbiet) |
-| C3 | zawias zakładki = krawędź BACK/LEFT | `X = X_T`, `Y ∈ [−a, H]` | 90° (grzbiet; zakładka pod LEFT od wewnątrz) |
-| C4 | środek fałdy (ścianka) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [D/2, H]` | 0° na stojąco, 180° na płasko (dolina) |
-| C5 | środek fałdy (zapas) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [−a, −D/2]` | między uszami |
-| C6 | romb, górne 45° | `(Xc−D/2, 0)–(Xc, D/2)` i `(Xc+D/2, 0)–(Xc, D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, s)` | krawędzie T |
-| C7 | romb, dolne 45° | `(Xc−D/2, 0)–(Xc, −D/2)` i `(Xc+D/2, 0)–(Xc, −D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, −s)` | krawędzie trójkąta wewn. / uszu |
-| C8 | big płaskiego złożenia | `Y = D/2` na: LEFT (połówka tylna) `X ∈ [0, Xc_L]`, RIGHT (połówka tylna) + cały BACK + zakładka `X ∈ [Xc_R, 2W+2D+s]` | 0° na stojąco, 180° na płasko |
+| # | Linia | Odcinek(i) | Typ w torbie stojącej | V / M od strony druku |
+|---|---|---|---|---|
+| C1 | linia dna | `Y = 0`, `X ∈ [0, 2W+2D+s]` | 90° (ścianka–dno) | **V** [K] |
+| C2 | krawędzie rękawa | `X ∈ {D, W+D, W+2D}` (LEFT/FRONT, FRONT/RIGHT, RIGHT/BACK), `Y ∈ [−a, H]` | 90° (grzbiet) | **V** [K] |
+| C3 | zawias zakładki = krawędź BACK/LEFT | `X = X_T`, `Y ∈ [−a, H]` | 90° (grzbiet; zakładka pod LEFT od wewnątrz) | **V** [K] (krawędź ścianki) |
+| C4 | środek fałdy (ścianka) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [D/2, H]` | 0° na stojąco, 180° na płasko | **M** [K] |
+| C5 | środek fałdy (zapas) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [−a, −D/2]` | między uszami | **M** [K] (oś boku) |
+| C6 | romb, górne 45° (= linia 5 specyfikacji klienta) | `(Xc−D/2, 0)–(Xc, D/2)` i `(Xc+D/2, 0)–(Xc, D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, s)` | krawędzie T | **M** [K] |
+| C7 | romb, dolne 45° (trójkąty boków w zapasie) | `(Xc−D/2, 0)–(Xc, −D/2)` i `(Xc+D/2, 0)–(Xc, −D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, −s)` | krawędzie trójkąta wewn. / uszu | **V** [K] |
+| C8 | big płaskiego złożenia (nasz, poza specyfikacją klienta) | `Y = D/2` na: LEFT (połówka tylna) `X ∈ [0, Xc_L]`, RIGHT (połówka tylna) `[Xc_R, W+2D]`, cały BACK `[W+2D, X_T]`, zakładka `[X_T, X_T+s]` | 0° na stojąco, 180° na płasko | **V** na połówkach boków i zakładce, **M** na BACK [W] |
+
+**Konwencja V / M [K].** Klient podaje typ bigu widziany od strony druku: V (dolina) — krawędzie ścianek, linia
+dna, trójkąty boków w zapasie; M (grzbiet) — osie boków (fałda) i ukośne bigi 45° na bokach. Wynika z tego, że
+**V = strona zadrukowana na zewnątrz zgięcia**, **M = strona zadrukowana do środka** (odwrotnie niż w konwencji
+origami; sprawdzone na modelu kinematycznym, test `fold direction of the wall creases` w `foldKinematics.test.ts`).
+**Linia 5 specyfikacji klienta ≡ nasze bigi 45° C6** (od dolnych narożników boku do wierzchołka `D/2`). Zakładka
+kontynuuje typy LEFT (C6 M, C7 V, C8 V).
+
+**Decyzja: C8 [W].** Big poziomy `D/2` (wymagany do płaskiego złożenia, §3.3) zmienia kierunek na krawędziach
+BACK/bok: na **BACK jest M** (dolny pas BACK obraca się na zewnątrz i do góry, druk do druku), na **połówkach tylnych
+boków i na zakładce V**. To jedyne przypisanie, przy którym wierzchołek rombu A (C4 M, dwa C6 M, C8) spełnia
+tw. Maekawy `|M − V| = 2` (test w `buildDieline.test.ts`); zgodne też z kinematyką złożenia (§10.5).
+W kodzie: `DielineLine.kind: 'VALLEY' | 'MOUNTAIN'`, `CREASE_FOLDS` w `buildDieline.ts` (kody C1–C8 bez zmian).
+
+**Eksport SVG — warstwy [K]:** `print` (grafiki), `annotations` (wymiary, spad, strefa bezpieczna, zapasy, łatki,
+opisy — informacyjnie), `glue`, `crease_valley` (niebieska przerywana), `crease_mountain` (turkusowa
+kreska-kropka), `cut` (czerwona linia). Warstwy mają etykiety Inkscape; PDF i widok 2D rysują to samo (legenda
+V / M w widoku 2D).
 
 C4 w praktyce biegnie przez cały rękaw (`Y ∈ [−a, H]`), bo tuber bigiuje fałdę na całej długości.
 Wewnątrz rombu (`|Y| < D/2`) jest jednak nieaktywny. W eksporcie SVG rysować go przez rombu tylko
 jako warstwę informacyjną [Z]. **C8 jest fizyczną linią bigowania [K]** (decyzja klienta, 29.09.2026) —
 rysowany na wykroju w warstwie bigów oraz w 3D, na całej szerokości BACK i na tylnych połówkach boków.
 
-**Strefy informacyjne (nie cięcie, nie big):** pas kleju klap dna: FRONT i BACK `Y ∈ [−a, −a+30]`.
+**Strefy informacyjne (nie cięcie, nie big):** pas kleju klap dna **OV** na końcu rękawa, `Y ∈ [−a, −a + OV]`
+(u klienta `y ∈ [H + E − OV, H + E]` od górnej krawędzi) pod FRONT i pod BACK. Klapa tylna na wierzchu [K], więc klej
+leży na **stronie zadrukowanej pasa klapy przedniej** (strefa `face: 'PRINT'`, wypełniona) i styka się z **wewnętrzną
+stroną pasa klapy tylnej** (`face: 'REVERSE'`, tylko obrys przerywany).
 Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrznym [T]. Zakładka `s`.
 
 ### 9.4 Spad i strefa bezpieczna (flexo)
@@ -472,7 +504,7 @@ Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrzn
 - BACK: środek łatki `X = 2D + 3W/2` (panel-local `x = W/2`). BACK jest w jednym kawałku, więc łatka też.
 - `Lp = 100`, `Hp = 20`, górna krawędź 20 mm pod cięciem [K] (`DIELINE_RULES.handlePatch`, `HANDLE_DEFAULTS.patch`).
   Na wąskich ściankach `Lp = min(100, W − 10)` (5 mm od bigów bocznych) [Z]. Końce uchwytu (oba typy):
-  `x = W/2 ± c/2`, `c = 80 mm` stałe [K] (`HANDLE_END_SPACING_MM`); zmniejszane tylko, gdy łatka jest za wąska (§5).
+  `x = W/2 ± c/2`, gdzie `c = 80 − szerokość uchwytu`: uchwyt ma zawsze **80 mm szerokości po zewnętrznych krawędziach** [K] (`HANDLE_OUTER_WIDTH_MM`), a łatka wystaje **10 mm poza obrys rączki z każdej strony** [K] (`PATCH_OVERHANG_MM`) → łatka 80 + 2·10 = 100 mm. Sznurek Ø5 → c = 75 mm, taśma 20 mm → c = 60 mm. Zmniejszane tylko, gdy łatka jest za wąska (§5).
   Dawny wzór `Lp = min(170, W − 20)`, `Hp = 45`, `c = clamp(W/2, 75, 150)` [Z] jest wycofany.
 
 ### 9.6 Przykład: W = 200, H = 400, D = 150, s = 10 → a = 90, arkusz 710 × 490 mm
@@ -483,7 +515,7 @@ Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa je
 
 ```text
       Y 0      75     150                 350     425    500                  700|710
-    400 ########################################################################
+    400 #######################################################################\
     380 #       |      :     +++++++++     :       |      :     +++++++++     :#
     360 #       |      :     +++++++++     :       |      :     +++++++++     :#
     ... #       |      :                   :       |      :                   :#
@@ -503,9 +535,10 @@ Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa je
   -62.5 #     \  /     :                   :     \  /     :                   :#
     -75 #       V      :                   :       V      :                   :#
     -82 #       |      :                   :       |      :                   :#
-    -90 ########################################################################
+    -90 #######################################################################/
   legenda: # cięcie  : big krawędzi rękawa / zawias zakładki C3  | big środkowy fałdy  / \ bigi 45° rombu
            = big płaskiego złożenia  - linia dna  + obrys łatki (wewnątrz)  S zakładka klejowa (10 mm)
+           \ / w X = 700–710: ścięcie 45° końców zakładki [K]; pas kleju OV na FRONT_FLAP i BACK_FLAP w Y ∈ [−90, −60]
 ```
 
 Romb LEFT: `(0,0)–(75,75)–(150,0)–(75,−75)`. Romb RIGHT: `(350,0)–(425,75)–(500,0)–(425,−75)`.
@@ -565,13 +598,15 @@ UV: każdy region dostaje UV = `(x/D, y/H)` całej ścianki. Grafika jest ciąg�
 
 - W animacji: jeden sztywny region `(0,0) (W,0) (W,D) (0,D)`.
 - Struktura (tekstura lub opcjonalna geometria warstw, od zewnątrz):
-  - `FRONT_FLAP` `[0,W] × [D−a, D]` (wierzch),
-  - `BACK_FLAP` `[0,W] × [0, a]`,
+  - `BACK_FLAP` `[0,W] × [0, a]` (wierzch [K]),
+  - `FRONT_FLAP` `[0,W] × [D−a, D]`,
   - zakładka `[0,W] × [D/2−15, D/2+15]`,
   - LEFT: `EAR_BACK` `(0,0) (0,a) (h,a) (h,h)`, `EAR_FRONT` `(0,D) (0,D−a) (h,D−a) (h,h)`,
     `TUCK` `(0,0) (0,D) (h,h)`,
   - RIGHT: lustro `x → W − x`.
-- Widoczny szew od zewnątrz: odcinek `(0, D−a)–(W, D−a)`, czyli `y = D/2 − 15`.
+- Widoczny szew od zewnątrz: odcinek `(0, a)–(W, a)`, czyli `y = D/2 + 15` (krawędź klapy tylnej [K]).
+  W 3D od spodu widać klapę tylną w całości i odsłoniętą część klapy przedniej `[0,W] × [a, D]`
+  (`getVisibleBottomPieces`).
 
 ### 10.5 Kinematyka złożenia (p ∈ [0,1], p=0 torba stojąca, p=1 płaska)
 
@@ -658,8 +693,44 @@ Renderer może je liczyć z normalnych regionów.
 | `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?); geometria zmniejsza rozstaw poniżej W = 95 / 110 (`endSpacingReduced`, §5) | do potwierdzenia |
 
 Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D) => (D + 30) / 2`,
-`SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `DIELINE_RULES.handlePatch = { width: 100, height: 20, topOffset: 20 }` [K] (+ `sideClearance: 5` [Z]), `HANDLE_END_SPACING_MM = 80` [K],
+`SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `DIELINE_RULES.handlePatch = { width: 100, height: 20, topOffset: 20 }` [K] (+ `sideClearance: 5` [Z]), `HANDLE_OUTER_WIDTH_MM = 80` + `PATCH_OVERHANG_MM = 10` [K],
 `FLAT_FOLD_PLEAT_RATIO = 0.5`.
+
+### 10.8 Składanie z arkusza (oś czasu podglądu, `assemblyKinematics.ts`)
+
+Specyfikacja klienta [K]: kolejność 1) rękaw (bigi krawędzi, zakładka), 2) spłaszczenie, 3) zagięcie strefy dna na linii
+dna, 4) „romb”: trójkąty boków (podstawa `D` na linii dna, wierzchołek `D/2` w głąb) do środka, przód/tył stają się
+klapami `W × E` z narożnikami boków, 5) klapa przednia na dno, 6) klej OV i klapa tylna na wierzch, 7) otwarcie torby.
+W 3D: każdy panel to osobna siatka z zawiasami na bigach, strefa dna boku = trójkąt + 2 narożniki („uszy”).
+
+Realizacja [W] — `q ∈ [0, 1]` od płaskiego arkusza (wszystkie elementy w płaszczyźnie, druk do widza, współrzędne arkusza)
+do uformowanej torby (dokładnie poza BOX modelu §10.5, `p = 0`; test):
+
+| Faza | `q` | Ruch |
+|---|---|---|
+| A rękaw | 0–0,4 | panele obracają się o 90° wokół pionowych krawędzi (FRONT nieruchomy, łańcuch RIGHT → BACK → zakładka); zakładka zamyka szew od wewnątrz pod wolną krawędzią LEFT |
+| B trójkąty | 0,4–0,6 | trójkąty boków zaczynają wchodzić do środka na linii dna, pociągając klapy |
+| C1 klapa przednia | 0,6–0,8 | klapa przednia (lekko wyprzedza) idzie na dno |
+| C2 klapa tylna | 0,8–1 | klapa tylna domyka dno ostatnia, na wierzchu (klej OV) |
+
+- **Sprzężenie [W], potwierdzone przez klienta** („jedna linia narożnika ciągnie 2 ścianki”; „boki zaginane na 90° do
+  środka, a przód i tył wypadkowo — stąd trapez”). W otwartym rękawie trójkąt (kąt β) i klapa (δ) spotykają się w
+  narożniku dna przez ucho, którego papier ma tam kąt 45°. Bez rozcinania papieru kąt 3D między przekątną trójkąta a
+  linią narożnika klapy nie przekroczy 45°: `cos β · cos δ + sin δ ≥ 1`. Klapa wynikowa (ucho płaskie, klapa z uszami =
+  trapez): `δmin(β) = asin(1/√(1 + cos²β)) − atan(cos β)` (0 → 90°). Klapa tylna: `δB = δmin(β)`; przednia:
+  `δF = δmin + 0,3 · (β − δmin)` (≤ β, więc nie przechodzi przez trójkąt), dlatego tylna domyka dno ostatnia.
+  Ściśle sekwencyjne B → C1 → C2 (trójkąty do końca przy wiszących klapach) na otwartym rękawie wymagałoby rozcięcia
+  uszu wzdłuż przekątnych — tak jest w maszynie (romb na **spłaszczonym** rękawie), ale nie w otwartej bryle.
+- `β = 90° · smoothstep((q − 0,4)/0,6)`, rękaw `α = 90° · smoothstep(q/0,4)`.
+- **Uszy** zginają się wzdłuż dwusiecznej (22,5° od linii narożnika; zgięcie papieru, nie big), gdy kąt < 45° (tylko
+  uszy przednie, lekko); przy `q = 1` leżą płasko pod trójkątem. Zawiasy dokładne przy każdym `q` (testy): C1, C2, C3,
+  linie narożników klapa–ucho, przekątne C7, zgięcia uszu. Nie-sztywny (jak u Balkcoma, §3.5) jest tylko krótki big C5
+  między uszami (`a − D/2 = 15 mm`): uszy idą na różne klapy, szczelina ≤ 30 mm schowana pod klapami.
+- Warstwy (render, 0,25 mm na warstwę, od zewnątrz): klapa tylna 0, ucho zakładki 1, uszy tylne 2, klapa przednia 3,
+  uszy przednie 4, trójkąty 5, trójkąt zakładki 6; zakładka 1 wewnątrz LEFT. Zakładka ma ścięte końce jak na wykroju.
+- **Oś czasu podglądu** (jeden suwak, SPEC §4a/§4c): `t ∈ [0; 0,4]` = składanie z arkusza (`q = t/0,4`),
+  `t ∈ [0,4; 1]` = złożenie na płasko z §10.5 (`p = (t − 0,4)/0,6`). Presety: Arkusz 0, 3D pełne 0,4,
+  3D po zgięciu 0,55 (`p = 0,25`), Złożona 1 — wszystkie na siatce 1 %.
 
 ---
 
@@ -672,7 +743,8 @@ Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D)
    Rozstrzygnięte [K] (29.09.2026): szew na krawędzi rękawa BACK/LEFT, zakładka 10 mm (§9.1–9.2). Do potwierdzenia
    pozostaje tylko strona klejenia: zakładka od wewnątrz pod wolną krawędzią LEFT (nasze założenie [Z]) czy na wierzchu.
    Czy tuber klienta prowadzi szew na krawędzi (zakładka w fałdzie bocznej, podwójna warstwa w dnie po stronie LEFT)?
-4. **Kolejność klap dna**: czy przednia klapa jest na wierzchu (zakładamy tak), czy tylna?
+4. ~~**Kolejność klap dna**: czy przednia klapa jest na wierzchu?~~ Rozstrzygnięte [K] (29.09.2026): trójkąty boków do
+   środka → klapa przednia na dno → **klapa tylna na wierzch**, klej na zakładce OV = 30 mm.
 5. **Na którą ściankę dno kładzie się w torbie płaskiej** (zakładamy BACK, z zawiasem na przednim bigu)?
    ~~Czy big `D/2` na tyle jest bigowany na wstędze?~~ Rozstrzygnięte: tak, to linia bigowania (C8) [K].
 6. **Strefy kleju dna**: tylko zakładka 30 mm, czy też uszy? Czy stosujecie łatę lub wkładkę dna?

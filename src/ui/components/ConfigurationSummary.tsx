@@ -1,18 +1,20 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PANEL_POSITIONS } from '../../domain/factories';
+import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { ExportActions } from './ExportActions';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
 
 export function ConfigurationSummary() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const jsonId = useId();
   const configuration = useConfigurationStore((s) => s.configuration);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>(null);
 
   const { dimensions, paper, handle, panels, print } = configuration;
+  const colorAnalysis = normalizeColorAnalysis(print.colorAnalysis);
   const json = JSON.stringify(configuration, null, 2);
 
   const copy = async () => {
@@ -69,6 +71,17 @@ export function ConfigurationSummary() {
           <dd>
             {t(`print.${print.technology}`)}:{' '}
             {print.pantoneColors.length > 0 ? print.pantoneColors.map((color) => color.code).join(', ') : t('summary.noPrint')}
+          </dd>
+
+          <dt>{t('coverage.analysis.summaryLabel')}</dt>
+          <dd>
+            {t('coverage.analysis.summaryValue', {
+              tolerance: colorAnalysis.mergeTolerance,
+              minShare: new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language, {
+                style: 'percent',
+                maximumFractionDigits: 2,
+              }).format(colorAnalysis.minAreaShare),
+            })}
           </dd>
 
           <dt>{t('summary.packaging')}</dt>

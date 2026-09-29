@@ -45,12 +45,15 @@
     "legend": {
       "cut": "cięcie",
       "crease": "big",
+      "creaseValley": "big dolinowy (V, od strony druku)",
+      "creaseMountain": "big grzbietowy (M, od strony druku)",
       "patch": "łatka uchwytu (wewnątrz)",
       "bleed": "spad 3 mm",
       "safety": "strefa bezpieczna",
       "allowance": "zapas na dno (bez grafiki)",
       "allowancePrinted": "zapas na dno z grafiką (kolory na dnie)",
-      "glue": "klej"
+      "glue": "klej",
+      "glueReverse": "klej po stronie wewnętrznej (klapa tylna na wierzchu)"
     },
     "panel": {
       "FRONT": "Przód",

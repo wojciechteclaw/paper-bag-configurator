@@ -7,25 +7,36 @@
 // Client rules [K] (docs/PRODUCTION.md §5, §9.5), same for both handle types:
 // - Patch 100 × 20 mm (handle entity / DIELINE_RULES.handlePatch), centred on the wall, top edge 20 mm below the top
 //   cut → y ∈ [H − 40, H − 20], x ∈ [−50, 50]. On narrow walls (W < 110) clamped to W − 2·5 mm (getHandlePatchSize).
-// - End spacing c (between the two leg centre lines) is fixed: HANDLE_END_SPACING_MM = 80.
-//   Guard: when the (clamped) patch is narrower than c + handle width (W min is 75 mm: rope below W = 95, 20 mm strip
-//   below W = 110) the ends would stick out of the patch, so c is reduced to patchWidth − handle width (end edges
-//   flush with the patch sides) and the layout reports `endSpacingReduced`.
-// - Flat strip 20 mm wide: at c = 80 its legs span |x| ∈ [30, 50], i.e. exactly flush with the 100 mm patch, so there
-//   is no room for folded feet. Both types therefore end the same way: vertical legs run down behind the patch and
-//   end `PATCH_END_MARGIN` above its bottom edge (glued under it).
+// - The handle is always 80 mm wide measured over its outer edges (HANDLE_OUTER_WIDTH_MM) [K], and the patch sticks
+//   out 10 mm past the handle on each side (PATCH_OVERHANG_MM) [K] → patch width 80 + 2·10 = 100 mm.
+//   End spacing c (between the two leg centre lines) = 80 − handle width: rope Ø5 → 75 mm, 20 mm strip → 60 mm.
+//   Guard: on narrow walls (clamped patch) c shrinks so the overhang is kept where possible (never below the minimum)
+//   and the layout reports `endSpacingReduced`.
+// - Both types end the same way: vertical legs run down behind the patch and end `PATCH_END_MARGIN` above its bottom
+//   edge (glued under it).
 // - Loop: the visible part above the top edge is a half-ellipse (vertical tangents where it leaves the wall) whose
 //   arc length equals `handle.length`; the loop height follows from it.
 
 import { DIELINE_RULES } from '../config/productionRules';
 import { HANDLE_DEFAULTS } from '../config/productCatalog';
 import { getHandlePatchSize } from '../dieline/buildDieline';
-import type { Dimensions, Handle, HandleType } from '../types';
+import type { Dimensions, Handle, HandleType, Paper, PaperColor } from '../types';
+
+/**
+ * Handles (rope / strip) and their patches are made of the same paper colour as the bag — white or brown [K].
+ */
+export function getHandlePaperColor(paper: Pick<Paper, 'color'>): PaperColor {
+  return paper.color;
+}
 
 export type HandlePoint = { x: number; y: number };
 
-/** Fixed distance between the two handle ends (leg centre lines), mm [K] — independent of the wall width. */
-export const HANDLE_END_SPACING_MM = 80;
+/** Width of the handle over its outer edges, mm [K] — independent of the wall width and of the handle type. */
+export const HANDLE_OUTER_WIDTH_MM = 80;
+/** How far the patch sticks out past the handle on each side, mm [K]. */
+export const PATCH_OVERHANG_MM = 10;
+/** Leg centre-line spacing for a handle of the given width (rope diameter / strip width), mm. */
+export const handleEndSpacingFor = (handleWidth: number) => HANDLE_OUTER_WIDTH_MM - handleWidth;
 /** Clearance between the handle ends and the bottom edge of the patch, mm. */
 export const PATCH_END_MARGIN = 5;
 /** The two legs never come closer than this many handle widths (keeps the loop open for tiny patches). */
@@ -71,12 +82,16 @@ export function getHandlePatchRect(handle: Handle, dimensions: Dimensions): Hand
 }
 
 /**
- * Distance between the two leg centre lines, mm: HANDLE_END_SPACING_MM [K]. Only when the patch (or the wall) is
- * narrower than that spacing plus one handle width is it reduced so both ends stay under the patch (end edges flush
- * with its sides); never below `MIN_END_SPACING_FACTOR` handle widths. Same rule for both handle types.
+ * Distance between the two leg centre lines, mm: 80 mm outer handle width minus the handle width [K], so the patch
+ * overhangs the handle by PATCH_OVERHANG_MM on each side. Only when the patch (or the wall) is too narrow is it reduced
+ * (keeping the overhang, then at least flush with the patch sides); never below `MIN_END_SPACING_FACTOR` widths.
  */
 export function getHandleEndSpacing(wallWidth: number, patchWidth: number, handleWidth: number): number {
-  const spacing = Math.min(HANDLE_END_SPACING_MM, patchWidth - handleWidth, wallWidth - handleWidth);
+  const spacing = Math.min(
+    handleEndSpacingFor(handleWidth),
+    Math.max(patchWidth - 2 * PATCH_OVERHANG_MM, 0) - handleWidth,
+    wallWidth - handleWidth,
+  );
   return Math.max(spacing, MIN_END_SPACING_FACTOR * handleWidth);
 }
 
@@ -129,7 +144,7 @@ function straight(from: HandlePoint, to: HandlePoint, out: HandlePoint[]) {
 export type HandleLayout = {
   params: HandleParams;
   patch: HandlePatchRect;
-  /** Distance between the two leg centre lines, mm (HANDLE_END_SPACING_MM unless reduced). */
+  /** Distance between the two leg centre lines, mm (80 − handle width unless reduced). */
   endSpacing: number;
   /** True when the wall / patch is too narrow for the fixed spacing and it had to be reduced (narrow walls). */
   endSpacingReduced: boolean;
@@ -164,7 +179,7 @@ export function getHandleLayout(handle: Handle, dimensions: Dimensions): HandleL
     params,
     patch,
     endSpacing,
-    endSpacingReduced: endSpacing < HANDLE_END_SPACING_MM,
+    endSpacingReduced: endSpacing < handleEndSpacingFor(params.width),
     loopHeight,
     endY,
     path,

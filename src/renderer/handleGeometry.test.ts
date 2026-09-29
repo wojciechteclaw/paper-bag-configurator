@@ -8,6 +8,8 @@ import { getBagFrame, getWallPlaneZ } from './bagGeometry';
 import { MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 import {
   createPatchGeometry,
+  createPatchOutlinePoints,
+  createPatchShadowGeometry,
   createRopeGeometry,
   createStripGeometry,
   createTwistTexture,
@@ -18,6 +20,7 @@ import {
   handleStackThickness,
   patchOffset,
   PATCH_CLEARANCE_MM,
+  PATCH_SHADOW,
 } from './handleGeometry';
 
 const dims = { width: 200, height: 400, depth: 150 };
@@ -180,4 +183,31 @@ describe('handles stay inside the bag (no bleed-through)', () => {
       }
     });
   }
+});
+
+describe('patch readability (outline + fake shadow, no shadow maps)', () => {
+  it.each(['TWISTED_PAPER', 'FLAT_PAPER'] as const)('%s: outline is a closed loop on the patch corners, above its surface', (type) => {
+    const layout = layoutOf(type);
+    const pts = createPatchOutlinePoints(layout);
+    expect(pts).toHaveLength(5);
+    expect(pts[0]).toEqual(pts[4]);
+    const { x0, x1, y0, y1 } = layout.patch;
+    expect(pts.slice(0, 4).map(([x, y]) => [x / s, y / s])).toEqual([
+      [x0, y0],
+      [x1, y0],
+      [x1, y1],
+      [x0, y1],
+    ].map(([x, y]) => [expect.closeTo(x, 6), expect.closeTo(y, 6)]));
+    for (const [x, y, z] of pts) expect(z / s).toBeGreaterThan(patchOffset(layout, x / s, y / s));
+  });
+
+  it.each(['TWISTED_PAPER', 'FLAT_PAPER'] as const)('%s: shadow lies between wall and patch and is shifted down', (type) => {
+    const layout = layoutOf(type);
+    const box = new Box3().setFromBufferAttribute(createPatchShadowGeometry(layout).getAttribute('position') as BufferAttribute);
+    expect(box.min.z / s).toBeGreaterThan(0);
+    expect(box.max.z / s).toBeLessThan(HANDLE_WALL_CLEARANCE_MM);
+    expect(box.min.y / s).toBeCloseTo(layout.patch.y0 - PATCH_SHADOW.spread - PATCH_SHADOW.drop, 3);
+    // Nothing of the shadow shows above the patch's top edge.
+    expect(box.max.y / s).toBeLessThanOrEqual(layout.patch.y1 + 1e-3);
+  });
 });

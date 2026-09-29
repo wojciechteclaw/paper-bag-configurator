@@ -254,3 +254,39 @@ describe('standing preset', () => {
     }
   });
 });
+
+describe('fold direction of the wall creases (cross-check of the dieline valley / mountain classification)', () => {
+  // Seen from the print (outer) side: MOUNTAIN = the neighbouring region bends towards the print side (print side
+  // inside the fold), VALLEY = it bends away (print side outside). Client convention, docs/PRODUCTION.md §9.3.
+  const centroid = (pose: FoldPose, panel: FoldPanelId, region: FoldRegionId) => {
+    const poly = getPanelRegions(panel, dims).find((r) => r.id === region)!.polygon;
+    const pts = poly.map((p) => place(pose, panel, region, p.x, p.y));
+    const n = pts.length;
+    return pts.reduce((s, p) => ({ x: s.x + p.x / n, y: s.y + p.y / n, z: s.z + p.z / n }), { x: 0, y: 0, z: 0 });
+  };
+  const sense = (
+    p: number,
+    a: [FoldPanelId, FoldRegionId],
+    b: [FoldPanelId, FoldRegionId],
+    hinge: [number, number],
+  ): 'MOUNTAIN' | 'VALLEY' => {
+    const pose = getFoldPose(dims, p);
+    const on = place(pose, a[0], a[1], hinge[0], hinge[1]);
+    const side = dot(sub(centroid(pose, b[0], b[1]), on), regionNormal(pose, a[0], a[1]));
+    return side > 0 ? 'MOUNTAIN' : 'VALLEY';
+  };
+
+  it.each([0.3, 0.5, 0.8])('matches the client classification and the C8 split at p = %s', (p) => {
+    // C4 gusset centre axis (LEFT, u = D/2): MOUNTAIN.
+    expect(sense(p, ['LEFT', 'SIDE_BACK_UPPER'], ['LEFT', 'SIDE_FRONT'], [75, 300])).toBe('MOUNTAIN');
+    // C6 45° diagonals: MOUNTAIN on both sides of the triangle.
+    expect(sense(p, ['LEFT', 'SIDE_FRONT'], ['LEFT', 'SIDE_T'], [112.5, 37.5])).toBe('MOUNTAIN');
+    expect(sense(p, ['LEFT', 'SIDE_BACK_LOWER'], ['LEFT', 'SIDE_T'], [37.5, 37.5])).toBe('MOUNTAIN');
+    // C8 pleat: VALLEY on the side's back half, MOUNTAIN on BACK.
+    expect(sense(p, ['LEFT', 'SIDE_BACK_UPPER'], ['LEFT', 'SIDE_BACK_LOWER'], [37.5, 75])).toBe('VALLEY');
+    expect(sense(p, ['BACK', 'BACK_UPPER'], ['BACK', 'BACK_LOWER'], [100, 75])).toBe('MOUNTAIN');
+    // C2 tube edge and C1 bottom line: VALLEY.
+    expect(sense(p, ['FRONT', 'FRONT'], ['LEFT', 'SIDE_FRONT'], [0, 300])).toBe('VALLEY');
+    expect(sense(p, ['FRONT', 'FRONT'], ['BOTTOM', 'BOTTOM'], [100, 0])).toBe('VALLEY');
+  });
+});

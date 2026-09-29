@@ -1,5 +1,5 @@
 import { DEFAULT_PLACEMENT } from './artworkPlacement';
-import { BAG_TYPES, HANDLE_DEFAULTS } from './config/productCatalog';
+import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, HANDLE_DEFAULTS } from './config/productCatalog';
 import { getHandleVariantDefinition } from './handleVariants';
 import type { Artwork, BagConfiguration, BagPanel, BagPanels, BagType, Handle, HandleType, PanelPosition } from './types';
 
@@ -33,7 +33,7 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     },
     handle: null,
     panels,
-    print: { technology: 'FLEXO', pantoneColors: [] },
+    print: { technology: 'FLEXO', pantoneColors: [], colorAnalysis: { ...COLOR_ANALYSIS_DEFAULTS } },
     packaging: 'CARTON',
   };
 }
