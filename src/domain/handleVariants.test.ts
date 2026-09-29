@@ -30,7 +30,7 @@ describe('catalog handle variants', () => {
     expect(variant('NONE').moistureBarrierAvailable).toBe(true);
     expect(variant('FLAT_PAPER').grammage).toMatchObject({ min: 70, max: 110 });
     expect(variant('FLAT_PAPER').paperTypes).toEqual(['KRAFT', 'RECYCLED']);
-    expect(variant('FLAT_PAPER').standardSizes).toHaveLength(7);
+    expect(variant('FLAT_PAPER').standardSizes).toHaveLength(19);
     expect(variant('TWISTED_PAPER').grammage).toMatchObject({ min: 70, max: 120 });
     expect(variant('TWISTED_PAPER').standardSizes).toEqual([]);
   });
@@ -132,21 +132,22 @@ describe('getStandardSizeViolations', () => {
 
   it('accepts sizes within the limits (boundaries included)', () => {
     expect(getStandardSizeViolations(byId('180x85x230'), BLOCK.limits)).toEqual([]);
-    const atLimits = { id: 'x', dimensions: { width: 260, depth: 40, height: 430 } };
+    const atLimits = { id: 'x', dimensions: { width: 450, depth: 40, height: 470 } };
     expect(getStandardSizeViolations(atLimits, BLOCK.limits)).toEqual([]);
   });
 
   it('reports every dimension outside the limits', () => {
-    expect(getStandardSizeViolations(byId('280x170x280'), BLOCK.limits)).toEqual([
-      { key: 'width', value: 280, range: { min: 75, max: 260 } },
+    expect(getStandardSizeViolations({ id: 'x', dimensions: { width: 500, depth: 170, height: 280 } }, BLOCK.limits)).toEqual([
+      { key: 'width', value: 500, range: { min: 75, max: 450 } },
     ]);
-    expect(getStandardSizeViolations(byId('450x170x470'), BLOCK.limits).map((v) => v.key)).toEqual(['width', 'height']);
+    const both = { id: 'y', dimensions: { width: 460, depth: 170, height: 480 } };
+    expect(getStandardSizeViolations(both, BLOCK.limits).map((v) => v.key)).toEqual(['width', 'height']);
   });
 
-  it('marks exactly the oversize catalog sizes as unavailable with current limits', () => {
+  it('keeps every catalogue size selectable (limits cover the client size table up to 450 × 170 × 470)', () => {
     const unavailable = (v: HandleVariantDefinition) =>
       v.standardSizes.filter((s) => getStandardSizeViolations(s, BLOCK.limits).length > 0).map((s) => s.id);
-    expect(unavailable(variant('NONE'))).toEqual(['320x220x400']);
-    expect(unavailable(variant('FLAT_PAPER'))).toEqual(['280x170x280', '320x110x400', '350x170x400', '450x170x470']);
+    expect(unavailable(variant('NONE'))).toEqual([]);
+    expect(unavailable(variant('FLAT_PAPER'))).toEqual([]);
   });
 });

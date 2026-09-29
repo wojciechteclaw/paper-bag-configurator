@@ -39,7 +39,7 @@ describe('setDimension', () => {
     store().setDimension('height', 333);
     expect(config().dimensions.height).toBe(335);
     store().setDimension('height', 9999);
-    expect(config().dimensions.height).toBe(430);
+    expect(config().dimensions.height).toBe(470);
   });
 
   it('ignores NaN', () => {
@@ -71,10 +71,11 @@ describe('applyStandardSize', () => {
     expect(validateDimensions(config().dimensions, BAG_TYPES.BLOCK.limits)).toEqual({});
   });
 
-  it('ignores sizes outside the dimension limits and unknown ids', () => {
-    expect(store().applyStandardSize('320x220x400')).toBe(false);
+  it('ignores unknown ids and applies the large catalogue sizes (limits cover the client size table)', () => {
     expect(store().applyStandardSize('nope')).toBe(false);
     expect(config().dimensions).toEqual(BAG_TYPES.BLOCK.defaultDimensions);
+    expect(store().applyStandardSize('320x220x400')).toBe(true);
+    expect(config().dimensions).toEqual({ width: 320, depth: 220, height: 400 });
   });
 
   it('only offers sizes of the current handle variant', () => {

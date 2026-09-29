@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { BAG_TYPES } from '../../domain/config/productCatalog';
 import { createConfiguration } from '../../domain/factories';
 import i18n from '../../i18n';
 import { useConfigurationStore } from '../../state/configurationStore';
@@ -90,7 +91,7 @@ describe('DimensionsForm — width/depth lock', () => {
   it('sets spinner bounds from the effective limits', () => {
     render(<DimensionsForm />);
     expect(widthInput()).toHaveAttribute('min', '150');
-    expect(widthInput()).toHaveAttribute('max', '260');
+    expect(widthInput()).toHaveAttribute('max', '450');
     expect(widthInput()).toHaveAttribute('step', '5');
     expect(depthInput()).toHaveAttribute('min', '40');
     expect(depthInput()).toHaveAttribute('max', '200');
@@ -122,12 +123,20 @@ describe('DimensionsForm — standard size', () => {
   });
 
   it('disables oversize presets and explains why in the tooltip', () => {
-    render(<DimensionsForm />);
-    const option = Array.from(sizeSelect().options).find((o) => o.value === '320x220x400')!;
-    expect(option).toBeDisabled();
-    expect(option).toHaveTextContent('320 × 220 × 400 mm (XL) — poza zakresem');
-    expect(sizeSelect()).toHaveAccessibleDescription(/320 × 220 × 400 mm: Szerokość 320 mm poza zakresem 75–260 mm/);
-    expect(Array.from(sizeSelect().options).find((o) => o.value === '250x140x400')).toBeEnabled();
+    // The catalogue limits cover every standard size; narrow them temporarily to exercise the mechanism.
+    const width = BAG_TYPES.BLOCK.limits.width;
+    const max = width.max;
+    width.max = 260;
+    try {
+      render(<DimensionsForm />);
+      const option = Array.from(sizeSelect().options).find((o) => o.value === '320x220x400')!;
+      expect(option).toBeDisabled();
+      expect(option).toHaveTextContent('320 × 220 × 400 mm (XL) — poza zakresem');
+      expect(sizeSelect()).toHaveAccessibleDescription(/320 × 220 × 400 mm: Szerokość 320 mm poza zakresem 75–260 mm/);
+      expect(Array.from(sizeSelect().options).find((o) => o.value === '250x140x400')).toBeEnabled();
+    } finally {
+      width.max = max;
+    }
   });
 
   it('lists the presets of the current handle variant', () => {
@@ -136,13 +145,29 @@ describe('DimensionsForm — standard size', () => {
     });
     render(<DimensionsForm />);
     const values = Array.from(sizeSelect().options).map((o) => o.value);
-    expect(values).toEqual(['', '180x85x230', '250x110x280', '200x140x400', '280x170x280', '320x110x400', '350x170x400', '450x170x470']);
-    expect(Array.from(sizeSelect().options).filter((o) => o.disabled).map((o) => o.value)).toEqual([
+    expect(values).toEqual([
+      '',
+      '180x85x230',
+      '200x100x280',
+      '220x110x250',
+      '220x110x280',
+      '250x110x280',
+      '200x140x400',
+      '250x140x300',
+      '260x170x260',
+      '260x170x290',
+      '260x140x320',
       '280x170x280',
       '320x110x400',
+      '320x160x400',
+      '320x170x440',
+      '320x220x250',
+      '320x220x400',
+      '350x170x250',
       '350x170x400',
       '450x170x470',
     ]);
+    expect(Array.from(sizeSelect().options).filter((o) => o.disabled).map((o) => o.value)).toEqual([]);
   });
 
   it('explains when the handle variant has no standard sizes', () => {
@@ -164,7 +189,7 @@ describe('DimensionsForm — info tooltip', () => {
 
     const tooltip = document.getElementById(tooltipId!)!;
     expect(tooltip).toHaveAttribute('role', 'tooltip');
-    expect(tooltip).toHaveTextContent('150–260 mm · min. = głębokość (150 mm)');
+    expect(tooltip).toHaveTextContent('150–450 mm · min. = głębokość (150 mm)');
     expect(widthInput().getAttribute('aria-describedby')).toContain(tooltipId);
     expect(widthInput()).toHaveAccessibleDescription(/min\. = głębokość \(150 mm\)/);
 

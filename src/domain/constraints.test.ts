@@ -24,7 +24,7 @@ describe('clampToStep', () => {
 describe('getEffectiveLimits', () => {
   it('raises the width minimum to the current depth', () => {
     const effective = getEffectiveLimits({ width: 200, height: 400, depth: 150 }, limits);
-    expect(effective.width).toEqual({ min: 150, max: 260 });
+    expect(effective.width).toEqual({ min: 150, max: 450 });
   });
 
   it('keeps the catalog width minimum when depth is smaller', () => {
@@ -65,9 +65,9 @@ describe('constrainDimension', () => {
   });
 
   it('clamps into the catalog range', () => {
-    expect(constrainDimension('width', 999, dims, limits)).toBe(260);
+    expect(constrainDimension('width', 999, dims, limits)).toBe(450);
     expect(constrainDimension('height', 100, dims, limits)).toBe(170);
-    expect(constrainDimension('height', 1000, dims, limits)).toBe(430);
+    expect(constrainDimension('height', 1000, dims, limits)).toBe(470);
     expect(constrainDimension('depth', 10, dims, limits)).toBe(40);
   });
 
@@ -102,9 +102,9 @@ describe('constrainDimensions', () => {
 
   it('clamps into the catalog ranges and caps depth at the new width', () => {
     expect(constrainDimensions({ width: 999, height: 1000, depth: 998 }, dims, limits)).toEqual({
-      width: 260,
-      height: 430,
-      depth: 260,
+      width: 450,
+      height: 470,
+      depth: 300,
     });
     expect(constrainDimensions({ width: 100, height: 302, depth: 150 }, dims, limits)).toEqual({
       width: 100,
