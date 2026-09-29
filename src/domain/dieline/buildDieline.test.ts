@@ -228,16 +228,16 @@ describe('buildDieline - handle patches (§9.5)', () => {
   it.each([
     ['catalog default', createHandle('FLAT_PAPER')],
     ['no patch on the entity', { ...createHandle('TWISTED_PAPER'), patch: undefined }],
-  ])('draws the 100 × 20 mm patch 20 mm below the top, centred on FRONT and BACK [K] (%s)', (_, handle) => {
+  ])('draws the 110 × 20 mm patch 20 mm below the top, centred on FRONT and BACK [K] (%s)', (_, handle) => {
     const dieline = build(example, handle);
     const rects = Object.fromEntries(dieline.handlePatches.map((p) => [p.id, p.rect]));
     const docY = (y: number) => y - dieline.bottomLineY;
     expect(Object.keys(rects)).toEqual(['patch-FRONT', 'patch-BACK']);
     // FRONT centre x = D + W/2 = 250; y ∈ [H − 40, H − 20] = [360, 380].
-    expect(rects['patch-FRONT']).toMatchObject({ x: 200, width: 100, height: 20 });
+    expect(rects['patch-FRONT']).toMatchObject({ x: 195, width: 110, height: 20 });
     expect(docY(rects['patch-FRONT'].y)).toBe(360);
     // BACK is one piece → one patch, centred on BACK (x = 600).
-    expect(rects['patch-BACK']).toMatchObject({ x: 550, width: 100, height: 20 });
+    expect(rects['patch-BACK']).toMatchObject({ x: 545, width: 110, height: 20 });
   });
 
   it('uses the patch of the handle entity when it has one', () => {

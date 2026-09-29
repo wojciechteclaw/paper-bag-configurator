@@ -7,15 +7,15 @@
 // Client rules [K] (docs/PRODUCTION.md §5, §9.5), same for both handle types:
 // - Patch 100 × 20 mm (handle entity / DIELINE_RULES.handlePatch), centred on the wall, top edge 20 mm below the top
 //   cut → y ∈ [H − 40, H − 20], x ∈ [−50, 50]. On narrow walls (W < 110) clamped to W − 2·5 mm (getHandlePatchSize).
-// - The handle is always 80 mm wide measured over its outer edges (HANDLE_OUTER_WIDTH_MM) [K], and the patch sticks
-//   out 10 mm past the handle on each side (PATCH_OVERHANG_MM) [K] → patch width 80 + 2·10 = 100 mm.
-//   End spacing c (between the two leg centre lines) = 80 − handle width: rope Ø5 → 75 mm, 20 mm strip → 60 mm.
+// - The handle is always 90 mm wide measured over its outer edges (HANDLE_OUTER_WIDTH_MM) [K], and the patch sticks
+//   out 10 mm past the handle on each side (PATCH_OVERHANG_MM) [K] → patch width 90 + 2·10 = 110 mm.
+//   End spacing c (between the two leg centre lines) = 90 − handle width: rope Ø5 → 85 mm, 20 mm strip → 70 mm.
 //   Guard: on narrow walls (clamped patch) c shrinks so the overhang is kept where possible (never below the minimum)
 //   and the layout reports `endSpacingReduced`.
 // - Both types end the same way: vertical legs run down behind the patch and end `PATCH_END_MARGIN` above its bottom
 //   edge (glued under it).
-// - Loop: the visible part above the top edge is a half-ellipse (vertical tangents where it leaves the wall) whose
-//   arc length equals `handle.length`; the loop height follows from it.
+// - Loop: the visible part above the top edge is a half-ellipse (vertical tangents where it leaves the wall), always
+//   HANDLE_LOOP_HEIGHT_MM = 50 mm high [K]; its arc length (`loopLength`) follows from the height and the spacing.
 
 import { DIELINE_RULES } from '../config/productionRules';
 import { HANDLE_DEFAULTS } from '../config/productCatalog';
@@ -32,7 +32,9 @@ export function getHandlePaperColor(paper: Pick<Paper, 'color'>): PaperColor {
 export type HandlePoint = { x: number; y: number };
 
 /** Width of the handle over its outer edges, mm [K] — independent of the wall width and of the handle type. */
-export const HANDLE_OUTER_WIDTH_MM = 80;
+export const HANDLE_OUTER_WIDTH_MM = 90;
+/** Height of the handle loop above the top edge (centre line), mm [K]. */
+export const HANDLE_LOOP_HEIGHT_MM = 50;
 /** How far the patch sticks out past the handle on each side, mm [K]. */
 export const PATCH_OVERHANG_MM = 10;
 /** Leg centre-line spacing for a handle of the given width (rope diameter / strip width), mm. */
@@ -144,12 +146,14 @@ function straight(from: HandlePoint, to: HandlePoint, out: HandlePoint[]) {
 export type HandleLayout = {
   params: HandleParams;
   patch: HandlePatchRect;
-  /** Distance between the two leg centre lines, mm (80 − handle width unless reduced). */
+  /** Distance between the two leg centre lines, mm (90 − handle width unless reduced). */
   endSpacing: number;
   /** True when the wall / patch is too narrow for the fixed spacing and it had to be reduced (narrow walls). */
   endSpacingReduced: boolean;
-  /** Loop height above the top edge (centre line), mm. */
+  /** Loop height above the top edge (centre line), mm — HANDLE_LOOP_HEIGHT_MM [K]. */
   loopHeight: number;
+  /** Arc length of the visible loop (centre line), mm — derived from the fixed height and the spacing. */
+  loopLength: number;
   /** y of the leg ends (both types end vertically under the patch), mm. */
   endY: number;
   /** Centre line from the left end over the loop to the right end (x centred on the wall), mm. */
@@ -162,8 +166,9 @@ export function getHandleLayout(handle: Handle, dimensions: Dimensions): HandleL
   const top = dimensions.height;
   const patch = getHandlePatchRect(handle, dimensions);
   const endSpacing = getHandleEndSpacing(dimensions.width, patch.x1 - patch.x0, params.width);
-  const loopHeight = getHandleLoopHeight(endSpacing, params.length);
+  const loopHeight = HANDLE_LOOP_HEIGHT_MM;
   const a = endSpacing / 2;
+  const loopLength = polylineLength(ellipsePoints(a, loopHeight, 0));
 
   // Ends: PATCH_END_MARGIN above the patch bottom, but always under the patch (tiny patches: its middle).
   const endY = Math.min(patch.y0 + PATCH_END_MARGIN, (patch.y0 + patch.y1) / 2, top);
@@ -181,6 +186,7 @@ export function getHandleLayout(handle: Handle, dimensions: Dimensions): HandleL
     endSpacing,
     endSpacingReduced: endSpacing < handleEndSpacingFor(params.width),
     loopHeight,
+    loopLength,
     endY,
     path,
   };

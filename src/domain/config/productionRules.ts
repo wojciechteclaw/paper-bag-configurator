@@ -46,7 +46,7 @@ export const DIELINE_RULES: DielineRules = {
   safetyFromCreases: 5,
   sideSafetyAboveRhombus: 5,
   bottomFlapGlue: 30,
-  handlePatch: { width: 100, height: 20, topOffset: 20, sideClearance: 5 },
+  handlePatch: { width: 110, height: 20, topOffset: 20, sideClearance: 5 }, // 90 mm handle + 2 × 10 mm overhang [K]
 };
 
 /** Limits of the artwork positioning module (CUSTOM placement). */

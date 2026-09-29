@@ -41,6 +41,7 @@
       "handleColor": "Grifffarbe",
       "ropeDiameter": "Kordeldurchmesser",
       "stripWidth": "Bandbreite",
+      "loopHeight": "Schlaufenhöhe über dem Beutel",
       "loopLength": "Schlaufenlänge",
       "patchWidth": "Breite der Griffeinlage",
       "patchHeight": "Höhe der Griffeinlage",

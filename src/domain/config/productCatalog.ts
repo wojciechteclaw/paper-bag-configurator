@@ -161,12 +161,12 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
 
 /**
  * Per-type handle defaults (everything except the generated id), mm. Client rules [K] (docs/PRODUCTION.md §5): the
- * flat strip is 20 mm wide and the patch is 100 × 20 mm for both types (its position: DIELINE_RULES.handlePatch).
+ * flat strip is 20 mm wide and the patch is 110 × 20 mm for both types (90 mm handle + 10 mm overhang each side) (its position: DIELINE_RULES.handlePatch).
  * Rope Ø and loop length are preview values. Both types are strong kraft glued inside under the patch.
  */
 export const HANDLE_DEFAULTS: Record<HandleType, Omit<Handle, 'id' | 'type'>> = {
-  FLAT_PAPER: { material: 'KRAFT', color: '#c8a57a', width: 20, length: 180, patch: { width: 100, height: 20 } },
-  TWISTED_PAPER: { material: 'KRAFT', color: '#c8a57a', width: 5, length: 180, patch: { width: 100, height: 20 } },
+  FLAT_PAPER: { material: 'KRAFT', color: '#c8a57a', width: 20, length: 180, patch: { width: 110, height: 20 } },
+  TWISTED_PAPER: { material: 'KRAFT', color: '#c8a57a', width: 5, length: 180, patch: { width: 110, height: 20 } },
 };
 
 export type ArtworkRules = {

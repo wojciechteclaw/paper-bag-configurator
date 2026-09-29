@@ -3,7 +3,7 @@
 
 import { BAG_TYPES } from '../domain/config/productCatalog';
 import { getHandlePatchSize, type Dieline } from '../domain/dieline';
-import { resolveHandleParams } from '../domain/geometry/handles';
+import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../domain/geometry/handles';
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
 import { PANEL_POSITIONS } from '../domain/factories';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
@@ -61,12 +61,14 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
   const handleRows: ParameterRow[] = [row('handleVariant', t(variant === 'NONE' ? 'handle.none' : `handle.${variant}`))];
   if (handle) {
     const params = resolveHandleParams(handle);
+    const layout = getHandleLayout(handle, dimensions);
     const patch = getHandlePatchSize(handle, dimensions.width);
     handleRows.push(
       row('handleMaterial', t(`export.handleMaterial.${handle.material}`)),
-      row('handleColor', params.color),
+      row('handleColor', t(`paper.${getHandlePaperColor(paper)}`)),
       row(handle.type === 'TWISTED_PAPER' ? 'ropeDiameter' : 'stripWidth', params.width, mm),
-      row('loopLength', params.length, mm),
+      row('loopHeight', layout.loopHeight, mm),
+      row('loopLength', Math.round(layout.loopLength), mm),
       row('patchWidth', patch.width, mm),
       row('patchHeight', patch.height, mm),
       row('handleMounting', t('export.handleMounting')),

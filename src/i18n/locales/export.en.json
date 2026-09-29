@@ -41,6 +41,7 @@
       "handleColor": "Handle colour",
       "ropeDiameter": "Rope diameter",
       "stripWidth": "Strip width",
+      "loopHeight": "Loop height above the bag",
       "loopLength": "Loop length",
       "patchWidth": "Patch width",
       "patchHeight": "Patch height",

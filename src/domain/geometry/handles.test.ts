@@ -6,6 +6,7 @@ import {
   getHandleLayout,
   getHandleLoopHeight,
   getHandlePatchRect,
+  HANDLE_LOOP_HEIGHT_MM,
   HANDLE_OUTER_WIDTH_MM,
   handleEndSpacingFor,
   PATCH_OVERHANG_MM,
@@ -26,8 +27,8 @@ const handleOf = (type: HandleType, extra: Partial<Handle> = {}): Handle => ({
 });
 
 describe('catalog handle defaults [K]', () => {
-  it('uses a 100 × 20 mm patch for both types and a 20 mm flat strip', () => {
-    for (const type of TYPES) expect(HANDLE_DEFAULTS[type].patch).toEqual({ width: 100, height: 20 });
+  it('uses a 110 × 20 mm patch (90 mm handle + 2 × 10 mm) for both types and a 20 mm flat strip', () => {
+    for (const type of TYPES) expect(HANDLE_DEFAULTS[type].patch).toEqual({ width: 110, height: 20 });
     expect(HANDLE_DEFAULTS.FLAT_PAPER.width).toBe(20);
     expect(HANDLE_DEFAULTS.TWISTED_PAPER.width).toBe(5);
   });
@@ -48,17 +49,17 @@ describe('resolveHandleParams', () => {
 });
 
 describe('getHandleEndSpacing', () => {
-  it('keeps the handle 80 mm wide over its outer edges, with the patch 10 mm past it on each side [K]', () => {
-    expect(HANDLE_OUTER_WIDTH_MM).toBe(80);
+  it('keeps the handle 90 mm wide over its outer edges, with the patch 10 mm past it on each side [K]', () => {
+    expect(HANDLE_OUTER_WIDTH_MM).toBe(90);
     expect(PATCH_OVERHANG_MM).toBe(10);
-    for (const W of [110, 150, 200, 260, 400]) {
-      expect(getHandleEndSpacing(W, 100, 5)).toBe(75); // rope Ø5: centre lines 75 apart → outer 80
-      expect(getHandleEndSpacing(W, 100, 20)).toBe(60); // 20 mm strip: centre lines 60 apart → outer 80
+    for (const W of [120, 150, 200, 260, 400]) {
+      expect(getHandleEndSpacing(W, 110, 5)).toBe(85); // rope Ø5: centre lines 85 apart → outer 90
+      expect(getHandleEndSpacing(W, 110, 20)).toBe(70); // 20 mm strip: centre lines 70 apart → outer 90
     }
     for (const w of [5, 20]) {
-      const outer = getHandleEndSpacing(200, 100, w) + w;
-      expect(outer).toBe(80);
-      expect((100 - outer) / 2).toBe(PATCH_OVERHANG_MM);
+      const outer = getHandleEndSpacing(200, 110, w) + w;
+      expect(outer).toBe(90);
+      expect((110 - outer) / 2).toBe(PATCH_OVERHANG_MM);
     }
   });
 
@@ -77,16 +78,21 @@ describe('getHandleEndSpacing', () => {
   });
 });
 
-describe('getHandleLoopHeight', () => {
-  it('produces a loop whose arc length equals handle.length', () => {
-    for (const L of [180, 300, 460]) {
-      const layout = getHandleLayout(handleOf('TWISTED_PAPER', { length: L }), dims);
-      expect(layout.endSpacing).toBe(75); // 80 mm outer − Ø5 rope
-      expect(layout.loopHeight).toBeCloseTo(getHandleLoopHeight(75, L), 6);
+describe('loop height [K]', () => {
+  it.each(TYPES)('%s: the loop is always 50 mm above the top edge, its length follows from it', (type) => {
+    expect(HANDLE_LOOP_HEIGHT_MM).toBe(50);
+    for (const L of [120, 180, 300]) {
+      const layout = getHandleLayout(handleOf(type, { length: L }), dims);
+      expect(layout.loopHeight).toBe(50);
+      const top = layout.path.reduce((m, p) => (p.y > m.y ? p : m));
+      expect(top.y).toBeCloseTo(dims.height + 50, 6);
       const loop = layout.path.filter((p) => p.y >= dims.height);
-      expect(polylineLength(loop)).toBeCloseTo(L, 0);
+      expect(layout.loopLength).toBeCloseTo(polylineLength(loop), 3);
     }
   });
+});
+
+describe('getHandleLoopHeight (length → height helper)', () => {
 
   it('grows with the length and shrinks with the spacing', () => {
     expect(getHandleLoopHeight(80, 300)).toBeGreaterThan(getHandleLoopHeight(80, 200));
@@ -106,13 +112,13 @@ describe('getHandleLoopHeight', () => {
 });
 
 describe('getHandlePatchRect', () => {
-  it.each(TYPES)('%s: 100 × 20 mm, centred, 20 mm below the top cut → [H − 40, H − 20]', (type) => {
-    expect(getHandlePatchRect(handleOf(type), dims)).toEqual({ x0: -50, x1: 50, y0: 360, y1: 380 });
+  it.each(TYPES)('%s: 110 × 20 mm, centred, 20 mm below the top cut → [H − 40, H − 20]', (type) => {
+    expect(getHandlePatchRect(handleOf(type), dims)).toEqual({ x0: -55, x1: 55, y0: 360, y1: 380 });
   });
 
-  it('uses the same 100 × 20 mm rule when the handle entity has no patch', () => {
+  it('uses the same 110 × 20 mm rule when the handle entity has no patch', () => {
     const { patch: _patch, ...noPatch } = handleOf('TWISTED_PAPER');
-    expect(getHandlePatchRect(noPatch, dims)).toEqual({ x0: -50, x1: 50, y0: 360, y1: 380 });
+    expect(getHandlePatchRect(noPatch, dims)).toEqual({ x0: -55, x1: 55, y0: 360, y1: 380 });
   });
 
   it('keeps 5 mm from the side creases on narrow walls (W − 10)', () => {
@@ -138,20 +144,20 @@ describe('getHandleLayout', () => {
         expect(top.y).toBeCloseTo(dims.height + layout.loopHeight, 6);
       });
 
-      it('ends vertically with outer edges at ±40 mm (80 mm handle), PATCH_END_MARGIN above the patch bottom', () => {
+      it('ends vertically with outer edges at ±45 mm (90 mm handle), PATCH_END_MARGIN above the patch bottom', () => {
         const w = layout.params.width;
-        expect(layout.endSpacing).toBe(80 - w);
+        expect(layout.endSpacing).toBe(90 - w);
         expect(layout.endSpacingReduced).toBe(false);
-        expect(first).toEqual({ x: -(80 - w) / 2, y: layout.patch.y0 + PATCH_END_MARGIN });
+        expect(first).toEqual({ x: -(90 - w) / 2, y: layout.patch.y0 + PATCH_END_MARGIN });
         // The patch overhangs the handle's outer edge by 10 mm on each side.
         expect(layout.patch.x1 - (Math.abs(first.x) + w / 2)).toBeCloseTo(10, 9);
         expect(layout.endY).toBe(365);
       });
 
-      it.each(widths)('keeps the ends under the patch on a %d mm wall (80 mm unless the wall is too narrow)', (W) => {
+      it.each(widths)('keeps the ends under the patch on a %d mm wall (90 mm unless the wall is too narrow)', (W) => {
         const l = getHandleLayout(handleOf(type), { ...dims, width: W });
         const w = l.params.width;
-        const patchWidth = Math.min(100, W - 10);
+        const patchWidth = Math.min(110, W - 10);
         const wanted = handleEndSpacingFor(w);
         const fits = patchWidth - 2 * PATCH_OVERHANG_MM - w >= wanted;
         expect(l.patch.x1 - l.patch.x0).toBe(patchWidth);
@@ -159,7 +165,7 @@ describe('getHandleLayout', () => {
         expect(l.endSpacingReduced).toBe(!fits);
         if (fits) expect(l.endSpacing).toBe(wanted);
         else expect(l.endSpacing).toBeLessThan(wanted);
-        if (W >= 110) expect(l.endSpacing).toBe(wanted);
+        if (W >= 120) expect(l.endSpacing).toBe(wanted);
         for (const p of l.path.filter((q) => q.y < dims.height)) {
           expect(Math.abs(p.x) + w / 2).toBeLessThanOrEqual(l.patch.x1 + 1e-9);
           expect(p.y).toBeGreaterThanOrEqual(l.patch.y0 + PATCH_END_MARGIN - 1e-9);
@@ -178,12 +184,12 @@ describe('getHandleLayout', () => {
     });
   }
 
-  it('places the 20 mm flat strip within 80 mm (legs span |x| ∈ [20, 40]) and the patch 10 mm past it', () => {
+  it('places the 20 mm flat strip within 90 mm (legs span |x| ∈ [25, 45]) and the patch 10 mm past it', () => {
     const layout = getHandleLayout(handleOf('FLAT_PAPER'), dims);
     const legX = layout.endSpacing / 2;
-    expect(legX - layout.params.width / 2).toBe(20);
-    expect(legX + layout.params.width / 2).toBe(40);
-    expect(layout.patch.x1 - 40).toBe(10);
+    expect(legX - layout.params.width / 2).toBe(25);
+    expect(legX + layout.params.width / 2).toBe(45);
+    expect(layout.patch.x1 - 45).toBe(10);
   });
 
   it('keeps the loop height independent of the wall width (fixed spacing)', () => {

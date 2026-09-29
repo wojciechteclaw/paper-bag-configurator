@@ -162,7 +162,7 @@ describe('setHandle', () => {
 
   it('creates a kraft handle with a patch from the catalog defaults', () => {
     store().setHandle('TWISTED_PAPER');
-    expect(config().handle).toMatchObject({ type: 'TWISTED_PAPER', material: 'KRAFT', patch: { width: 100, height: 20 } });
+    expect(config().handle).toMatchObject({ type: 'TWISTED_PAPER', material: 'KRAFT', patch: { width: 110, height: 20 } });
   });
 
   it('adds, keeps and removes a handle', () => {
