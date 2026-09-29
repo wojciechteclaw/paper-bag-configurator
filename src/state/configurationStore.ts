@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { FILL_PLACEMENT, normalizePlacement } from '../domain/artworkPlacement';
+import {
+  alignPlacement,
+  DEFAULT_PLACEMENT,
+  fillPlacement,
+  getPanelArtworkArea,
+  normalizePlacement,
+  setPlacementExtendToBottom,
+  type ArtworkAlignment,
+} from '../domain/artworkPlacement';
 import { BAG_TYPES } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle } from '../domain/factories';
@@ -10,7 +18,6 @@ import {
   getSupportedHandleTypes,
   type PaperAdjustment,
 } from '../domain/handleVariants';
-import { getPanelSize } from '../domain/panels';
 import { suggestPantonePreviewHex } from '../domain/printColors';
 import { normalizeHex } from '../domain/printCoverage/color';
 import type {
@@ -52,12 +59,24 @@ type ConfigurationState = {
    * Returns what had to be adjusted (empty when nothing changed) so the UI can tell the user.
    */
   setHandle: (type: HandleType | null) => PaperAdjustment[];
-  /** Replaces or removes panel artwork; the previous object URL is revoked and the placement resets to FILL. */
+  /**
+   * Replaces or removes panel artwork; the previous object URL is revoked and the placement resets to FILL. New and
+   * removed artwork get `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`; a replaced image keeps the panel's "extend to bottom".
+   */
   setPanelArtwork: (position: PanelPosition, artwork: Artwork | null) => void;
-  /** Sets how the artwork sits on the panel (normalized: scale limits, centre kept on the wall, 90° steps). */
+  /** Sets how the artwork sits on the panel (normalized against its artwork area: scale limits, centre kept inside, 90° steps). */
   setPanelPlacement: (position: PanelPosition, placement: ArtworkPlacement) => void;
-  /** Back to FILL (image stretched over the whole wall). */
+  /** Back to the default placement (`DEFAULT_PLACEMENT`: FILL, extension per `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`). */
   resetPanelPlacement: (position: PanelPosition) => void;
+  /** FILL over the current artwork area (keeps "extend to bottom"). */
+  fillPanelPlacement: (position: PanelPosition) => void;
+  /** Aligns the artwork to an edge / the centre of its artwork area (FILL becomes contain first). Needs artwork. */
+  alignPanelArtwork: (position: PanelPosition, alignment: ArtworkAlignment) => void;
+  /**
+   * "Rozciągnij na dno": extends the panel's artwork area by the bottom allowance (docs/SPEC.md §4f). A CUSTOM image
+   * stays where it is on the panel; FILL re-stretches over the new area.
+   */
+  setPanelExtendToBottom: (position: PanelPosition, extendToBottom: boolean) => void;
   /**
    * Adds a Pantone entry with a preview colour (`hex`; when omitted, a suggestion for the code is used).
    * Returns the validation error, or null when the colour was added.
@@ -140,7 +159,12 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
     setPanelArtwork: (position, artwork) => {
       const previous = get().configuration.panels[position].artwork;
       if (previous && previous.fileUrl !== artwork?.fileUrl) revokeArtworkUrl(previous);
-      const placement = artwork && artwork.id === previous?.id ? get().configuration.panels[position].placement : FILL_PLACEMENT;
+      const current = get().configuration.panels[position].placement;
+      const placement = !artwork || !previous
+        ? DEFAULT_PLACEMENT
+        : artwork.id === previous?.id
+          ? current
+          : fillPlacement(current.extendToBottom === true);
       update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], artwork, placement } } }));
     },
 
@@ -148,12 +172,41 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update(({ panels, dimensions }) => ({
         panels: {
           ...panels,
-          [position]: { ...panels[position], placement: normalizePlacement(placement, getPanelSize(position, dimensions)) },
+          [position]: {
+            ...panels[position],
+            placement: normalizePlacement(placement, getPanelArtworkArea(position, dimensions, placement)),
+          },
         },
       })),
 
     resetPanelPlacement: (position) =>
-      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], placement: FILL_PLACEMENT } } })),
+      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], placement: DEFAULT_PLACEMENT } } })),
+
+    fillPanelPlacement: (position) =>
+      update(({ panels }) => ({
+        panels: {
+          ...panels,
+          [position]: { ...panels[position], placement: fillPlacement(panels[position].placement.extendToBottom === true) },
+        },
+      })),
+
+    alignPanelArtwork: (position, alignment) =>
+      update(({ panels, dimensions }) => {
+        const { artwork, placement } = panels[position];
+        if (!artwork) return {};
+        const area = getPanelArtworkArea(position, dimensions, placement);
+        return { panels: { ...panels, [position]: { ...panels[position], placement: alignPlacement(placement, alignment, area, artwork) } } };
+      }),
+
+    setPanelExtendToBottom: (position, extendToBottom) =>
+      update(({ panels, dimensions }) => {
+        const { artwork, placement } = panels[position];
+        if ((placement.extendToBottom === true) === extendToBottom) return {};
+        const from = getPanelArtworkArea(position, dimensions, placement);
+        const to = getPanelArtworkArea(position, dimensions, { extendToBottom });
+        const next = setPlacementExtendToBottom(placement, extendToBottom, from, to, artwork);
+        return { panels: { ...panels, [position]: { ...panels[position], placement: next } } };
+      }),
 
     addPantoneColor: (code, hex) => {
       const { configuration } = get();

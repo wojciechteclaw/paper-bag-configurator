@@ -3,13 +3,15 @@ import { useTranslation } from 'react-i18next';
 import {
   containPlacement,
   coverPlacement,
+  getPanelArtworkArea,
   movePlacement,
   rotatePlacement,
   scalePlacement,
+  type HorizontalAlignment,
+  type VerticalAlignment,
 } from '../domain/artworkPlacement';
 import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
-import { getPanelSize } from '../domain/panels';
 import type { ArtworkPlacement, PanelPosition, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
 import { buildDielineScene, DIELINE_STYLE, matrixAttr, type SceneImage } from './scene';
@@ -25,6 +27,18 @@ const ZONE_PROPS: Record<DielineZoneKind, { className?: string; fill?: string }>
   BOTTOM_FLAP_GLUE: { fill: DIELINE_STYLE.bottomGlueFill },
   GLUE_FLAP: { fill: DIELINE_STYLE.glueFlapFill },
 };
+
+// Alignment buttons (SPEC §4f): two groups of three; icons are plain glyphs, names come from i18n.
+const HORIZONTAL_ALIGNMENTS: { value: HorizontalAlignment; icon: string }[] = [
+  { value: 'LEFT', icon: '⇤' },
+  { value: 'CENTER', icon: '↔' },
+  { value: 'RIGHT', icon: '⇥' },
+];
+const VERTICAL_ALIGNMENTS: { value: VerticalAlignment; icon: string }[] = [
+  { value: 'TOP', icon: '⤒' },
+  { value: 'MIDDLE', icon: '↕' },
+  { value: 'BOTTOM', icon: '⤓' },
+];
 
 const PAPER_FILL: Record<PaperColor, string> = { WHITE: '#F4F1EA', BROWN: '#B8875A' };
 const MIN_ZOOM = 0.5;
@@ -64,6 +78,9 @@ export function DielineView() {
   const configuration = useConfigurationStore((s) => s.configuration);
   const setPanelPlacement = useConfigurationStore((s) => s.setPanelPlacement);
   const resetPanelPlacement = useConfigurationStore((s) => s.resetPanelPlacement);
+  const fillPanelPlacement = useConfigurationStore((s) => s.fillPanelPlacement);
+  const alignPanelArtwork = useConfigurationStore((s) => s.alignPanelArtwork);
+  const setPanelExtendToBottom = useConfigurationStore((s) => s.setPanelExtendToBottom);
   const { dimensions, handle, panels, paper } = configuration;
 
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
@@ -117,14 +134,23 @@ export function DielineView() {
   };
 
   // ——— Placement editing ———
-  const panelSizeOf = useCallback((position: PanelPosition) => getPanelSize(position, dimensions), [dimensions]);
+  /** Artwork area of a panel (wall, or wall + bottom allowance when extended) for `placement` (default: current). */
+  const areaOf = useCallback(
+    (position: PanelPosition, placement?: ArtworkPlacement) =>
+      getPanelArtworkArea(
+        position,
+        dimensions,
+        placement ?? useConfigurationStore.getState().configuration.panels[position].placement,
+      ),
+    [dimensions],
+  );
   const applyPlacement = useCallback(
     (position: PanelPosition, update: (placement: ArtworkPlacement) => ArtworkPlacement) =>
       setPanelPlacement(position, update(useConfigurationStore.getState().configuration.panels[position].placement)),
     [setPanelPlacement],
   );
   const scaleSelected = (position: PanelPosition, factor: number) =>
-    applyPlacement(position, (p) => scalePlacement(p, factor, panelSizeOf(position)));
+    applyPlacement(position, (p) => scalePlacement(p, factor, areaOf(position)));
 
   const selectedArtwork = selected ? panels[selected].artwork : null;
   const activeSelection = selectedArtwork ? selected : null;
@@ -206,7 +232,7 @@ export function DielineView() {
     }
     const point = toSvgPoint(svgRef.current, event.clientX, event.clientY);
     if (!point) return;
-    const size = panelSizeOf(drag.panel);
+    const size = areaOf(drag.panel, drag.placement);
     if (drag.kind === 'move') {
       // SVG y grows downwards, panel y upwards.
       setPanelPlacement(drag.panel, movePlacement(drag.placement, point[0] - drag.start[0], drag.start[1] - point[1], size));
@@ -225,7 +251,7 @@ export function DielineView() {
   };
 
   const onArtworkKeyDown = (event: KeyboardEvent<SVGGElement>, panel: PanelPosition) => {
-    const size = panelSizeOf(panel);
+    const size = areaOf(panel);
     const step = event.shiftKey ? ARTWORK_PLACEMENT_RULES.nudgeLargeMm : ARTWORK_PLACEMENT_RULES.nudgeMm;
     const moves: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
@@ -330,7 +356,7 @@ export function DielineView() {
           <strong>{panelName(activeSelection)}</strong>
           <span className="dieline-view__readout">
             {selectedPlacement.mode === 'FILL'
-              ? t('dieline.edit.modeFill')
+              ? t(selectedPlacement.extendToBottom ? 'dieline.edit.modeFillExtended' : 'dieline.edit.modeFill')
               : t('dieline.edit.modeCustom', {
                   scale: Math.round(selectedPlacement.scale * 100),
                   x: Math.round(selectedPlacement.offsetX),
@@ -338,13 +364,23 @@ export function DielineView() {
                   rotation: selectedPlacement.rotation,
                 })}
           </span>
-          <button type="button" aria-pressed={selectedPlacement.mode === 'FILL'} onClick={() => resetPanelPlacement(activeSelection)}>
+          <label className="dieline-view__toggle dieline-view__extend" title={t('dieline.edit.extendToBottomHint')}>
+            <input
+              type="checkbox"
+              checked={selectedPlacement.extendToBottom}
+              onChange={(event) => setPanelExtendToBottom(activeSelection, event.target.checked)}
+            />
+            {t('dieline.edit.extendToBottom')}
+          </label>
+          <button type="button" aria-pressed={selectedPlacement.mode === 'FILL'} onClick={() => fillPanelPlacement(activeSelection)}>
             {t('dieline.edit.fill')}
           </button>
           <button
             type="button"
             onClick={() =>
-              applyPlacement(activeSelection, (p) => containPlacement(p.mode === 'CUSTOM' ? p.rotation : 0))
+              applyPlacement(activeSelection, (p) =>
+                containPlacement(p.mode === 'CUSTOM' ? p.rotation : 0, p.extendToBottom),
+              )
             }
           >
             {t('dieline.edit.contain')}
@@ -353,7 +389,7 @@ export function DielineView() {
             type="button"
             onClick={() =>
               applyPlacement(activeSelection, (p) =>
-                coverPlacement(panelSizeOf(activeSelection), selectedArtwork!, p.mode === 'CUSTOM' ? p.rotation : 0),
+                coverPlacement(areaOf(activeSelection), selectedArtwork!, p.mode === 'CUSTOM' ? p.rotation : 0, p.extendToBottom),
               )
             }
           >
@@ -379,10 +415,36 @@ export function DielineView() {
             type="button"
             aria-label={t('dieline.edit.rotate')}
             title={t('dieline.edit.rotate')}
-            onClick={() => applyPlacement(activeSelection, (p) => rotatePlacement(p, panelSizeOf(activeSelection)))}
+            onClick={() => applyPlacement(activeSelection, (p) => rotatePlacement(p, areaOf(activeSelection)))}
           >
             ⟲
           </button>
+          <span className="dieline-view__align" role="group" aria-label={t('dieline.edit.alignHorizontal')}>
+            {HORIZONTAL_ALIGNMENTS.map(({ value, icon }) => (
+              <button
+                key={value}
+                type="button"
+                aria-label={t(`dieline.edit.align.${value}`)}
+                title={t(`dieline.edit.align.${value}`)}
+                onClick={() => alignPanelArtwork(activeSelection, { horizontal: value })}
+              >
+                {icon}
+              </button>
+            ))}
+          </span>
+          <span className="dieline-view__align" role="group" aria-label={t('dieline.edit.alignVertical')}>
+            {VERTICAL_ALIGNMENTS.map(({ value, icon }) => (
+              <button
+                key={value}
+                type="button"
+                aria-label={t(`dieline.edit.align.${value}`)}
+                title={t(`dieline.edit.align.${value}`)}
+                onClick={() => alignPanelArtwork(activeSelection, { vertical: value })}
+              >
+                {icon}
+              </button>
+            ))}
+          </span>
           <button type="button" onClick={() => resetPanelPlacement(activeSelection)}>
             {t('dieline.edit.reset')}
           </button>
@@ -461,6 +523,20 @@ export function DielineView() {
 
           {layers.zones && (
             <g data-layer="zones" pointerEvents="none">
+              {scene.allowances.map((allowance) => (
+                <rect
+                  key={allowance.id}
+                  x={allowance.x}
+                  y={allowance.y}
+                  width={allowance.width}
+                  height={allowance.height}
+                  data-zone="BOTTOM_ALLOWANCE"
+                  data-panel={allowance.panel}
+                  data-printed={allowance.printed}
+                  className={allowance.printed ? 'dl-allowance-printed' : undefined}
+                  fill={allowance.printed ? 'none' : DIELINE_STYLE.allowanceFill}
+                />
+              ))}
               {scene.zones.map((zone) => (
                 <rect
                   key={zone.id}
@@ -553,6 +629,15 @@ export function DielineView() {
                 .filter((image) => image.panel === activeSelection)
                 .map((image) => (
                   <g key={image.id}>
+                    <rect
+                      x={image.area.x}
+                      y={image.area.y}
+                      width={image.area.width}
+                      height={image.area.height}
+                      className="dieline-view__area"
+                      data-extended={image.extendToBottom || undefined}
+                      pointerEvents="none"
+                    />
                     <polygon
                       points={image.corners.map((corner) => corner.join(',')).join(' ')}
                       className="dieline-view__frame"
@@ -584,6 +669,7 @@ export function DielineView() {
           <li><span className="swatch swatch--bleed" />{t('dieline.legend.bleed')}</li>
           <li><span className="swatch swatch--safety" />{t('dieline.legend.safety')}</li>
           <li><span className="swatch swatch--allowance" />{t('dieline.legend.allowance')}</li>
+          <li><span className="swatch swatch--allowance-printed" />{t('dieline.legend.allowancePrinted')}</li>
           <li><span className="swatch swatch--glue" />{t('dieline.legend.glue')}</li>
         </ul>
         <p className="dieline-view__hint">{hasArtwork ? t('dieline.edit.hint') : t('dieline.empty')}</p>

@@ -3,6 +3,8 @@ import { BufferAttribute, Vector3 } from 'three';
 import { MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 import {
   BAG_PANEL_IDS,
+  createBagMeshes,
+  createBottomPieceMeshes,
   createPanelMesh,
   getBagFrame,
   getCreaseSpecs,
@@ -139,5 +141,68 @@ describe('lines', () => {
     const out = new Float32Array(specs.length * 6);
     writeLineSegments(specs, getBagFrame(dims, 0), out);
     for (let i = 0; i < specs.length * 2; i++) expect(out[i * 3 + 1]).toBeLessThan(0);
+  });
+});
+
+describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
+  const a = 90; // (150 + 30) / 2
+  const H = dims.height;
+
+  it('builds the bottom from the FRONT flap and the visible part of the BACK flap', () => {
+    const pieces = createBottomPieceMeshes(dims);
+    expect(pieces.map((m) => [m.id, m.piece, m.artworkPanel])).toEqual([
+      ['BOTTOM', 'FRONT_FLAP', 'FRONT'],
+      ['BOTTOM', 'BACK_FLAP', 'BACK'],
+    ]);
+    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual(['FRONT', 'BACK', 'LEFT', 'RIGHT', 'FRONT_FLAP', 'BACK_FLAP']);
+  });
+
+  it('maps flap vertices into the source wall UV space with v < 0 (bottom-local → wall-local)', () => {
+    const [front, back] = createBottomPieceMeshes(dims);
+    const uvOf = (mesh: ReturnType<typeof createBottomPieceMeshes>[number]) => mesh.geometry.getAttribute('uv') as BufferAttribute;
+    const fuv = uvOf(front);
+    for (let i = 0; i < fuv.count; i++) {
+      const [bx, by] = [front.local[i * 2], front.local[i * 2 + 1]];
+      expect(fuv.getX(i)).toBeCloseTo(bx / dims.width);
+      expect(fuv.getY(i)).toBeCloseTo((by - dims.depth) / H);
+      expect(fuv.getY(i)).toBeGreaterThanOrEqual(-a / H - 1e-6);
+      expect(fuv.getY(i)).toBeLessThanOrEqual(1e-6);
+    }
+    const buv = uvOf(back);
+    for (let i = 0; i < buv.count; i++) {
+      const [bx, by] = [back.local[i * 2], back.local[i * 2 + 1]];
+      expect(buv.getX(i)).toBeCloseTo((dims.width - bx) / dims.width);
+      expect(buv.getY(i)).toBeCloseTo(-by / H);
+    }
+  });
+
+  it.each([0, 0.25, 0.6, 1])('meets the wall at the bottom crease with the same position and UV (p = %s)', (p) => {
+    const frame = getBagFrame(dims, p);
+    const meshes = createBagMeshes(dims);
+    meshes.forEach((m) => updatePanelMesh(m, frame));
+    const at = (mesh: (typeof meshes)[number], u: number, v: number) => {
+      const pos = mesh.geometry.getAttribute('position') as BufferAttribute;
+      const uv = mesh.geometry.getAttribute('uv') as BufferAttribute;
+      for (let i = 0; i < pos.count; i++) {
+        if (Math.abs(uv.getX(i) - u) < 1e-6 && Math.abs(uv.getY(i) - v) < 1e-6) {
+          return new Vector3().fromBufferAttribute(pos, i);
+        }
+      }
+      return null;
+    };
+    const byPiece = Object.fromEntries(meshes.map((m) => [m.piece ?? m.id, m]));
+    // FRONT bottom-left corner (u = 0, v = 0) is also a corner of the FRONT flap; BACK likewise with the BACK flap.
+    for (const [wall, flap] of [
+      ['FRONT', 'FRONT_FLAP'],
+      ['BACK', 'BACK_FLAP'],
+    ] as const) {
+      for (const u of [0, 1]) {
+        const onWall = at(byPiece[wall], u, 0);
+        const onFlap = at(byPiece[flap], u, 0);
+        expect(onWall).not.toBeNull();
+        expect(onFlap).not.toBeNull();
+        expect(onFlap!.distanceTo(onWall!)).toBeLessThan(1e-6 + (p === 1 ? 7 * PAPER_LAYER_GAP_MM * s : 0));
+      }
+    }
   });
 });

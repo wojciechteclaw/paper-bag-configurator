@@ -145,7 +145,7 @@ W kroku **Grafiki**, aktualizowane na żywo:
 
 - `PrintSpec.pantoneColors: { code, hex }[]` — kod Pantone + kolor podglądu `#rrggbb` (wybierany w kroku 4 próbnikiem koloru). Przy dodaniu kodu podpowiadany jest kolor: przybliżenie dla popularnych kodów (`PANTONE_PREVIEW_SUGGESTIONS` w katalogu), inaczej pierwszy nieużyty kolor z palety zastępczej. Pantone → RGB jest przybliżone.
 - `computeInkCoverage` (`src/domain/printCoverage`): każda widoczna ścianka (prostokąt ścianki kolumny wykroju z `buildDieline`) jest próbkowana siatką w mm (256 komórek na dłuższym boku ścianki); środek komórki → współrzędne tekstury przez `computePanelUvTransform` (to samo mapowanie co 3D i wykrój 2D) → piksel próbki. Poza obrazem = goły papier.
-- **Nie liczą się:** spad, zapas na dno (klapy dna), zakładka klejowa — grafika wchodząca w zapas na dno na wykroju 2D nie jest wliczana (zgodnie z „przycięte do ścianek”). Mianownik = powierzchnia arkusza bez spadu (z zakładką i zapasem na dno).
+- **Nie liczą się:** spad, zakładka klejowa oraz zapas na dno ścianek **bez** „Rozciągnij na dno” (tam grafika jest przycinana do ścianki). Zapas na dno ścianek z rozciągnięciem **jest liczony** (§4f). Mianownik = powierzchnia arkusza bez spadu (z zakładką i zapasem na dno).
 - Klasyfikacja piksela: alfa < 8/255 → brak farby, powyżej — farba ważona alfą; „bliski bieli” = ΔE76 do bieli ≤ 8 (tylko na papierze białym); przypisanie do najbliższego podglądu Pantone w CIELAB (ΔE76). Pusta lista Pantone → tylko wynik łączny („bez przypisanego koloru”) + podpowiedź. Jeśli > 10 % farby ma ΔE > 30 do najbliższego podglądu — podpowiedź „kolory odległe od listy” (farba nadal liczona do najbliższego koloru). Progi w `PRINT_COVERAGE_RULES`.
 - UI: próbka każdej grafiki dekodowana raz na `fileUrl` (maks. 256 px na dłuższym boku, `createImageBitmap` z przeskalowaniem, cache), przeliczenie z opóźnieniem 200 ms w `requestIdleCallback`.
 - Ograniczenia: fotografie / przejścia tonalne są przypisywane „na najbliższy kolor” (bez rastra i nakładania farb), więc suma per kolor = pokrycie łączne i nie przekracza 100 %; biała farba pod innymi kolorami na brązowym papierze (podkład) nie jest liczona osobno.
@@ -171,6 +171,16 @@ Na wykroju (edycja grafiki), per ścianka:
 - **Wyrównanie (align):** do lewej / środka / prawej krawędzi i do góry / środka / dołu ścianki (ustawia `offsetX/offsetY` w `ArtworkPlacement`).
 - **Rozciągnięcie na dno:** przełącznik rozszerzający obszar grafiki ścianki o zapas na dno `(D + 30) / 2` poniżej linii dna — obszar ścianki `W × (H + a)` / `D × (H + a)`; grafika wtedy pokrywa klapy / uszy / trójkąty dna i jest widoczna od spodu w 3D. Wyrównanie „do dołu” odnosi się wtedy do dolnej krawędzi zapasu.
 - 2D i 3D nadal liczą mapowanie tą samą funkcją; pokrycie farbą uwzględnia rozszerzony obszar.
+
+**Implementacja (29.09.2026):**
+
+- Model: `ArtworkPlacement` ma w obu trybach pole `extendToBottom: boolean`. Domyślna wartość dla nowej grafiki, nowych ścianek i „Resetuj” to stała `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT` (`productionRules.ts`, obecnie `false` — klient może zdecydować `true`); brak pola w starszych danych = `false` (`normalizePlacement`). **Obszar grafiki** ścianki = `getPanelArtworkArea(panel, wymiary, placement)` w mm panel-local: `[0, Pw] × [0, H]` lub, z rozciągnięciem, `[0, Pw] × [−a, H]`. FILL rozciąga obraz na cały obszar (także `H + a`); w CUSTOM `scale` jest względem „contain” w obszarze, a `offsetX/offsetY` względem środka obszaru.
+- `computePanelUvTransform(panelSize, imageSize, placement, area?)` — sygnatura zachowana, czwarty argument (obszar) opcjonalny, domyślnie ścianka. UV geometrii pozostaje `(x / Pw, y / H)` widocznej ścianki; zapas na dno kontynuuje tę samą przestrzeń poniżej `v = 0`. Wywołują ją z obszarem: renderer 3D, wykrój 2D (`scene.ts`) i pokrycie farbą.
+- Wyrównanie: `alignPlacement(placement, { horizontal?, vertical? }, obszar, obraz)` — 3 × 3 (LEFT/CENTER/RIGHT × TOP/MIDDLE/BOTTOM, osobno lub razem); krawędź prostokąta obrazu (z uwzględnieniem obrotu) dotyka krawędzi obszaru. Z FILL najpierw przejście na CUSTOM „contain”. Na wykroju: dwie grupy po 3 przyciski + przełącznik „Rozciągnij na dno” w pasku edycji.
+- Przełączenie rozciągnięcia (`setPlacementExtendToBottom`, akcja store `setPanelExtendToBottom`): grafika CUSTOM **zostaje w tym samym miejscu** na ściance (przeliczone `scale` i przesunięcia), FILL rozciąga się na nowy obszar. „Rozciągnij” (FILL) zachowuje przełącznik, „Resetuj” i usunięcie grafiki go zerują, podmiana grafiki go zachowuje.
+- Wykrój 2D: bez rozciągnięcia grafika jest przycinana do ścianki + 2 mm zachodzenia przez linię dna (wcześniej wchodziła w zapas); z rozciągnięciem — do końca rękawa + spad 3 mm. Eksport SVG/PDF korzysta z tej samej sceny. Zaznaczona ścianka pokazuje obrys obszaru grafiki. Zapas na dno jest rysowany per kolumna: bez grafiki — szare tło, z grafiką (rozciągnięta ścianka) — fioletowy przerywany obrys bez przyciemnienia, żeby było widać, jakie kolory trafiają na dno (legenda; to samo w eksporcie SVG/PDF).
+- 3D: dno składa się z widocznych od spodu części: klapa przednia (zapas FRONT, `y ∈ [D − a, D]`) i odsłonięta część klapy tylnej (zapas BACK, `y ∈ [0, D − a]`); każda ma UV w przestrzeni swojej ścianki (`getBottomPieces` / `getVisibleBottomPieces` w `blockBottom.ts`) i tę samą teksturę co ścianka, pokazywaną tylko przy `extendToBottom`. Dno jest sztywne w animacji, więc mapowanie jest poprawne przez całe składanie. **Uszy i trójkąty (zapasy LEFT/RIGHT) są w gotowym dnie całkowicie przykryte klapami** (a uszy są dodatkowo odwrócone zadrukiem do środka), więc rozciągnięcie boków widać tylko na wykroju i w pokryciu farbą — nie w 3D.
+- Pokrycie farbą: dla ścianek z rozciągnięciem próbkowany jest obszar `Pw × (H + a)` (pole `printArea` w wyniku per ścianka); mianownik bez zmian (arkusz bez spadu). Rozstrzyga pytanie z §8.
 
 ### 4e. Eksport konfiguracji: PDF i Excel (wywiad 29.09.2026)
 
@@ -255,11 +265,10 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Czy nadruk / pakowanie mają być edytowalne w UI MVP, czy tylko obecne w modelu danych?
 - Gramatury: czy dostępne są wszystkie wartości co 10 g/m² w zakresach wariantów (50–120 / 70–110 / 70–120; przyjęte w katalogu jako `grammage.step`), czy tylko wybrane?
 - Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów).
-- Pokrycie farbą: czy grafika wchodząca w zapas na dno (widoczna na wykroju) ma być wliczana? Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
-- Wykrój: rozmiar łatki uchwytu — encja `Handle.patch` z katalogu (80 × 50 mm) vs `docs/PRODUCTION.md` §9.5
-  (`Lp = min(170, W − 20)`, `Hp = 45`). Wykrój używa `Handle.patch`, a wzór z §9.5 tylko, gdy łatki brak.
-  Model 3D robi tak samo (`src/domain/geometry/handles.ts`). Końce uchwytu muszą leżeć pod łatką, więc łatka 80 mm
-  zawęża rozstaw końców: skręcany 65 mm (zamiast `clamp(W/2, 75, 150)`), płaski 34 mm (zamiast ok. 80–110 mm).
+- „Rozciągnij na dno” na bokach (LEFT/RIGHT): uszy i trójkąty są w gotowym dnie przykryte klapami, więc ten nadruk nie jest widoczny (a liczy się do pokrycia farbą). Czy blokować / ostrzegać przy bokach?
+- Pokrycie farbą: ~~czy grafika w zapasie na dno ma być wliczana?~~ — rozstrzygnięte w §4f (liczona przy „Rozciągnij na dno”). Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
+- ~~Wykrój: rozmiar łatki uchwytu i rozstaw końców~~ — rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod
+  górną krawędzią (`y ∈ [H − 40, H − 20]`), rozstaw końców zawsze 80 mm, taśma płaska 20 mm (`docs/PRODUCTION.md` §5, §9.5).
 - Wykrój PDF: standardowe fonty jsPDF nie mają polskich znaków spoza WinAnsi — teksty w PDF są transliterowane
   (ł → l). Osadzić font Unicode?
 - Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?

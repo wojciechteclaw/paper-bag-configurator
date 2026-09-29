@@ -31,14 +31,15 @@ const rect = (x0: number, y0: number, x1: number, y1: number): Rect => ({
 });
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/** Handle patch size: the handle entity's patch when set, otherwise the production fallback (§9.5). */
+/**
+ * Handle patch size: the handle entity's patch when set, otherwise the client rule 100 × 20 mm [K] (§9.5); never
+ * closer than `sideClearance` to the side creases (W < 110 mm → width W − 2·sideClearance).
+ */
 export function getHandlePatchSize(handle: Handle, width: number): { width: number; height: number } {
   const rules = DIELINE_RULES.handlePatch;
-  const size = handle.patch ?? {
-    width: Math.min(rules.maxLength, width - rules.sideClearance),
-    height: rules.height,
-  };
-  return { width: clamp(size.width, 0, width), height: Math.max(0, size.height) };
+  const size = handle.patch ?? { width: rules.width, height: rules.height };
+  const maxWidth = Math.max(0, width - 2 * rules.sideClearance);
+  return { width: clamp(size.width, 0, maxWidth), height: Math.max(0, size.height) };
 }
 
 export function buildDieline(
@@ -217,17 +218,15 @@ export function panelToSheet(segment: DielineSegment, bottomLineY: number, point
 }
 
 /**
- * Artwork clip area of a column in sheet mm: the wall and its bottom allowance, extended by the crease overprint
- * towards neighbouring panels and by the bleed beyond the cut (top, tube end, left sheet edge = LEFT's free edge).
- * BACK's right edge gets only the overprint: the glue flap beyond it stays unprinted (§9.4).
+ * Artwork clip area of a column in sheet mm (docs/SPEC.md §4f). Horizontally: the column, extended by the crease
+ * overprint towards neighbouring panels and by the bleed at the free sheet edge (x = 0 = LEFT's free edge); BACK's
+ * right edge gets only the overprint (the glue flap beyond it stays unprinted, §9.4). Vertically: the visible wall
+ * plus the bleed above the top cut, and below it either the crease overprint across the bottom line (default) or —
+ * with `extendToBottom` — the whole bottom allowance plus the bleed beyond the tube end.
  */
-export function getArtworkClipRect(dieline: Dieline, segment: DielineSegment): Rect {
+export function getArtworkClipRect(dieline: Dieline, segment: DielineSegment, extendToBottom = false): Rect {
   const { bleed, creaseOverprint } = DIELINE_RULES;
   const left = segment.x0 <= 0 ? bleed : creaseOverprint;
-  return rect(
-    segment.x0 - left,
-    -bleed,
-    segment.x1 + creaseOverprint,
-    dieline.sheet.height + bleed,
-  );
+  const bottom = extendToBottom ? -bleed : dieline.bottomLineY - creaseOverprint;
+  return rect(segment.x0 - left, bottom, segment.x1 + creaseOverprint, dieline.sheet.height + bleed);
 }

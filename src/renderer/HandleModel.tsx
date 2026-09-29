@@ -7,7 +7,9 @@ import {
   createRopeGeometry,
   createStripGeometry,
   createTwistTexture,
+  HANDLE_POLYGON_OFFSET,
   HANDLE_WALLS,
+  handleHalfExtent,
   handleStackThickness,
   twistRepeat,
   type HandleWall,
@@ -22,11 +24,13 @@ export type HandleWallGroups = Record<HandleWall, Group | null>;
 type HandleModelProps = {
   handle: Handle;
   dimensions: Dimensions;
-  /** Filled with the two wall groups; BagModel writes their transforms (userData.stackThickness in mm). */
+  /** Filled with the two wall groups; BagModel writes their transforms (userData.stackThickness / halfExtent in mm). */
   wallGroups: { current: HandleWallGroups };
 };
 
-const HANDLE_MATERIAL = { roughness: 0.9, metalness: 0, envMapIntensity: 0.35 } as const;
+// Same polygon offset as the bag panels, so the 1 mm wall clearance (not the panels' depth bias) decides visibility:
+// the handle and patch never show through FRONT / BACK / the gussets from outside.
+const HANDLE_MATERIAL = { roughness: 0.9, metalness: 0, envMapIntensity: 0.35, ...HANDLE_POLYGON_OFFSET } as const;
 
 export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps) {
   const { type, width: handleWidth, length, color, patch } = handle;
@@ -77,6 +81,7 @@ export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps
   }, [twist, built, layout]);
 
   const stackThickness = handleStackThickness(layout);
+  const halfExtent = handleHalfExtent(layout);
   const handleColor = layout.params.color;
 
   return (
@@ -85,7 +90,7 @@ export function HandleModel({ handle, dimensions, wallGroups }: HandleModelProps
         <group
           key={wall}
           name={`handle-${wall}`}
-          userData={{ stackThickness }}
+          userData={{ stackThickness, halfExtent }}
           ref={(g) => {
             wallGroups.current[wall] = g;
             return () => {

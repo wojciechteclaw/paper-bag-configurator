@@ -1,7 +1,7 @@
 // Adapter: domain Dieline (+ artwork placements) → SVG-space primitives (mm, y down).
 // Shared by the interactive DielineView and the SVG/PDF export so all three draw exactly the same thing.
 
-import { computePanelUvTransform, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
+import { computePanelUvTransform, getPanelArtworkArea, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
 import { getArtworkClipRect } from '../domain/dieline';
 import type { Dieline, DielineDimensionKey, DielineLabelKey, DielineSegmentId, DielineZoneKind, Point2 } from '../domain/dieline';
 import { getPanelSize } from '../domain/panels';
@@ -20,6 +20,11 @@ export type SceneDimension = {
   extensions: { x1: number; y1: number; x2: number; y2: number }[];
   text: SceneText;
 };
+/**
+ * Bottom allowance of one column (below the bottom line). `printed` = the panel has artwork extended to the bottom
+ * (SPEC §4f): its colours land on the bottom flaps / ears / tucks; otherwise the allowance stays bare paper.
+ */
+export type SceneAllowance = SceneRect & { panel: PanelPosition; segment: DielineSegmentId; printed: boolean };
 export type SceneImage = {
   id: string;
   panel: PanelPosition;
@@ -28,6 +33,9 @@ export type SceneImage = {
   /** Maps the unit square (SVG `<image x=0 y=0 width=1 height=1 preserveAspectRatio="none">`) into the sheet. */
   matrix: Affine2;
   clip: SceneRect;
+  /** Artwork area of the panel (wall, or wall + bottom allowance when extended), SVG space. */
+  area: SceneRect;
+  extendToBottom: boolean;
   /** Image outline (4 corners, SVG space) — selection frame and handles. */
   corners: [number, number][];
 };
@@ -38,7 +46,9 @@ export type DielineScene = {
   viewBox: [number, number, number, number];
   cuts: string[];
   creases: SceneLine[];
+  /** Zones except the bottom allowance, which is drawn per column (`allowances`). */
   zones: SceneZone[];
+  allowances: SceneAllowance[];
   patches: SceneRect[];
   labels: SceneText[];
   dimensions: SceneDimension[];
@@ -74,7 +84,18 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
     const [x2, y2] = pt(line.to);
     return { id: line.id, code: line.code, x1, y1, x2, y2 };
   });
-  const zones = dieline.zones.map((zone) => ({ ...svgRect(zone.id, zone.rect), kind: zone.kind }));
+  const zones = dieline.zones
+    .filter((zone) => zone.kind !== 'BOTTOM_ALLOWANCE')
+    .map((zone) => ({ ...svgRect(zone.id, zone.rect), kind: zone.kind }));
+  const allowances = dieline.segments.map((segment): SceneAllowance => {
+    const { artwork, placement } = panels[segment.panel];
+    return {
+      ...svgRect(`allowance-${segment.id}`, segment.allowance),
+      panel: segment.panel,
+      segment: segment.id,
+      printed: artwork !== null && placement.extendToBottom,
+    };
+  });
   const patches = dieline.handlePatches.map((patch) => svgRect(patch.id, patch.rect));
   const labels = dieline.labels.map((label) => {
     const [x, y] = pt(label.at);
@@ -112,7 +133,9 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
     const artwork = panel.artwork;
     if (!artwork || segment.x1 - segment.x0 <= 0) continue;
     const panelSize = getPanelSize(segment.panel, dieline.dimensions);
-    const uv = computePanelUvTransform(panelSize, artwork, panel.placement);
+    // The artwork area (wall, or wall + bottom allowance with extendToBottom) drives both the mapping and the clip.
+    const area = getPanelArtworkArea(segment.panel, dieline.dimensions, panel.placement);
+    const uv = computePanelUvTransform(panelSize, artwork, panel.placement, area);
     const p = uvTransformToPanelMatrix(panelSize, uv);
     // texture t = (ix, 1 − iy) for image unit-square point (ix, iy); sheet = panel + shift; SVG y = H − sheet y.
     const shiftX = segment.x0 - segment.localX0;
@@ -140,7 +163,9 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
       segment: segment.id,
       href: artwork.fileUrl,
       matrix,
-      clip: svgRect(`clip-${segment.id}`, getArtworkClipRect(dieline, segment)),
+      clip: svgRect(`clip-${segment.id}`, getArtworkClipRect(dieline, segment, panel.placement.extendToBottom)),
+      area: svgRect(`area-${segment.id}`, { ...area, x: area.x + shiftX, y: area.y + shiftY }),
+      extendToBottom: panel.placement.extendToBottom,
       corners,
     });
   }
@@ -156,6 +181,7 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
     cuts,
     creases,
     zones,
+    allowances,
     patches,
     labels,
     dimensions,
@@ -175,6 +201,8 @@ export const DIELINE_STYLE = {
   safety: { stroke: '#15803d', width: 0.25, dash: '0.8 1.2' },
   bleed: { stroke: '#dc2626', width: 0.25 },
   allowanceFill: 'rgba(120, 120, 120, 0.10)',
+  /** Outline of an allowance that carries artwork (extended to the bottom). */
+  allowancePrinted: { stroke: '#7c3aed', width: 0.5, dash: '2 1' },
   bottomGlueFill: 'rgba(234, 179, 8, 0.18)',
   glueFlapFill: 'rgba(234, 179, 8, 0.28)',
   dimension: { stroke: '#444444', width: 0.2 },

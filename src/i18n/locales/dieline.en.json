@@ -48,7 +48,8 @@
       "patch": "handle patch (inside)",
       "bleed": "bleed 3 mm",
       "safety": "safe area",
-      "allowance": "bottom allowance",
+      "allowance": "bottom allowance (no artwork)",
+      "allowancePrinted": "bottom allowance with artwork (colours on the bottom)",
       "glue": "glue"
     },
     "panel": {
@@ -61,6 +62,19 @@
       "artworkLabel": "Artwork: {{panel}}. Click to edit; arrow keys move, + and − scale, R rotates, 0 resets.",
       "toolbar": "Editing artwork: {{panel}}",
       "modeFill": "stretched over the wall",
+      "modeFillExtended": "stretched over the wall and the bottom",
+      "extendToBottom": "Extend to bottom",
+      "extendToBottomHint": "Extends the artwork area by the bottom allowance ((D + 30) / 2 below the bottom line): the artwork also prints on the bottom flaps, ears and tuck triangles of this panel.",
+      "alignHorizontal": "Align horizontally",
+      "alignVertical": "Align vertically",
+      "align": {
+        "LEFT": "Align left",
+        "CENTER": "Centre horizontally",
+        "RIGHT": "Align right",
+        "TOP": "Align top",
+        "MIDDLE": "Centre vertically",
+        "BOTTOM": "Align bottom"
+      },
       "modeCustom": "scale {{scale}}%, offset {{x}} / {{y}} mm, rotation {{rotation}}°",
       "fill": "Stretch",
       "contain": "Fit",

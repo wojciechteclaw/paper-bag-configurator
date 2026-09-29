@@ -323,18 +323,24 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
 
 | Parametr | Skręcany (TWISTED_PAPER) | Płaski (FLAT_PAPER) | Źródło |
 |---|---|---|---|
-| przekrój | sznurek Ø 3–5 mm | taśma 12–15 mm (składana z szerszego paska) | [T] paperbagline, cxgiae |
+| przekrój | sznurek Ø 3–5 mm (podgląd: 5 mm) | taśma **20 mm** | [T] paperbagline, cxgiae / **[K]** płaski |
 | długość sznurka | 340–460 mm | — | [T] paperbagline |
-| rozstaw końców (jeden uchwyt) | 75–150 mm (typowo 110–150) | ok. 80–110 mm | [T/Z] |
-| wysokość pętli nad krawędzią | ok. 90–120 mm | ok. 80–100 mm | [Z] |
-| łatka (patch) | ok. 150–190 × 35–50 mm | ok. 150–190 × 40–50 mm | [T] (cxgiae) / [Z] |
+| rozstaw końców (jeden uchwyt) | **80 mm, stały** (niezależny od W) | **80 mm, stały** | **[K]** |
+| wysokość pętli nad krawędzią | wynika z długości pętli (180 mm → ok. 72 mm przy rozstawie 80) | j.w. | [Z] |
+| łatka (pasek mocujący) | **100 × 20 mm** (szer. × wys.) | **100 × 20 mm** | **[K]** |
 | papier łatki | 80–120 g/m² kraft | j.w. | [Z] |
-| pozycja | od wewnątrz FRONT i BACK, wyśrodkowana (`x = W/2`), górna krawędź łatki 3 mm pod górną krawędzią | j.w. | [K] wewnątrz / [Z] pozycja |
+| pozycja łatki | od wewnątrz FRONT i BACK, wyśrodkowana (`x = W/2`), górna krawędź łatki **20 mm** pod górną krawędzią → `y ∈ [H − 40, H − 20]` | j.w. | **[K]** |
 
-- Uchwyty są tylko na FRONT/BACK [K]. Bez zawinięcia górnego łatka jest klejona bezpośrednio pod
-  krawędzią cięcia. W typowej torbie z uchwytem łatkę zakrywa zawinięcie. Brak zawinięcia to decyzja
+- Uchwyty są tylko na FRONT/BACK [K]. Bez zawinięcia górnego łatka jest klejona 20 mm pod krawędzią
+  cięcia [K]. W typowej torbie z uchwytem łatkę zakrywa zawinięcie. Brak zawinięcia to decyzja
   klienta i trzeba ją potwierdzić ze względu na wytrzymałość (§11).
-- Długość łatki `Lp = min(170, W − 20)` [Z]. Dla W < ok. 180 mm maszyny z uchwytem skręcanym zwykle nie
+- Końce uchwytu (oba typy) biegną pionowo w dół na `x = W/2 ± 40` i kończą się pod łatką, 5 mm nad jej dolną
+  krawędzią [Z]. Taśma płaska 20 mm przy rozstawie 80 mm zajmuje `|x − W/2| ∈ [30, 50]`, czyli dokładnie szerokość
+  łatki 100 mm, więc nie ma miejsca na stopki zagięte na zewnątrz — końce taśmy są proste, bez stopek [Z].
+- Zabezpieczenie wąskich ścianek [Z]: łatka zachowuje 5 mm od bocznych bigów (szerokość `min(100, W − 10)`, dotyczy
+  W < 110). Gdy łatka jest węższa niż rozstaw + szerokość uchwytu (sznurek: W < 95, taśma: W < 110; W min = 75),
+  rozstaw jest zmniejszany do `łatka − szerokość uchwytu` (krawędzie końców równo z bokami łatki), a układ ma flagę
+  `endSpacingReduced` (`src/domain/geometry/handles.ts`). Dla W < ok. 180 mm maszyny z uchwytem skręcanym zwykle nie
   pracują (Garant QT/SK od 180 mm). **Do potwierdzenia: minimalne W dla uchwytów** (§11).
 - EN 13590: bada nośność przez wielokrotne podnoszenie torby napełnionej obciążeniem zależnym od
   objętości [F]. Wytyczna CEPI Eurokraft / EUROSAC: dobra torba z uchwytami udźwignie co najmniej 6 kg
@@ -461,9 +467,13 @@ Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrzn
 
 ### 9.5 Łatki uchwytów (wewnątrz, na wykroju linią przerywaną)
 
-- FRONT: środek łatki `X = D + W/2`. Zakres `X ∈ [D + W/2 − Lp/2, D + W/2 + Lp/2]`, `Y ∈ [H − 3 − Hp, H − 3]`.
+- FRONT: środek łatki `X = D + W/2`. Zakres `X ∈ [D + W/2 − Lp/2, D + W/2 + Lp/2]`, `Y ∈ [H − 20 − Hp, H − 20]`
+  = `[H − 40, H − 20]` [K].
 - BACK: środek łatki `X = 2D + 3W/2` (panel-local `x = W/2`). BACK jest w jednym kawałku, więc łatka też.
-- `Lp = min(170, W − 20)`, `Hp = 45` [Z]. Końce uchwytu skręcanego: `x = W/2 ± c/2`, `c = clamp(W/2, 75, 150)` [Z].
+- `Lp = 100`, `Hp = 20`, górna krawędź 20 mm pod cięciem [K] (`DIELINE_RULES.handlePatch`, `HANDLE_DEFAULTS.patch`).
+  Na wąskich ściankach `Lp = min(100, W − 10)` (5 mm od bigów bocznych) [Z]. Końce uchwytu (oba typy):
+  `x = W/2 ± c/2`, `c = 80 mm` stałe [K] (`HANDLE_END_SPACING_MM`); zmniejszane tylko, gdy łatka jest za wąska (§5).
+  Dawny wzór `Lp = min(170, W − 20)`, `Hp = 45`, `c = clamp(W/2, 75, 150)` [Z] jest wycofany.
 
 ### 9.6 Przykład: W = 200, H = 400, D = 150, s = 10 → a = 90, arkusz 710 × 490 mm
 
@@ -474,8 +484,8 @@ Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa je
 ```text
       Y 0      75     150                 350     425    500                  700|710
     400 ########################################################################
-    397 #       |      : +++++++++++++++++ :       |      : +++++++++++++++++ :#
-    352 #       |      : +++++++++++++++++ :       |      : +++++++++++++++++ :#
+    380 #       |      :     +++++++++     :       |      :     +++++++++     :#
+    360 #       |      :     +++++++++     :       |      :     +++++++++     :#
     ... #       |      :                   :       |      :                   :#
     200 # LEFT  |      :     FRONT         : RIGHT |      :       BACK        S#
     ... #       |      :                   :       |      :                   :#
@@ -500,7 +510,7 @@ Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa je
 
 Romb LEFT: `(0,0)–(75,75)–(150,0)–(75,−75)`. Romb RIGHT: `(350,0)–(425,75)–(500,0)–(425,−75)`.
 Na zakładce: C6 `(700,0)–(710,10)`, C7 `(700,0)–(710,−10)`. C8 (`Y = 75`): `X ∈ [0, 75] ∪ [425, 710]`.
-Łatka FRONT: `X ∈ [165, 335]`, `Y ∈ [352, 397]`. Łatka BACK: `X ∈ [515, 685]`, `Y` j.w.
+Łatka FRONT: `X ∈ [200, 300]`, `Y ∈ [360, 380]` [K]. Łatka BACK: `X ∈ [550, 650]`, `Y` j.w.
 
 ---
 
@@ -645,10 +655,10 @@ Renderer może je liczyć z normalnych regionów.
 | `HEIGHT_TOO_SMALL_FOR_DEPTH` | `H > D/2` twardo; zalecane `H ≥ D` | błąd / ostrzeżenie [F/W] |
 | `DEPTH_ABOVE_MACHINE_RATIO` | `D > 0,65·W` | ostrzeżenie [F dane maszyn], do potwierdzenia |
 | `CUTOFF_OUT_OF_RANGE` | `H + (D+30)/2` poza zakresem maszyny klienta | ostrzeżenie, zakres do potwierdzenia |
-| `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?) | do potwierdzenia |
+| `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?); geometria zmniejsza rozstaw poniżej W = 95 / 110 (`endSpacingReduced`, §5) | do potwierdzenia |
 
 Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D) => (D + 30) / 2`,
-`SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `HANDLE_PATCH = { topOffset: 3, height: 45, maxLength: 170 }` [Z],
+`SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `DIELINE_RULES.handlePatch = { width: 100, height: 20, topOffset: 20 }` [K] (+ `sideClearance: 5` [Z]), `HANDLE_END_SPACING_MM = 80` [K],
 `FLAT_FOLD_PLEAT_RATIO = 0.5`.
 
 ---
@@ -667,8 +677,9 @@ Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D)
    ~~Czy big `D/2` na tyle jest bigowany na wstędze?~~ Rozstrzygnięte: tak, to linia bigowania (C8) [K].
 6. **Strefy kleju dna**: tylko zakładka 30 mm, czy też uszy? Czy stosujecie łatę lub wkładkę dna?
 7. **Uchwyty bez zawinięcia górnego**: czy to realny wariant produkcyjny (wytrzymałość łatki przy
-   krawędzi cięcia)? Minimalne W dla uchwytów skręcanych i płaskich? Wymiary łatki, rozstaw końców,
-   wysokość pętli?
+   krawędzi cięcia)? Minimalne W dla uchwytów skręcanych i płaskich? Wysokość (długość) pętli?
+   Rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod górną krawędzią, rozstaw końców zawsze 80 mm,
+   taśma płaska 20 mm (§5, §9.5).
 8. **Gramatura z uchwytem**: minimalna gramatura dla toreb z uchwytem (typowo ≥ 70–80 g/m²)?
 9. **Nadruk**: inline na tuberze czy rola zadrukowana wcześniej (8 kolorów)? Tolerancja nadruku względem
    bigów i cięcia? Czy drukujecie zapas dna (widoczny od spodu)?

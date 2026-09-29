@@ -1,3 +1,4 @@
+import { DEFAULT_PLACEMENT } from './artworkPlacement';
 import { BAG_TYPES, HANDLE_DEFAULTS } from './config/productCatalog';
 import { getHandleVariantDefinition } from './handleVariants';
 import type { Artwork, BagConfiguration, BagPanel, BagPanels, BagType, Handle, HandleType, PanelPosition } from './types';
@@ -7,7 +8,7 @@ export const PANEL_POSITIONS: PanelPosition[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT
 const newId = () => crypto.randomUUID();
 
 export function createPanel(position: PanelPosition): BagPanel {
-  return { id: newId(), position, artwork: null, placement: { mode: 'FILL' } };
+  return { id: newId(), position, artwork: null, placement: { ...DEFAULT_PLACEMENT } };
 }
 
 export function createHandle(type: HandleType): Handle {

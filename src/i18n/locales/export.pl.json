@@ -1,0 +1,192 @@
+{
+  "export": {
+    "actions": {
+      "legend": "Eksport konfiguracji",
+      "intro": "Karta produktu (PDF: parametry, wykrój z grafikami, widoki 3D i opcje złożenia) lub zestawienie w arkuszu Excel.",
+      "pdf": "Pobierz PDF",
+      "xlsx": "Pobierz Excel",
+      "error": "Nie udało się przygotować pliku. Spróbuj ponownie.",
+      "done": "Plik został pobrany.",
+      "progress": {
+        "coverage": "Liczenie pokrycia farbą…",
+        "views": "Renderowanie widoków 3D ({{done}}/{{total}})…",
+        "document": "Składanie dokumentu…"
+      }
+    },
+    "fileName": {
+      "BLOCK": "torba-klockowa",
+      "FOLDED": "torba-faldowa"
+    },
+    "section": {
+      "product": "Produkt",
+      "paper": "Papier",
+      "handle": "Uchwyt",
+      "print": "Nadruk i pakowanie",
+      "construction": "Konstrukcja i arkusz",
+      "artwork": "Grafiki na ściankach"
+    },
+    "param": {
+      "productType": "Typ torby",
+      "width": "Szerokość (W)",
+      "height": "Wysokość (H)",
+      "depth": "Głębokość (D)",
+      "standardSize": "Rozmiar standardowy",
+      "paperType": "Rodzaj papieru",
+      "paperColor": "Kolor papieru",
+      "grammage": "Gramatura",
+      "fsc": "Certyfikat FSC®",
+      "moistureBarrier": "Bariera na wilgoć",
+      "handleVariant": "Wariant uchwytu",
+      "handleMaterial": "Materiał uchwytu",
+      "handleColor": "Kolor uchwytu",
+      "ropeDiameter": "Średnica sznurka",
+      "stripWidth": "Szerokość paska",
+      "loopLength": "Długość pętli",
+      "patchWidth": "Łatka — szerokość",
+      "patchHeight": "Łatka — wysokość",
+      "handleMounting": "Mocowanie",
+      "printTechnology": "Technologia druku",
+      "colorCount": "Liczba kolorów",
+      "pantoneColors": "Kolory Pantone",
+      "packaging": "Pakowanie",
+      "bottomAllowance": "Zapas na dno (D + 30) / 2",
+      "glueFlap": "Zakładka klejowa",
+      "sheetWidth": "Arkusz — szerokość",
+      "sheetHeight": "Arkusz — wysokość",
+      "sheetArea": "Arkusz — powierzchnia"
+    },
+    "handleMaterial": {
+      "KRAFT": "mocny papier kraft"
+    },
+    "handleMounting": "od wewnątrz, na przodzie i tyle, z papierową łatką",
+    "unit": {
+      "cm2": "cm²",
+      "mm2": "mm²"
+    },
+    "placementMode": {
+      "FILL": "wypełnij ściankę",
+      "CUSTOM": "własne położenie"
+    },
+    "coverage": {
+      "none": "Nie udało się oszacować pokrycia farbą.",
+      "noColors": "Brak kolorów Pantone — pokrycie podane tylko łącznie."
+    },
+    "pdf": {
+      "title": "Karta produktu",
+      "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
+      "parameters": "Parametry",
+      "footer": "Konfiguracja {{id}}",
+      "page": "Strona {{page}} z {{total}}"
+    },
+    "pantone": {
+      "title": "Kolory Pantone i pokrycie farbą",
+      "swatch": "Kolor",
+      "code": "Kod Pantone / podgląd",
+      "percent": "% arkusza",
+      "area": "Powierzchnia [{{unit}}]"
+    },
+    "dieline": {
+      "title": "Wykrój z grafikami",
+      "scale": "skala 1:{{ratio}} (wymiary w mm)"
+    },
+    "views": {
+      "views": {
+        "title": "Widoki 3D",
+        "note": "Pełna bryła (prostopadłościan) i torba stojąca po zgięciu ścianek na bigach."
+      },
+      "folding": {
+        "title": "Opcje złożonej torby",
+        "note": "Etapy składania torby na płasko (boki do środka, dno do tyłu) oraz torba złożona na płasko."
+      },
+      "angle": {
+        "FRONT_3_4": "przód 3/4",
+        "BACK_3_4": "tył 3/4"
+      },
+      "caption": {
+        "box": "Pełna bryła — {{angle}}",
+        "standing": "Po zgięciu ścianek (stojąca) — {{angle}}",
+        "stage": "Składanie {{fold}} — {{angle}}",
+        "flat": "Złożona na płasko — {{angle}}"
+      },
+      "unavailable": "Widok 3D niedostępny"
+    },
+    "xlsx": {
+      "sheet": {
+        "parameters": "Parametry",
+        "panels": "Ścianki i grafiki",
+        "coverage": "Pantone i pokrycie",
+        "dieline": "Wykrój"
+      },
+      "col": {
+        "section": "Sekcja",
+        "parameter": "Parametr",
+        "value": "Wartość",
+        "unit": "Jednostka",
+        "panel": "Ścianka",
+        "panelWidth": "Szerokość ścianki",
+        "panelHeight": "Wysokość ścianki",
+        "artworkFile": "Plik grafiki",
+        "imageWidth": "Szerokość obrazu",
+        "imageHeight": "Wysokość obrazu",
+        "placementMode": "Tryb dopasowania",
+        "offsetX": "Przesunięcie X",
+        "offsetY": "Przesunięcie Y",
+        "scale": "Skala",
+        "rotation": "Obrót",
+        "extendToBottom": "Rozciągnięcie na dno",
+        "artworkAreaHeight": "Wysokość obszaru grafiki",
+        "pantoneCode": "Kod Pantone",
+        "hex": "Podgląd HEX",
+        "sheetShare": "Pokrycie arkusza",
+        "inkArea": "Powierzchnia farby",
+        "sheetArea": "Powierzchnia arkusza",
+        "wallArea": "Powierzchnia ścianki",
+        "wallShare": "Pokrycie ścianki",
+        "column": "Kolumna arkusza",
+        "xFrom": "x od",
+        "xTo": "x do",
+        "columnWidth": "Szerokość",
+        "wallHeight": "Wysokość ścianki",
+        "allowanceHeight": "Zapas na dno",
+        "lineId": "Linia",
+        "lineKind": "Rodzaj",
+        "code": "Kod",
+        "description": "Opis",
+        "x1": "x1",
+        "y1": "y1",
+        "x2": "x2",
+        "y2": "y2",
+        "length": "Długość",
+        "x": "x",
+        "y": "y",
+        "width": "Szerokość",
+        "height": "Wysokość"
+      },
+      "note": "Uwaga",
+      "panelCoverage": "Pokrycie per ścianka",
+      "dielineSheet": "Arkusz",
+      "dielineColumns": "Kolumny ścianek",
+      "dielineLines": "Linie cięcia i bigowania",
+      "handlePatches": "Łatki uchwytów (wewnątrz)",
+      "bottomLineY": "Linia dna (y)",
+      "bleed": "Spad",
+      "origin": "Układ współrzędnych",
+      "originValue": "początek w lewym dolnym rogu arkusza (koniec rękawa), x w prawo, y w górę, strona zadrukowana",
+      "cutOutline": "obrys arkusza",
+      "lineKind": {
+        "cut": "cięcie",
+        "crease": "big"
+      }
+    },
+    "creaseCode": {
+      "C1": "linia dna",
+      "C2": "krawędź rękawa",
+      "C3": "zawias zakładki (TYŁ/BOK LEWY)",
+      "C4": "środek fałdy boku",
+      "C5": "środek fałdy (zapas dna)",
+      "C6": "romb, górne 45°",
+      "C7": "romb, dolne 45°",
+      "C8": "big płaskiego złożenia"
+    }
+  }
+}

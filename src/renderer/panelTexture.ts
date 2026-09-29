@@ -1,7 +1,7 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { ClampToEdgeWrapping, SRGBColorSpace, TextureLoader, type Texture, type WebGLProgramParametersWithUniforms } from 'three';
-import { computePanelUvTransform, type PanelUvTransform } from '../domain/artworkPlacement';
+import { computePanelUvTransform, type PanelArtworkArea, type PanelUvTransform } from '../domain/artworkPlacement';
 import type { ArtworkPlacement } from '../domain/types';
 
 type Size = { width: number; height: number };
@@ -53,8 +53,10 @@ export function usePanelTexture(url: string | null | undefined): Texture | null 
 }
 
 /**
- * Applies the domain placement (`computePanelUvTransform`, FILL = identity) to the texture transform.
- * `texture.center` stays at (0, 0), as the domain contract requires.
+ * Applies the domain placement (`computePanelUvTransform` over the panel's artwork area) to the texture transform.
+ * `area` is the artwork area in panel-local mm (`getPanelArtworkArea`: the wall, or wall + bottom allowance when the
+ * placement extends to the bottom); the geometry UV stays (x / panelWidth, y / H), continued below v = 0 on the
+ * bottom pieces. `texture.center` stays at (0, 0), as the domain contract requires.
  */
 export function usePanelUvTransform(
   texture: Texture | null,
@@ -62,8 +64,13 @@ export function usePanelUvTransform(
   imageWidth: number,
   imageHeight: number,
   placement: ArtworkPlacement,
+  area?: PanelArtworkArea,
 ) {
   const { width: pw, height: ph } = panelSize;
+  const ax = area?.x ?? 0;
+  const ay = area?.y ?? 0;
+  const aw = area?.width ?? pw;
+  const ah = area?.height ?? ph;
   useLayoutEffect(() => {
     if (!texture) return;
     const image = texture.image as { width?: number; height?: number } | undefined;
@@ -71,8 +78,11 @@ export function usePanelUvTransform(
       imageWidth > 0 && imageHeight > 0
         ? { width: imageWidth, height: imageHeight }
         : { width: image?.width ?? 0, height: image?.height ?? 0 };
-    applyUvTransform(texture, computePanelUvTransform({ width: pw, height: ph }, size, placement));
-  }, [texture, pw, ph, imageWidth, imageHeight, placement]);
+    applyUvTransform(
+      texture,
+      computePanelUvTransform({ width: pw, height: ph }, size, placement, { x: ax, y: ay, width: aw, height: ah }),
+    );
+  }, [texture, pw, ph, imageWidth, imageHeight, placement, ax, ay, aw, ah]);
 }
 
 /** Writes a domain UV transform into a (mutable, three.js-owned) texture; `center` stays (0, 0). */

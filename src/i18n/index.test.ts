@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import dielineEn from './locales/dieline.en.json';
 import dielinePl from './locales/dieline.pl.json';
 import en from './locales/en.json';
+import exportEn from './locales/export.en.json';
+import exportPl from './locales/export.pl.json';
 import pl from './locales/pl.json';
 import { mergeResources } from './index';
 
@@ -37,5 +39,11 @@ describe('i18n locale key parity', () => {
     const mergedEn = mergeResources(en, dielineEn);
     const expectedKeys = new Set([...flattenKeys(en), ...flattenKeys(dielineEn)]);
     expect(flattenKeys(mergedEn).sort()).toEqual([...expectedKeys].sort());
+  });
+
+  it('export.pl.json and export.en.json expose the same keys without shadowing main keys', () => {
+    expect(flattenKeys(exportPl).sort()).toEqual(flattenKeys(exportEn).sort());
+    const mergedEn = mergeResources(en, exportEn);
+    expect(flattenKeys(mergedEn).sort()).toEqual([...new Set([...flattenKeys(en), ...flattenKeys(exportEn)])].sort());
   });
 });

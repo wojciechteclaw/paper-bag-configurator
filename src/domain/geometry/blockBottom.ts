@@ -230,3 +230,80 @@ export function pointInConvexPolygon(p: Point2, polygon: Polygon2, tolerance = 1
 export function findRegion(regions: readonly PanelRegion[], p: Point2): PanelRegion | undefined {
   return regions.find((r) => pointInConvexPolygon(p, r.polygon));
 }
+
+// ——— Bottom pieces in their wall's artwork space ("rozciągnij na dno", docs/SPEC.md §4f) ———
+
+export type BottomPieceId =
+  | 'FRONT_FLAP'
+  | 'BACK_FLAP'
+  | 'EAR_LEFT_BACK'
+  | 'EAR_LEFT_FRONT'
+  | 'EAR_RIGHT_BACK'
+  | 'EAR_RIGHT_FRONT'
+  | 'TUCK_LEFT'
+  | 'TUCK_RIGHT';
+
+/**
+ * One layer of the formed block bottom that comes from a wall's bottom allowance (panel-local y ∈ [−a, 0]).
+ * `toPanel` maps BOTTOM-local (seen from below) to that wall's panel-local mm, so the wall's continuous UV space
+ * (u = x / panelWidth, v = y / H, v < 0 in the allowance) continues onto the piece.
+ */
+export type BottomPiece = {
+  id: BottomPieceId;
+  /** The wall whose allowance forms this piece. */
+  panel: PanelPosition;
+  /** 0 = outermost (seen from below): front flap, back flap, ears, tucks. */
+  layer: number;
+  /** BOTTOM-local, counter-clockwise seen from below. */
+  polygon: Polygon2;
+  toPanel: (p: Point2) => Point2;
+  /**
+   * Whether the printed (outer) side of the wall faces down/outwards on this piece. Flaps and tucks turn 90° on
+   * their bottom line (printed side out); the ears fold back a further 180° over the 45° creases (printed side in).
+   */
+  printedSideOut: boolean;
+};
+
+/**
+ * All allowance pieces of the formed bottom with their maps into the source wall (derivation: the flaps hinge on the
+ * front / back bottom crease, the side allowance turns in on the side bottom line, the ears are then reflected over
+ * the 45° creases). RIGHT pieces mirror LEFT (bottom x → W − x, panel x → D − x).
+ */
+export function getBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomPiece[] {
+  const { width: W, depth: D } = d;
+  const layout = getBottomLayout(d);
+  // LEFT side (bottom x = 0 edge; LEFT x = 0 at BACK): tuck (bx, by) → (by, −bx); back ear reflected over y = x,
+  // front ear over y = D − x.
+  const leftTuck = (p: Point2) => pt(p.y, -p.x);
+  const leftEarBack = (p: Point2) => pt(p.x, -p.y);
+  const leftEarFront = (p: Point2) => pt(D - p.x, p.y - D);
+  const right = (left: (p: Point2) => Point2) => (p: Point2) => {
+    const q = left(pt(W - p.x, p.y));
+    return pt(D - q.x, q.y);
+  };
+  return [
+    { id: 'FRONT_FLAP', panel: 'FRONT', layer: 0, polygon: layout.frontFlap, toPanel: (p) => pt(p.x, p.y - D), printedSideOut: true },
+    { id: 'BACK_FLAP', panel: 'BACK', layer: 1, polygon: layout.backFlap, toPanel: (p) => pt(W - p.x, -p.y), printedSideOut: true },
+    { id: 'EAR_LEFT_BACK', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_BACK, toPanel: leftEarBack, printedSideOut: false },
+    { id: 'EAR_LEFT_FRONT', panel: 'LEFT', layer: 2, polygon: layout.ears.LEFT_FRONT, toPanel: leftEarFront, printedSideOut: false },
+    { id: 'EAR_RIGHT_BACK', panel: 'RIGHT', layer: 2, polygon: layout.ears.RIGHT_BACK, toPanel: right(leftEarBack), printedSideOut: false },
+    { id: 'EAR_RIGHT_FRONT', panel: 'RIGHT', layer: 2, polygon: layout.ears.RIGHT_FRONT, toPanel: right(leftEarFront), printedSideOut: false },
+    { id: 'TUCK_LEFT', panel: 'LEFT', layer: 3, polygon: layout.tucks.LEFT, toPanel: leftTuck, printedSideOut: true },
+    { id: 'TUCK_RIGHT', panel: 'RIGHT', layer: 3, polygon: layout.tucks.RIGHT, toPanel: right(leftTuck), printedSideOut: true },
+  ];
+}
+
+/**
+ * What is seen of the formed bottom from below: the front flap (outermost, y ∈ [D − a, D]) and the part of the back
+ * flap it does not cover (y ∈ [0, D − a]). Together they tile the whole W × D bottom (the flaps span the full width
+ * and a > D/2), so the ears and tucks — the LEFT/RIGHT allowances — are always hidden inside the bottom: side-wall
+ * artwork extended to the bottom is printed (dieline, ink coverage) but never visible on the finished bag.
+ */
+export function getVisibleBottomPieces(d: Pick<Dimensions, 'width' | 'depth'>): BottomPiece[] {
+  const { width: W, depth: D } = d;
+  const a = Math.min(getBottomAllowance(d), D);
+  const pieces = getBottomPieces(d);
+  const front = pieces.find((p) => p.id === 'FRONT_FLAP')!;
+  const back = pieces.find((p) => p.id === 'BACK_FLAP')!;
+  return [front, { ...back, polygon: rect(0, 0, W, Math.max(0, D - a)) }];
+}

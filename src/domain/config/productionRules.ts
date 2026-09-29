@@ -29,10 +29,12 @@ export type DielineRules = {
   /** Width of the glue strip of the bottom flaps, measured from the tube end (FRONT and BACK), mm (§9.3). */
   bottomFlapGlue: number;
   /**
-   * Handle reinforcement patch fallback when the handle entity has no patch (§5, §9.5):
-   * length Lp = min(maxLength, W − sideClearance), height Hp, top edge `topOffset` below the top cut.
+   * Handle reinforcement patch [K] (§5, §9.5): `width` × `height` (used when the handle entity has no patch), centred
+   * on FRONT and BACK, top edge `topOffset` below the top cut → y ∈ [H − topOffset − height, H − topOffset].
+   * Guard (only W < 110 mm): the patch keeps `sideClearance` from the side creases, i.e. it is clamped to
+   * W − 2·sideClearance (`getHandlePatchSize`), so it never touches or crosses the side walls / gussets [Z].
    */
-  handlePatch: { maxLength: number; sideClearance: number; height: number; topOffset: number };
+  handlePatch: { width: number; height: number; topOffset: number; sideClearance: number };
 };
 
 export const DIELINE_RULES: DielineRules = {
@@ -44,7 +46,7 @@ export const DIELINE_RULES: DielineRules = {
   safetyFromCreases: 5,
   sideSafetyAboveRhombus: 5,
   bottomFlapGlue: 30,
-  handlePatch: { maxLength: 170, sideClearance: 20, height: 45, topOffset: 3 },
+  handlePatch: { width: 100, height: 20, topOffset: 20, sideClearance: 5 },
 };
 
 /** Limits of the artwork positioning module (CUSTOM placement). */
@@ -57,3 +59,10 @@ export const ARTWORK_PLACEMENT_RULES = {
   nudgeLargeMm: 10,
   scaleStep: 1.1,
 } as const;
+
+/**
+ * Default of `ArtworkPlacement.extendToBottom` ("rozciągnij na dno", docs/SPEC.md §4f) for newly uploaded artwork, new
+ * panels and "Reset". `false` for now (client decision pending — they may want `true`: artwork then also prints on the
+ * bottom flaps / ears / tucks by default). Replacing an image keeps the panel's current choice.
+ */
+export const ARTWORK_EXTEND_TO_BOTTOM_DEFAULT: boolean = false;

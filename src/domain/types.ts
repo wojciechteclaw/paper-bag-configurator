@@ -66,20 +66,26 @@ export type ArtworkRotation = 0 | 90 | 180 | 270;
 
 /**
  * How artwork is placed on a panel (the positioning module, `src/domain/artworkPlacement.ts`).
- * - `FILL` — the image is stretched over the whole visible wall (UV 0..1); the default.
+ * - `FILL` — the image is stretched over the whole artwork area (by default the visible wall); the default.
  * - `CUSTOM` — the image keeps its aspect ratio. `scale` is relative to the "contain" fit (1 = the whole image
- *   fits the visible wall, touching two edges), `offsetX` / `offsetY` move the image centre away from the wall
+ *   fits the artwork area, touching two edges), `offsetX` / `offsetY` move the image centre away from the area
  *   centre in mm (x to the right, y up, panel-local, seen from outside), `rotation` turns it in 90° steps.
- *   Parts outside the wall are clipped by the panel (or, on the dieline, run into the bleed / bottom allowance).
+ *   Parts outside the artwork area are clipped (3D: bare paper; dieline: only the bleed / crease overprint).
+ *
+ * Both modes carry `extendToBottom` ("rozciągnij na dno", docs/SPEC.md §4f). When true, the artwork AREA of the panel
+ * is the visible wall plus the bottom allowance a = (D + 30) / 2 below the bottom line: panel-local y ∈ [−a, H]
+ * instead of [0, H] (`getPanelArtworkArea`). FILL then stretches over H + a, `scale` / offsets refer to that area,
+ * and the artwork also prints on the bottom flap / ears / tuck triangles formed from that allowance.
  */
 export type ArtworkPlacement =
-  | { mode: 'FILL' }
+  | { mode: 'FILL'; extendToBottom: boolean }
   | {
       mode: 'CUSTOM';
       offsetX: number;
       offsetY: number;
       scale: number;
       rotation: ArtworkRotation;
+      extendToBottom: boolean;
     };
 
 export type ArtworkPlacementMode = ArtworkPlacement['mode'];

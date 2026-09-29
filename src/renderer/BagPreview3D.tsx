@@ -1,47 +1,17 @@
-import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
-import { MathUtils, Vector3, type Group, type PerspectiveCamera } from 'three';
+import { ContactShadows, OrbitControls } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { useEffect, useMemo } from 'react';
+import { Vector3, type PerspectiveCamera } from 'three';
 import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { MM_TO_SCENE } from './constants';
+import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
+import { StudioLighting } from './lighting';
 
 // Pure view of the configuration: receives it (and the view-only fold state) as props, never writes back.
 
-const CAMERA_FOV = 40;
-/** Default viewing direction (front-right, slightly above). */
-const DEFAULT_VIEW_DIRECTION = new Vector3(4, 3, 6).normalize();
-/** Extra room around the bag's bounding sphere when fitting the camera. */
-const FIT_MARGIN = 1.15;
-
-/**
- * Key/fill/rim lights expressed in camera space and rotated with the camera, so whichever side the user
- * orbits to is lit the same way (key from upper-left of the viewer) and adjacent faces keep distinct shading.
- * Lights aim at the world origin (their default target), which is close to the bag.
- */
-function CameraFollowingLights() {
-  const rig = useRef<Group>(null);
-  useFrame(({ camera }) => {
-    rig.current?.quaternion.copy(camera.quaternion);
-  });
-  return (
-    <group ref={rig}>
-      <directionalLight position={[-3, 4, 5]} intensity={1.6} />
-      <directionalLight position={[4, 0.5, 3]} intensity={0.45} />
-      <directionalLight position={[0, 3, -6]} intensity={0.7} />
-    </group>
-  );
-}
-
 type ControlsLike = { target: Vector3; minDistance: number; maxDistance: number; update: () => void };
-
-/** Distance at which a sphere of `radius` fits the camera's narrower field of view. */
-function fitDistance(camera: PerspectiveCamera, radius: number): number {
-  const vFov = MathUtils.degToRad(camera.fov);
-  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (camera.aspect || 1));
-  return (radius / Math.sin(Math.min(vFov, hFov) / 2)) * FIT_MARGIN;
-}
 
 /**
  * Re-targets the orbit controls on the bag centre and fits the camera distance whenever the bag size changes,
@@ -91,19 +61,9 @@ export function BagPreview3D({ configuration, foldProgress = 0 }: BagPreview3DPr
 
   return (
     <Canvas camera={{ position: DEFAULT_VIEW_DIRECTION.clone().multiplyScalar(7.5).toArray(), fov: CAMERA_FOV }}>
-      <color attach="background" args={['#eeeeec']} />
+      <color attach="background" args={[BACKGROUND_COLOR]} />
 
-      {/* Low ambient so faces facing different directions read with different brightness. */}
-      <hemisphereLight args={['#ffffff', '#b9b4aa', 0.35]} />
-      {/* No shadow maps: self-shadowing a double-sided paper wall causes shadow acne; ContactShadows grounds the bag. */}
-      <CameraFollowingLights />
-
-      {/* Local studio environment (no HDR download) for soft reflections on the paper. */}
-      <Environment resolution={256}>
-        <Lightformer form="rect" intensity={2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[10, 10, 1]} />
-        <Lightformer form="rect" intensity={1} position={[-5, 1, 2]} rotation-y={Math.PI / 2} scale={[6, 4, 1]} />
-        <Lightformer form="rect" intensity={0.5} position={[5, 1, -2]} rotation-y={-Math.PI / 2} scale={[6, 4, 1]} />
-      </Environment>
+      <StudioLighting />
 
       <BagModel
         dimensions={dimensions}

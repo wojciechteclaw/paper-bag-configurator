@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import { useConfigurationStore } from '../../state/configurationStore';
+import { ExportActions } from './ExportActions';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
 
@@ -75,6 +76,8 @@ export function ConfigurationSummary() {
 
         </dl>
       </fieldset>
+
+      <ExportActions configuration={configuration} />
 
       <fieldset>
         <legend id={jsonId}>{t('summary.json')}</legend>

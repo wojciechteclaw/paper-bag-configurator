@@ -54,6 +54,17 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
   const zoneRect = (z: { x: number; y: number; width: number; height: number }, attrs: string, id: string) =>
     `<rect id="${esc(id)}" x="${z.x}" y="${z.y}" width="${z.width}" height="${z.height}" ${attrs}/>`;
   const annotations = [
+    // Bottom allowance per column: grey tint where it stays bare paper, a dashed outline (no tint over the colours)
+    // where the panel's artwork is extended onto the bottom (SPEC §4f).
+    ...scene.allowances.map((z) =>
+      z.printed
+        ? zoneRect(
+            z,
+            `fill="none" stroke="${s.allowancePrinted.stroke}" stroke-width="${s.allowancePrinted.width}" stroke-dasharray="${s.allowancePrinted.dash}" data-printed="true"`,
+            z.id,
+          )
+        : zoneRect(z, `fill="${s.allowanceFill}" stroke="none"`, z.id),
+    ),
     ...scene.zones.map((z) => {
       switch (z.kind) {
         case 'BLEED':

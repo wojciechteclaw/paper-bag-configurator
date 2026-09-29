@@ -1,7 +1,8 @@
 // Ink coverage estimate (docs/SPEC.md §4d). Pure TS: works on plain RGBA arrays, no DOM.
 //
-// Every visible wall of the dieline (the wall rect of each sheet column, i.e. without bottom allowance, glue flap
-// and bleed) is sampled on a regular grid in panel-local mm. Each grid cell centre is mapped to texture
+// Every artwork area of the dieline (the wall rect of each sheet column — plus its bottom allowance when the panel's
+// placement has `extendToBottom`, SPEC §4f — never the glue flap
+// or the bleed) is sampled on a regular grid in panel-local mm. Each grid cell centre is mapped to texture
 // coordinates with the same `computePanelUvTransform` the 3D renderer and the 2D dieline use, so a cell carries
 // ink exactly where the previews show the image. Cells outside the image (after placement) are bare paper.
 // The pixel under the cell is classified once (memoised per pixel):
@@ -10,7 +11,7 @@
 // - an inked pixel goes to the Pantone whose preview colour is nearest in CIELAB (CIE76 ΔE);
 //   with an empty Pantone list the ink stays unassigned.
 
-import { computePanelUvTransform, type Size2 } from '../artworkPlacement';
+import { computePanelUvTransform, getPanelArtworkArea, type Size2 } from '../artworkPlacement';
 import { PRINT_COVERAGE_RULES } from '../config/productCatalog';
 import type { Dieline } from '../dieline/types';
 import { getPanelSize } from '../panels';
@@ -63,6 +64,8 @@ export type ColorCoverage = {
 export type PanelCoverage = {
   /** Visible wall area of the panel on the sheet, mm². */
   wallArea: number;
+  /** Printable area actually sampled, mm²: the wall, plus its bottom allowance when extended to the bottom (always set by computeInkCoverage). */
+  printArea?: number;
   inkArea: number;
   /** mm² per Pantone, same order as the input list. */
   colorAreas: number[];
@@ -159,10 +162,16 @@ export function computeInkCoverage(input: InkCoverageInput): InkCoverageResult {
     const position = segment.panel;
     const panelSize = getPanelSize(position, dieline.dimensions);
     const panel =
-      panels[position] ?? (panels[position] = { wallArea: 0, inkArea: 0, colorAreas: new Array<number>(colorCount).fill(0), unassignedArea: 0 });
+      panels[position] ??
+      (panels[position] = { wallArea: 0, printArea: 0, inkArea: 0, colorAreas: new Array<number>(colorCount).fill(0), unassignedArea: 0 });
     panel.wallArea += segmentWidth * height;
 
     const artwork = input.panels[position];
+    // Artwork area: the wall (y ∈ [0, H]) or, extended to the bottom, y ∈ [−a, H] (SPEC §4f — counted then).
+    const area = artwork
+      ? getPanelArtworkArea(position, dieline.dimensions, artwork.placement)
+      : { x: 0, y: 0, width: panelSize.width, height };
+    panel.printArea = (panel.printArea ?? 0) + segmentWidth * area.height;
     const sample = artwork?.sample;
     if (!artwork || !sample || sample.width <= 0 || sample.height <= 0 || sample.data.length < sample.width * sample.height * 4) {
       continue;
@@ -174,7 +183,7 @@ export function computeInkCoverage(input: InkCoverageInput): InkCoverageResult {
     }
     const { classes, weights, poor, classify } = classifier;
 
-    const { repeat, offset, rotation } = computePanelUvTransform(panelSize, artwork.imageSize, artwork.placement);
+    const { repeat, offset, rotation } = computePanelUvTransform(panelSize, artwork.imageSize, artwork.placement, area);
     const c = Math.round(Math.cos(rotation) * 1e12) / 1e12;
     const s = Math.round(Math.sin(rotation) * 1e12) / 1e12;
     const [rx, ry] = repeat;
@@ -182,15 +191,15 @@ export function computeInkCoverage(input: InkCoverageInput): InkCoverageResult {
 
     const cell = Math.max(panelSize.width, panelSize.height) / Math.max(1, rules.gridCellsLongSide);
     const nx = Math.max(1, Math.ceil(segmentWidth / cell));
-    const ny = Math.max(1, Math.ceil(height / cell));
+    const ny = Math.max(1, Math.ceil(area.height / cell));
     const cw = segmentWidth / nx;
-    const ch = height / ny;
+    const ch = area.height / ny;
     const cellArea = cw * ch;
     const sw = sample.width;
     const sh = sample.height;
 
     for (let iy = 0; iy < ny; iy++) {
-      const v = ((iy + 0.5) * ch) / panelSize.height;
+      const v = (area.y + (iy + 0.5) * ch) / panelSize.height;
       for (let ix = 0; ix < nx; ix++) {
         const u = (segment.localX0 + (ix + 0.5) * cw) / panelSize.width;
         // t = diag(repeat)·R(−θ)·uv + offset (three.js uv transform with centre (0, 0)).

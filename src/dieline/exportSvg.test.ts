@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { containPlacement } from '../domain/artworkPlacement';
+import { containPlacement, fillPlacement } from '../domain/artworkPlacement';
 import { buildDieline } from '../domain/dieline';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import { buildDielineSvg } from './exportSvg';
@@ -92,6 +92,36 @@ describe('buildDielineSvg', () => {
     expect(span('BACK').a).toBeGreaterThan(0);
     expect(images.find((i) => i.segment === 'LEFT')!.corners[0][0]).toBeCloseTo(0);
     expect(images.find((i) => i.segment === 'BACK')!.corners[0][0]).toBeCloseTo(500);
+  });
+
+  it('stretches FILL over wall + bottom allowance and clips into the allowance only when extended (SPEC §4f)', () => {
+    const build = (extendToBottom: boolean) => {
+      const configuration = createConfiguration('BLOCK');
+      configuration.panels.FRONT.artwork = createArtwork({
+        fileName: 'f.png',
+        fileUrl: 'blob:front',
+        mimeType: 'image/png',
+        width: 100,
+        height: 100,
+        sizeBytes: 1,
+      });
+      configuration.panels.FRONT.placement = fillPlacement(extendToBottom);
+      const images = buildDielineScene(buildDieline(configuration), configuration.panels, {
+        label: (key) => key,
+        dimension: (key) => key,
+      }).images;
+      return images.find((image) => image.segment === 'FRONT')!;
+    };
+    const ys = (image: ReturnType<typeof build>) => image.corners.map(([, y]) => y);
+    const plain = build(false);
+    // SVG y: sheet top = 0, bottom line = 400, tube end = 490.
+    expect([Math.min(...ys(plain)), Math.max(...ys(plain))]).toEqual([0, 400]);
+    expect(plain.clip).toMatchObject({ y: -3, height: 405 });
+    const extended = build(true);
+    expect([Math.min(...ys(extended)), Math.max(...ys(extended))]).toEqual([0, 490]);
+    expect(extended.clip).toMatchObject({ y: -3, height: 496 });
+    expect(extended.area).toMatchObject({ x: 150, y: 0, width: 200, height: 490 });
+});  it('marks which bottom allowances carry artwork (printed) and which stay bare paper', () => {    const configuration = createConfiguration('BLOCK');    configuration.panels.FRONT.artwork = createArtwork({ fileName: 'f.png', fileUrl: 'blob:f', mimeType: 'image/png', width: 10, height: 10, sizeBytes: 1 });    configuration.panels.FRONT.placement = fillPlacement(true);    configuration.panels.BACK.artwork = { ...configuration.panels.FRONT.artwork, id: 'b', fileUrl: 'blob:b' };    const scene = buildDielineScene(buildDieline(configuration), configuration.panels, { label: (k) => k, dimension: (k) => k });    expect(scene.allowances.map((a) => [a.segment, a.printed])).toEqual([      ['LEFT', false],      ['FRONT', true],      ['RIGHT', false],      ['BACK', false],    ]);    expect(scene.allowances[1]).toMatchObject({ x: 150, y: 400, width: 200, height: 90 });    expect(scene.zones.some((z) => z.kind === 'BOTTOM_ALLOWANCE')).toBe(false);    const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('data-printed')).toBe('true');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('fill')).toBe('none');    expect(doc.querySelector('#allowance-BACK')?.getAttribute('fill')).toContain('rgba');
   });
 
   it('can leave the artwork layer empty', () => {

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_PLACEMENT } from '../domain/artworkPlacement';
+import { ARTWORK_EXTEND_TO_BOTTOM_DEFAULT } from '../domain/config/productionRules';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import { validateDimensions } from '../domain/validation/dimensions';
 import { BAG_TYPES } from '../domain/config/productCatalog';
@@ -159,7 +161,7 @@ describe('setHandle', () => {
 
   it('creates a kraft handle with a patch from the catalog defaults', () => {
     store().setHandle('TWISTED_PAPER');
-    expect(config().handle).toMatchObject({ type: 'TWISTED_PAPER', material: 'KRAFT', patch: { width: 80, height: 50 } });
+    expect(config().handle).toMatchObject({ type: 'TWISTED_PAPER', material: 'KRAFT', patch: { width: 100, height: 20 } });
   });
 
   it('adds, keeps and removes a handle', () => {
@@ -202,30 +204,74 @@ describe('setPanelArtwork', () => {
     expect(config().panels.FRONT.artwork).toBeNull();
   });
 
+it('gives new artwork the default placement (ARTWORK_EXTEND_TO_BOTTOM_DEFAULT)', () => {    store().setPanelArtwork('RIGHT', artwork('blob:r'));    expect(config().panels.RIGHT.placement).toEqual(DEFAULT_PLACEMENT);    expect(DEFAULT_PLACEMENT).toEqual({ mode: 'FILL', extendToBottom: ARTWORK_EXTEND_TO_BOTTOM_DEFAULT });  });
   it('resets the placement to FILL when the artwork is replaced or removed', () => {
     store().setPanelArtwork('FRONT', artwork('blob:a'));
-    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 5, offsetY: 5, scale: 2, rotation: 0 });
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 5, offsetY: 5, scale: 2, rotation: 0, extendToBottom: false });
     store().setPanelArtwork('FRONT', artwork('blob:b'));
-    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL' });
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: false });
   });
 });
 
 describe('panel placement', () => {
   it('sets a normalized placement on one panel only', () => {
-    store().setPanelPlacement('LEFT', { mode: 'CUSTOM', offsetX: 999, offsetY: -10, scale: 50, rotation: 90 });
+    store().setPanelPlacement('LEFT', { mode: 'CUSTOM', offsetX: 999, offsetY: -10, scale: 50, rotation: 90, extendToBottom: false });
     // LEFT is 150 × 400 mm: the centre stays on the wall, scale ≤ 10.
-    expect(config().panels.LEFT.placement).toEqual({ mode: 'CUSTOM', offsetX: 75, offsetY: -10, scale: 10, rotation: 90 });
-    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL' });
+    expect(config().panels.LEFT.placement).toEqual({ mode: 'CUSTOM', offsetX: 75, offsetY: -10, scale: 10, rotation: 90, extendToBottom: false });
+    expect(config().panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
   });
 
   it('resets the placement to FILL', () => {
-    store().setPanelPlacement('BACK', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 180 });
+    store().setPanelPlacement('BACK', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 180, extendToBottom: true });
     store().resetPanelPlacement('BACK');
-    expect(config().panels.BACK.placement).toEqual({ mode: 'FILL' });
+    expect(config().panels.BACK.placement).toEqual(DEFAULT_PLACEMENT);
+  });
+
+  it('normalises against the extended area when the placement extends to the bottom', () => {
+    // FRONT 200 × 400, a = 90 → area 200 × 490: the centre may go down to 245 mm below the area centre.
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 0, offsetY: -999, scale: 1, rotation: 0, extendToBottom: true });
+    expect(config().panels.FRONT.placement).toMatchObject({ offsetY: -245, extendToBottom: true });
+  });
+
+  it('toggles "extend to bottom", keeping a CUSTOM image in place and FILL stretched', () => {
+    store().setPanelArtwork('FRONT', artwork('blob:a'));
+    store().setPanelExtendToBottom('FRONT', true);
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    store().setPanelExtendToBottom('FRONT', true);
+    // 100 × 200 px image, contain on 200 × 400 = 200 × 400 mm centred at y = 200; on the 200 × 490 area centred at
+    // y = 155 the same rect is offsetY +45 (contain is width-limited on both areas, so the scale stays 1).
+    const placement = config().panels.FRONT.placement;
+    expect(placement).toMatchObject({ mode: 'CUSTOM', offsetX: 0, extendToBottom: true });
+    expect(placement.mode === 'CUSTOM' && placement.offsetY).toBeCloseTo(45);
+    expect(placement.mode === 'CUSTOM' && placement.scale).toBeCloseTo(1);
+    // Replacing the image keeps the choice, removing it clears it; reset clears it too, fill keeps it.
+    store().setPanelArtwork('FRONT', artwork('blob:b'));
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().fillPanelPlacement('FRONT');
+    expect(config().panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().resetPanelPlacement('FRONT');
+    expect(config().panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
+    store().setPanelExtendToBottom('FRONT', true);
+    store().setPanelArtwork('FRONT', null);
+    expect(config().panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
+  });
+
+  it('aligns the artwork in its (extended) area; ignored without artwork', () => {
+    store().alignPanelArtwork('BACK', { horizontal: 'LEFT' });
+    expect(config().panels.BACK.placement).toEqual(DEFAULT_PLACEMENT);
+    store().setPanelArtwork('BACK', createArtwork({ fileName: 's.png', fileUrl: 'blob:s', mimeType: 'image/png', width: 100, height: 100, sizeBytes: 1 }));
+    store().alignPanelArtwork('BACK', { horizontal: 'CENTER', vertical: 'TOP' });
+    // Square contain on 200 × 400: 200 × 200, top-aligned → +100.
+    expect(config().panels.BACK.placement).toEqual({ mode: 'CUSTOM', offsetX: 0, offsetY: 100, scale: 1, rotation: 0, extendToBottom: false });
+    store().setPanelExtendToBottom('BACK', true);
+    store().alignPanelArtwork('BACK', { vertical: 'BOTTOM' });
+    // Area 200 × 490 (scale re-expressed 200 / 200 → the image stays 200 mm): bottom → −(490 − 200) / 2.
+    expect(config().panels.BACK.placement).toMatchObject({ offsetY: -145, extendToBottom: true });
   });
 
   it('keeps the configuration JSON-serialisable', () => {
-    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 270 });
+    store().setPanelPlacement('FRONT', { mode: 'CUSTOM', offsetX: 1, offsetY: 2, scale: 1.5, rotation: 270, extendToBottom: true });
     expect(JSON.parse(JSON.stringify(config()))).toEqual(config());
   });
 });

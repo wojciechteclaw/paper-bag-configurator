@@ -21,7 +21,7 @@ const sample = (rows: Rgba[][]): PixelSample => ({
   data: Uint8ClampedArray.from(rows.flat(2)),
 });
 
-const panel = (rows: Rgba[][], placement: ArtworkPlacement = { mode: 'FILL' }): CoveragePanelInput => {
+const panel = (rows: Rgba[][], placement: ArtworkPlacement = { mode: 'FILL', extendToBottom: false }): CoveragePanelInput => {
   const s = sample(rows);
   return { imageSize: { width: s.width, height: s.height }, placement, sample: s };
 };
@@ -105,7 +105,7 @@ describe('computeInkCoverage', () => {
 
   it('follows the placement: contain keeps the aspect ratio, the part outside the wall is clipped', () => {
     // Square image contained on a 200 × 400 wall → 200 × 200 mm.
-    const contain: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 0 };
+    const contain: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false };
     expect(compute({ FRONT: panel([[RED]], contain) }).inkArea).toBeCloseTo(200 * 200, 6);
     // Centre moved to y = 300 → image spans y 200..400: fully inside. Centre at y = 400 → half above the wall.
     const high: ArtworkPlacement = { ...contain, offsetY: 200 };
@@ -114,14 +114,14 @@ describe('computeInkCoverage', () => {
 
   it('keeps the image orientation of the previews (row 0 = image top)', () => {
     // 1 × 2 px image contained → 200 × 400 mm; centred on the top edge only its bottom half (BLUE) is on the wall.
-    const high: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 200, scale: 1, rotation: 0 };
+    const high: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 200, scale: 1, rotation: 0, extendToBottom: false };
     const result = compute({ FRONT: panel([[RED], [BLUE]], high) });
     expect(result.colors[0].area).toBe(0);
     expect(result.colors[1].area).toBeCloseTo(FRONT_AREA / 2, 6);
   });
 
   it('applies the rotation (90° counter-clockwise: the image left edge ends at the bottom)', () => {
-    const rotated: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 200, scale: 1, rotation: 90 };
+    const rotated: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 200, scale: 1, rotation: 90, extendToBottom: false };
     const result = compute({ FRONT: panel([[RED, BLUE]], rotated) });
     expect(result.colors[0].area).toBeCloseTo(FRONT_AREA / 2, 6);
     expect(result.colors[1].area).toBe(0);
@@ -152,9 +152,35 @@ describe('computeInkCoverage', () => {
   it('ignores malformed samples', () => {
     const broken: CoveragePanelInput = {
       imageSize: { width: 10, height: 10 },
-      placement: { mode: 'FILL' },
+      placement: { mode: 'FILL', extendToBottom: false },
       sample: { width: 10, height: 10, data: new Uint8ClampedArray(4) },
     };
     expect(compute({ FRONT: broken }).inkArea).toBe(0);
+  });
+
+  describe('extended to the bottom (SPEC §4f)', () => {
+    const a = 90; // (150 + 30) / 2
+
+    it('counts a FILL artwork over the wall and the bottom allowance', () => {
+      const result = compute({ FRONT: panel([[RED]], { mode: 'FILL', extendToBottom: true }), LEFT: panel([[BLUE]], { mode: 'FILL', extendToBottom: true }) });
+      expect(result.panels.FRONT?.wallArea).toBe(FRONT_AREA);
+      expect(result.panels.FRONT?.printArea).toBe(200 * (400 + a));
+      expect(result.panels.FRONT?.inkArea).toBeCloseTo(200 * (400 + a), 6);
+      expect(result.panels.LEFT?.inkArea).toBeCloseTo(150 * (400 + a), 6);
+      expect(result.sheetRatio).toBeCloseTo((350 * (400 + a)) / SHEET, 9);
+      // Per Pantone too: the bottom colours are assigned like the wall's.
+      expect(result.colors[0].area).toBeCloseTo(200 * (400 + a), 6);
+      expect(result.colors[1].area).toBeCloseTo(150 * (400 + a), 6);
+    });
+
+    it('counts image parts in the allowance only when extended', () => {
+      // Square image, contain (200 × 200 mm on both areas), centre at panel y = 10 → spans y ∈ [−90, 110].
+      const wall: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 0, offsetY: 10 - 200, scale: 1, rotation: 0, extendToBottom: false };
+      // Not extended: only y ∈ [0, 110] is counted.
+      expect(compute({ FRONT: panel([[RED]], wall) }).inkArea).toBeCloseTo(200 * 110, -3); // grid: ±1 cell row
+      // Extended area [−90, 400] has its centre at y = 155: the whole image counts.
+      const extended: ArtworkPlacement = { ...wall, offsetY: 10 - 155, extendToBottom: true };
+      expect(compute({ FRONT: panel([[RED]], extended) }).inkArea).toBeCloseTo(200 * 200, -3);
+    });
   });
 });

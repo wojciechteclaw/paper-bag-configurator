@@ -48,7 +48,8 @@
       "patch": "łatka uchwytu (wewnątrz)",
       "bleed": "spad 3 mm",
       "safety": "strefa bezpieczna",
-      "allowance": "zapas na dno",
+      "allowance": "zapas na dno (bez grafiki)",
+      "allowancePrinted": "zapas na dno z grafiką (kolory na dnie)",
       "glue": "klej"
     },
     "panel": {
@@ -61,6 +62,19 @@
       "artworkLabel": "Grafika: {{panel}}. Kliknij, aby edytować; strzałki przesuwają, + i − skalują, R obraca, 0 resetuje.",
       "toolbar": "Edycja grafiki: {{panel}}",
       "modeFill": "rozciągnięta na ściankę",
+      "modeFillExtended": "rozciągnięta na ściankę i dno",
+      "extendToBottom": "Rozciągnij na dno",
+      "extendToBottomHint": "Powiększa obszar grafiki o zapas na dno ((D + 30) / 2 poniżej linii dna): grafika drukuje się też na klapach, uszach i trójkątach dna tej ścianki.",
+      "alignHorizontal": "Wyrównaj w poziomie",
+      "alignVertical": "Wyrównaj w pionie",
+      "align": {
+        "LEFT": "Wyrównaj do lewej",
+        "CENTER": "Wyśrodkuj w poziomie",
+        "RIGHT": "Wyrównaj do prawej",
+        "TOP": "Wyrównaj do góry",
+        "MIDDLE": "Wyśrodkuj w pionie",
+        "BOTTOM": "Wyrównaj do dołu"
+      },
       "modeCustom": "skala {{scale}}%, przesunięcie {{x}} / {{y}} mm, obrót {{rotation}}°",
       "fill": "Rozciągnij",
       "contain": "Dopasuj",

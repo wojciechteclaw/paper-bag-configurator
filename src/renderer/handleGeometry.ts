@@ -24,10 +24,18 @@ import { MM_TO_SCENE } from './constants';
 export type HandleWall = 'FRONT' | 'BACK';
 export const HANDLE_WALLS: readonly HandleWall[] = ['FRONT', 'BACK'];
 
-/** Gap between the inner wall surface and the rope / strip, mm (keeps them off the wall's depth). */
-export const HANDLE_WALL_CLEARANCE_MM = 0.2;
+/**
+ * Gap between the inner wall surface and the rope / strip, mm. Large enough that the handle never wins the depth test
+ * against the wall seen from outside (the walls also use a polygon offset, see HANDLE_POLYGON_OFFSET).
+ */
+export const HANDLE_WALL_CLEARANCE_MM = 1;
 /** Gap between the patch and whatever it covers (wall or handle end), mm. */
-export const PATCH_CLEARANCE_MM = 0.3;
+export const PATCH_CLEARANCE_MM = 1;
+/**
+ * Same polygon offset as the bag panels (BagModel POLYGON_OFFSET): the panels are pushed back in depth to keep their
+ * lines visible, so without the same offset the handle / patch just behind a wall could show through it.
+ */
+export const HANDLE_POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } as const;
 /** Thickness of the multi-folded flat strip, mm. */
 export const FLAT_STRIP_THICKNESS_MM = 0.8;
 /** Length of one helical stripe tile along the rope, in rope diameters. */
@@ -39,7 +47,7 @@ const TWIST_STRANDS = 3;
  * the next paper layer: it may use half of the front–back gap plus this share of one layer gap.
  */
 const SQUASH_LAYER_SHARE = 0.8;
-const MIN_SQUASH = 0.1;
+const MIN_SQUASH = 0.01;
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const smoothstep = (a: number, b: number, x: number) => {
@@ -58,16 +66,41 @@ export function handleStackThickness(layout: HandleLayout): number {
   return 2 * handleCentreOffset(layout) + PATCH_CLEARANCE_MM;
 }
 
+/** Half of the handle assembly's extent along the wall (patch or legs, whichever reaches further out), mm. */
+export function handleHalfExtent(layout: HandleLayout): number {
+  return Math.max(layout.patch.x1, layout.endSpacing / 2 + layout.params.width / 2);
+}
+
+/**
+ * Room for the handle stack in front of its wall, mm: half the front–back gap, and — while the side gussets tuck in —
+ * the depth of the gusset (SIDE_FRONT in front of FRONT, SIDE_BACK_UPPER in front of BACK: plane through the wall's
+ * side edge at the fold angle θ, depth d·cot θ at distance d from the edge) at the handle's outermost point, plus a
+ * share of the one-layer push-back between the wall and its gusset near the flat state.
+ */
+export function getHandleWallRoom(frame: BagFrame, halfExtent: number): number {
+  const { gap, width, sinTheta, cosTheta } = frame.pose;
+  const fromEdge = Math.max(0, width / 2 - halfExtent);
+  const gussetDepth = sinTheta > 1e-9 ? (fromEdge * cosTheta) / sinTheta : Infinity;
+  return Math.min(gap / 2, gussetDepth) + SQUASH_LAYER_SHARE * frame.layerShift;
+}
+
 export type HandleWallPose = { z: number; rotationY: number; squash: number };
 
 /**
  * Transform of one wall's handle group for a fold frame: on the wall plane (FRONT or BACK_UPPER, with the layer
- * push-back), facing into the bag, and squashed along the wall normal when the walls come closer than the handle
- * stack (open bag: 1; flat bag: fits under the first paper layer gap). Both loops then lie flat, upward, above the
- * top edge, on their own side of the mid-plane, so FRONT and BACK handles never intersect each other.
+ * push-back), facing into the bag, and squashed along the wall normal when the room in front of the wall (other wall,
+ * tucked side gussets — getHandleWallRoom) is thinner than the handle stack (open bag: 1; flat bag: fits under the
+ * first paper layer gap). Both loops then lie flat, upward, above the top edge, on their own side of the mid-plane, so
+ * FRONT and BACK handles never intersect each other, and the legs / patch never poke through a gusset.
+ * `halfExtent` (mm, handleHalfExtent) — 0 when unknown (then only the handle centre is checked against the gussets).
  */
-export function getHandleWallPose(frame: BagFrame, wall: HandleWall, stackThickness: number): HandleWallPose {
-  const available = frame.pose.gap / 2 + SQUASH_LAYER_SHARE * frame.layerShift;
+export function getHandleWallPose(
+  frame: BagFrame,
+  wall: HandleWall,
+  stackThickness: number,
+  halfExtent = 0,
+): HandleWallPose {
+  const available = getHandleWallRoom(frame, halfExtent);
   const squash = stackThickness > 0 ? clamp(available / stackThickness, MIN_SQUASH, 1) : 1;
   return { z: getWallPlaneZ(frame, wall), rotationY: wall === 'FRONT' ? Math.PI : 0, squash };
 }

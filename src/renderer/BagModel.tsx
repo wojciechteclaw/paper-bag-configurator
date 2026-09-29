@@ -1,13 +1,12 @@
 import { Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef } from 'react';
-import { BackSide, FrontSide, type InterleavedBufferAttribute } from 'three';
-import { FILL_PLACEMENT } from '../domain/artworkPlacement';
+import { BackSide, FrontSide, type InterleavedBufferAttribute, type Texture } from 'three';
+import { getPanelArtworkArea } from '../domain/artworkPlacement';
 import { getPanelSize } from '../domain/panels';
-import type { BagPanel, BagPanels, Dimensions, Handle, PaperColor } from '../domain/types';
+import type { BagPanel, BagPanels, Dimensions, Handle, PanelPosition, PaperColor } from '../domain/types';
 import {
-  BAG_PANEL_IDS,
-  createPanelMesh,
+  createBagMeshes,
   getBagFrame,
   getCreaseSpecs,
   getEdgeSpecs,
@@ -24,7 +23,9 @@ import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTra
 // Procedural block-bottom bag body. Face mapping (see bagGeometry.ts):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y; the top is open (no top face, no turn-in).
 // Each panel is its own mesh with its own outer material, so every PanelPosition maps to exactly one artwork
-// texture (UVs continuous across the fold regions of the panel). The bottom has no artwork (plain paper).
+// texture (UVs continuous across the fold regions of the panel). The bottom is one mesh per visible piece (FRONT flap,
+// BACK flap) in the UV space of the wall it is folded from: it shows that wall's texture (same object, same transform)
+// only when the wall's placement extends to the bottom (SPEC §4f), otherwise plain paper.
 // Handles (HandleModel) are two wall groups posed here together with the panels, so they follow the fold: FRONT, and
 // the rigid BACK_UPPER region above the pleat (handleGeometry.ts).
 
@@ -65,20 +66,19 @@ const artworkProgramKey = () => ARTWORK_PROGRAM_KEY;
 type PanelViewProps = {
   mesh: PanelMesh;
   palette: PaperPalette;
-  dimensions: Dimensions;
-  panel: BagPanel | null;
+  /** Artwork texture shown on the outer face, or null for plain paper. */
+  texture: Texture | null;
 };
 
-/** One panel: outer face (artwork or paper) + inner face (always plain paper, visible through the open top). */
-function PanelView({ mesh, palette, dimensions, panel }: PanelViewProps) {
-  const artwork = panel?.artwork ?? null;
-  const texture = usePanelTexture(artwork?.fileUrl);
-  const panelSize = panel ? getPanelSize(panel.position, dimensions) : { width: 0, height: 0 };
-  usePanelUvTransform(texture, panelSize, artwork?.width ?? 0, artwork?.height ?? 0, panel?.placement ?? FILL_PLACEMENT);
-
+/**
+ * One wall or bottom piece: outer face (artwork or paper) + inner face (always plain paper, visible through the open
+ * top).
+ */
+function PanelView({ mesh, palette, texture }: PanelViewProps) {
+  const name = mesh.piece ? `${mesh.id}-${mesh.piece}` : mesh.id;
   return (
-    <group name={`panel-${mesh.id}`}>
-      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'outer' }}>
+    <group name={`panel-${name}`}>
+      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, piece: mesh.piece, side: 'outer' }}>
         {texture ? (
           // New material per texture: switching map on/off needs a shader recompile.
           <meshStandardMaterial
@@ -95,11 +95,30 @@ function PanelView({ mesh, palette, dimensions, panel }: PanelViewProps) {
           <meshStandardMaterial key="paper" color={palette.paper} side={FrontSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
         )}
       </mesh>
-      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, side: 'inner' }}>
+      <mesh geometry={mesh.geometry} userData={{ panel: mesh.id, piece: mesh.piece, side: 'inner' }}>
         <meshStandardMaterial color={palette.paper} side={BackSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
       </mesh>
     </group>
   );
+}
+
+/**
+ * Artwork texture of one wall with its placement applied over the wall's artwork area (wall, or wall + bottom
+ * allowance). One texture per wall, shared by the wall mesh and the bottom piece(s) formed from its allowance, so
+ * the image continues across the bottom crease in one UV space.
+ */
+function useWallTexture(panel: BagPanel, dimensions: Dimensions): Texture | null {
+  const artwork = panel.artwork;
+  const texture = usePanelTexture(artwork?.fileUrl);
+  usePanelUvTransform(
+    texture,
+    getPanelSize(panel.position, dimensions),
+    artwork?.width ?? 0,
+    artwork?.height ?? 0,
+    panel.placement,
+    getPanelArtworkArea(panel.position, dimensions, panel.placement),
+  );
+  return texture;
 }
 
 export function BagModel({ dimensions, paperColor, panels, handle, foldProgress }: BagModelProps) {
@@ -107,7 +126,15 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress 
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
 
-  const meshes = useMemo(() => BAG_PANEL_IDS.map((id) => createPanelMesh(id, dims)), [dims]);
+  const meshes = useMemo(() => createBagMeshes(dims), [dims]);
+  const textures: Record<PanelPosition, Texture | null> = {
+    FRONT: useWallTexture(panels.FRONT, dims),
+    BACK: useWallTexture(panels.BACK, dims),
+    LEFT: useWallTexture(panels.LEFT, dims),
+    RIGHT: useWallTexture(panels.RIGHT, dims),
+  };
+  const textureOf = (mesh: PanelMesh) =>
+    mesh.id !== 'BOTTOM' || panels[mesh.artworkPanel].placement.extendToBottom ? textures[mesh.artworkPanel] : null;
   useEffect(() => () => meshes.forEach((m) => m.geometry.dispose()), [meshes]);
 
   const edgeSpecs = useMemo(() => getEdgeSpecs(dims), [dims]);
@@ -131,7 +158,8 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress 
       for (const wall of HANDLE_WALLS) {
         const group = handleGroups.current[wall];
         if (!group) continue;
-        const { z, rotationY, squash } = getHandleWallPose(frame, wall, group.userData.stackThickness ?? 0);
+        const { stackThickness = 0, halfExtent = 0 } = group.userData;
+        const { z, rotationY, squash } = getHandleWallPose(frame, wall, stackThickness, halfExtent);
         group.position.set(0, 0, z);
         group.rotation.set(0, rotationY, 0);
         group.scale.set(1, 1, squash);
@@ -158,13 +186,7 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress 
   return (
     <group name="bag">
       {meshes.map((mesh) => (
-        <PanelView
-          key={mesh.id}
-          mesh={mesh}
-          palette={palette}
-          dimensions={dims}
-          panel={mesh.id === 'BOTTOM' ? null : panels[mesh.id]}
-        />
+        <PanelView key={mesh.piece ?? mesh.id} mesh={mesh} palette={palette} texture={textureOf(mesh)} />
       ))}
 
       {handle && <HandleModel handle={handle} dimensions={dims} wallGroups={handleGroups} />}

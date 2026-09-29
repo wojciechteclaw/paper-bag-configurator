@@ -224,3 +224,30 @@
     align-items: stretch;
   }
 }
+
+/* Artwork area of the selected panel (wall, or wall + bottom allowance when extended, SPEC §4f). */
+.dieline-view__area {
+  fill: rgba(10, 108, 194, 0.06);
+  stroke: #0a6cc2;
+  stroke-width: 1px;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.dieline-view__align {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dieline-view__align button {
+  min-width: 2rem;
+}
+
+/* Bottom allowance that carries artwork ("Rozciągnij na dno"): outlined, no grey tint over the colours. */
+.dieline-view .dl-allowance-printed {
+  stroke: #7c3aed;
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 2;
+  vector-effect: non-scaling-stroke;
+}
+.dieline-view .swatch--allowance-printed { background: transparent; border: 2px dashed #7c3aed; }

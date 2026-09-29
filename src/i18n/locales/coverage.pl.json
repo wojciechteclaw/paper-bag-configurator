@@ -8,7 +8,7 @@
     "perColor": "Pokrycie per kolor Pantone",
     "unassigned": "bez przypisanego koloru",
     "unavailable": "Nie udało się odczytać grafiki do obliczeń: {{panels}}.",
-    "estimateNote": "Szacunek z pikseli grafik po pozycjonowaniu, przyciętych do ścianek (bez spadu i zapasu na dno), jako % powierzchni arkusza wykroju. Przybliżenie do wyceny, nie separacja produkcyjna.",
+    "estimateNote": "Szacunek z pikseli grafik po pozycjonowaniu, przyciętych do ścianek (bez spadu; zapas na dno tylko dla ścianek z „Rozciągnij na dno”), jako % powierzchni arkusza wykroju. Przybliżenie do wyceny, nie separacja produkcyjna.",
     "hints": {
       "NO_PANTONE_COLORS": "Dodaj kolory Pantone w kroku „Nadruk i produkcja”, aby zobaczyć pokrycie per kolor.",
       "POOR_COLOR_MATCH": "Część grafiki ma kolory odległe od kolorów podglądu Pantone — sprawdź listę kolorów i ich podgląd w kroku „Nadruk i produkcja”."

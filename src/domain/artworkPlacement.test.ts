@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  alignPlacement,
   applyAffine,
   computePanelUvTransform,
   containPlacement,
   coverPlacement,
   FILL_PLACEMENT,
+  fillPlacement,
+  getPanelArtworkArea,
   getArtworkRect,
   getCoverScale,
   isSamePlacement,
@@ -12,6 +15,7 @@ import {
   normalizePlacement,
   rotatePlacement,
   scalePlacement,
+  setPlacementExtendToBottom,
   toCustomPlacement,
   uvTransformToPanelMatrix,
   type PanelUvTransform,
@@ -57,7 +61,7 @@ describe('computePanelUvTransform', () => {
 
   const rotations: ArtworkRotation[] = [0, 90, 180, 270];
   it.each(rotations)('agrees with the geometric image rectangle at rotation %i°', (rotation) => {
-    const placement: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 12, offsetY: -30, scale: 0.7, rotation };
+    const placement: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 12, offsetY: -30, scale: 0.7, rotation, extendToBottom: false };
     const uv = computePanelUvTransform(panel, wide, placement);
     const rect = getArtworkRect(panel, wide, placement);
     const rad = (rotation * Math.PI) / 180;
@@ -105,7 +109,7 @@ describe('placement helpers', () => {
 
   it('turns FILL into a centred contain placement when editing starts', () => {
     expect(toCustomPlacement(FILL_PLACEMENT)).toEqual(containPlacement());
-    expect(movePlacement(FILL_PLACEMENT, 5, -3, panel)).toEqual({ mode: 'CUSTOM', offsetX: 5, offsetY: -3, scale: 1, rotation: 0 });
+    expect(movePlacement(FILL_PLACEMENT, 5, -3, panel)).toEqual({ mode: 'CUSTOM', offsetX: 5, offsetY: -3, scale: 1, rotation: 0, extendToBottom: false });
   });
 
   it('scales, rotates and moves within limits', () => {
@@ -119,13 +123,110 @@ describe('placement helpers', () => {
 
   it('normalizes non-finite and off-grid values', () => {
     const bad = { mode: 'CUSTOM', offsetX: Number.NaN, offsetY: Infinity, scale: Number.NaN, rotation: 100 } as unknown as ArtworkPlacement;
-    expect(normalizePlacement(bad, panel)).toEqual({ mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 90 });
+    expect(normalizePlacement(bad, panel)).toEqual({ mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 90, extendToBottom: false });
     expect(normalizePlacement(FILL_PLACEMENT, panel)).toEqual(FILL_PLACEMENT);
   });
 
   it('compares placements', () => {
-    expect(isSamePlacement(FILL_PLACEMENT, { mode: 'FILL' })).toBe(true);
+    expect(isSamePlacement(FILL_PLACEMENT, { mode: 'FILL', extendToBottom: false })).toBe(true);
     expect(isSamePlacement(FILL_PLACEMENT, containPlacement())).toBe(false);
     expect(isSamePlacement(containPlacement(), containPlacement())).toBe(true);
+  });
+});
+
+describe('artwork area and "extend to bottom" (SPEC §4f)', () => {
+  const dims = { width: 200, height: 400, depth: 150 }; // a = (150 + 30) / 2 = 90
+  const extended = { width: 200, height: 490 };
+
+  it('is the visible wall by default and wall + allowance when extended', () => {
+    expect(getPanelArtworkArea('FRONT', dims, FILL_PLACEMENT)).toEqual({ x: 0, y: 0, width: 200, height: 400 });
+    expect(getPanelArtworkArea('BACK', dims, fillPlacement(true))).toEqual({ x: 0, y: -90, width: 200, height: 490 });
+    expect(getPanelArtworkArea('LEFT', dims, containPlacement(0, true))).toEqual({ x: 0, y: -90, width: 150, height: 490 });
+  });
+
+  it('stretches FILL over H + a, continuing the wall UV space below v = 0', () => {
+    const area = getPanelArtworkArea('FRONT', dims, fillPlacement(true));
+    const uv = computePanelUvTransform(panel, square, fillPlacement(true), area);
+    // Bottom of the allowance (y = −90, v = −90/400) → t = 0; top of the wall (v = 1) → t = 1; bottom line → a/(H+a).
+    expect(sample(uv, 0, -90 / 400)).toEqual({ x: 0, y: 0 });
+    expect(sample(uv, 1, 1).x).toBeCloseTo(1);
+    expect(sample(uv, 1, 1).y).toBeCloseTo(1);
+    expect(sample(uv, 0.5, 0).y).toBeCloseTo(90 / 490);
+    // The inverse (dieline) maps the unit square onto the extended area.
+    const m = uvTransformToPanelMatrix(panel, uv);
+    expect(applyAffine(m, { x: 0, y: 0 }).y).toBeCloseTo(-90);
+    expect(applyAffine(m, { x: 1, y: 1 }).y).toBeCloseTo(400);
+  });
+
+  it('keeps a CUSTOM image in place (same rect in mm) when the extension is toggled', () => {
+    const wallArea = getPanelArtworkArea('FRONT', dims, FILL_PLACEMENT);
+    const extArea = getPanelArtworkArea('FRONT', dims, fillPlacement(true));
+    const before: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 10, offsetY: 20, scale: 0.5, rotation: 90, extendToBottom: false };
+    const after = setPlacementExtendToBottom(before, true, wallArea, extArea, wide);
+    expect(after.extendToBottom).toBe(true);
+    const r0 = getArtworkRect(panel, wide, before, wallArea);
+    const r1 = getArtworkRect(panel, wide, after, extArea);
+    expect(r1.center.x).toBeCloseTo(r0.center.x);
+    expect(r1.center.y).toBeCloseTo(r0.center.y);
+    expect(r1.width).toBeCloseTo(r0.width);
+    expect(r1.height).toBeCloseTo(r0.height);
+    // …and the UV transforms agree too.
+    const uv0 = computePanelUvTransform(panel, wide, before, wallArea);
+    const uv1 = computePanelUvTransform(panel, wide, after, extArea);
+    expect(uv1.repeat[0]).toBeCloseTo(uv0.repeat[0]);
+    expect(uv1.offset[1]).toBeCloseTo(uv0.offset[1]);
+    // FILL just switches the flag; toggling back restores the wall placement.
+    expect(setPlacementExtendToBottom(FILL_PLACEMENT, true, wallArea, extArea, wide)).toEqual(fillPlacement(true));
+    const back = setPlacementExtendToBottom(after, false, extArea, wallArea, wide) as Extract<ArtworkPlacement, { mode: 'CUSTOM' }>;
+    expect(back.offsetX).toBeCloseTo(10);
+    expect(back.offsetY).toBeCloseTo(20);
+    expect(back.scale).toBeCloseTo(0.5);
+  });
+
+  it('keeps the flag through editing helpers and compares it', () => {
+    expect(movePlacement(fillPlacement(true), 1, 1, extended)).toMatchObject({ mode: 'CUSTOM', extendToBottom: true });
+    expect(normalizePlacement({ mode: 'FILL' } as unknown as ArtworkPlacement, panel)).toEqual(FILL_PLACEMENT);
+    expect(isSamePlacement(fillPlacement(true), FILL_PLACEMENT)).toBe(false);
+  });
+});
+
+describe('alignPlacement (3 × 3)', () => {
+  // Square 1000 px image on a 200 × 400 wall: contain → 200 × 200, vertical slack 100 mm each side.
+  it.each([
+    [{ horizontal: 'LEFT', vertical: 'TOP' }, 0, 100],
+    [{ horizontal: 'CENTER', vertical: 'MIDDLE' }, 0, 0],
+    [{ horizontal: 'RIGHT', vertical: 'BOTTOM' }, 0, -100],
+  ] as const)('aligns %o from FILL (switches to CUSTOM contain)', (alignment, x, y) => {
+    const result = alignPlacement(FILL_PLACEMENT, alignment, panel, square);
+    expect(result).toEqual({ mode: 'CUSTOM', offsetX: x, offsetY: y, scale: 1, rotation: 0, extendToBottom: false });
+  });
+
+  it('touches the edges with a smaller, wide image and keeps the other axis when one is omitted', () => {
+    const small: ArtworkPlacement = { mode: 'CUSTOM', offsetX: 7, offsetY: 9, scale: 0.5, rotation: 0, extendToBottom: false };
+    // 2:1 image, contain on 200 × 400 → 200 × 100; scale 0.5 → 100 × 50.
+    const left = alignPlacement(small, { horizontal: 'LEFT' }, panel, wide);
+    expect(left).toMatchObject({ offsetX: -50, offsetY: 9 });
+    const rect = getArtworkRect(panel, wide, left);
+    expect(rect.center.x - rect.width / 2).toBeCloseTo(0);
+    const top = alignPlacement(small, { vertical: 'TOP' }, panel, wide);
+    expect(top).toMatchObject({ offsetX: 7, offsetY: 175 });
+  });
+
+  it('uses the rotated bounding box', () => {
+    // 2:1 image turned 90°: contain = 200 wide × 400 tall (fills the wall); at scale 0.5 → 100 × 200.
+    const rotated: ArtworkPlacement = { ...toCustomPlacement(containPlacement(90)), scale: 0.5 };
+    expect(alignPlacement(rotated, { horizontal: 'RIGHT', vertical: 'BOTTOM' }, panel, wide)).toMatchObject({
+      offsetX: 50,
+      offsetY: -100,
+    });
+  });
+
+  it('aligns BOTTOM to the lower edge of the bottom allowance when extended', () => {
+    const dims = { width: 200, height: 400, depth: 150 };
+    const area = getPanelArtworkArea('FRONT', dims, fillPlacement(true));
+    const aligned = alignPlacement(fillPlacement(true), { vertical: 'BOTTOM' }, area, square);
+    const rect = getArtworkRect(panel, square, aligned, area);
+    expect(rect.center.y - rect.height / 2).toBeCloseTo(-90);
+    expect(aligned.extendToBottom).toBe(true);
   });
 });

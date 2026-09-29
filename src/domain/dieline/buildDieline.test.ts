@@ -174,16 +174,19 @@ describe('buildDieline - PRODUCTION.md §9.6 example (W 200, H 400, D 150, s 10)
 });
 
 describe('buildDieline - handle patches (§9.5)', () => {
-  it('uses the production fallback Lp = min(170, W − 20), Hp = 45, 3 mm below the top, centred on FRONT and BACK', () => {
-    const handle = { ...createHandle('TWISTED_PAPER'), patch: undefined };
+  it.each([
+    ['catalog default', createHandle('FLAT_PAPER')],
+    ['no patch on the entity', { ...createHandle('TWISTED_PAPER'), patch: undefined }],
+  ])('draws the 100 × 20 mm patch 20 mm below the top, centred on FRONT and BACK [K] (%s)', (_, handle) => {
     const dieline = build(example, handle);
     const rects = Object.fromEntries(dieline.handlePatches.map((p) => [p.id, p.rect]));
     const docY = (y: number) => y - dieline.bottomLineY;
     expect(Object.keys(rects)).toEqual(['patch-FRONT', 'patch-BACK']);
-    expect(rects['patch-FRONT']).toMatchObject({ x: 165, width: 170, height: 45 });
-    expect(docY(rects['patch-FRONT'].y)).toBe(352);
+    // FRONT centre x = D + W/2 = 250; y ∈ [H − 40, H − 20] = [360, 380].
+    expect(rects['patch-FRONT']).toMatchObject({ x: 200, width: 100, height: 20 });
+    expect(docY(rects['patch-FRONT'].y)).toBe(360);
     // BACK is one piece → one patch, centred on BACK (x = 600).
-    expect(rects['patch-BACK']).toMatchObject({ x: 515, width: 170, height: 45 });
+    expect(rects['patch-BACK']).toMatchObject({ x: 550, width: 100, height: 20 });
   });
 
   it('uses the patch of the handle entity when it has one', () => {
@@ -191,8 +194,13 @@ describe('buildDieline - handle patches (§9.5)', () => {
     const dieline = build(example, handle);
     const front = dieline.handlePatches.find((p) => p.id === 'patch-FRONT')!;
     const back = dieline.handlePatches.find((p) => p.id === 'patch-BACK')!;
-    expect(front.rect).toMatchObject({ x: 210, width: 80, height: 50, y: 490 - 3 - 50 });
+    expect(front.rect).toMatchObject({ x: 210, width: 80, height: 50, y: 490 - 20 - 50 });
     expect(back).toMatchObject({ panel: 'BACK', segment: 'BACK', rect: { x: 560, width: 80 } });
+  });
+
+  it('keeps the patch 5 mm from the side creases on a narrow wall', () => {
+    const dieline = build({ width: 75, height: 170, depth: 40 }, createHandle('TWISTED_PAPER'));
+    expect(dieline.handlePatches.find((p) => p.id === 'patch-FRONT')!.rect).toMatchObject({ x: 45, width: 65 });
   });
 });
 
@@ -232,10 +240,17 @@ describe('buildDieline - other sizes and options', () => {
     expect(sheetToPanel(seg(dieline, 'RIGHT'), dieline.bottomLineY, { x: 350, y: 90 })).toEqual({ x: 0, y: 0 });
   });
 
-  it('extends the artwork clip area by bleed at the sheet edge and by the crease overprint elsewhere', () => {
+  it('extends the artwork clip area by bleed at the sheet edge and by the crease overprint elsewhere (extended to the bottom)', () => {
     const dieline = build();
-    expect(getArtworkClipRect(dieline, seg(dieline, 'LEFT'))).toEqual({ x: -3, y: -3, width: 155, height: 496 });
-    expect(getArtworkClipRect(dieline, seg(dieline, 'FRONT'))).toEqual({ x: 148, y: -3, width: 204, height: 496 });
-    expect(getArtworkClipRect(dieline, seg(dieline, 'BACK'))).toEqual({ x: 498, y: -3, width: 204, height: 496 });
+    expect(getArtworkClipRect(dieline, seg(dieline, 'LEFT'), true)).toEqual({ x: -3, y: -3, width: 155, height: 496 });
+    expect(getArtworkClipRect(dieline, seg(dieline, 'FRONT'), true)).toEqual({ x: 148, y: -3, width: 204, height: 496 });
+    expect(getArtworkClipRect(dieline, seg(dieline, 'BACK'), true)).toEqual({ x: 498, y: -3, width: 204, height: 496 });
+  });
+
+  it('clips the artwork to the wall (+ 2 mm overprint across the bottom line) without the extension', () => {
+    const dieline = build();
+    // a = 90: the wall starts at sheet y = 90, clip from 88 up to 490 + 3 bleed.
+    expect(getArtworkClipRect(dieline, seg(dieline, 'FRONT'))).toEqual({ x: 148, y: 88, width: 204, height: 405 });
+    expect(getArtworkClipRect(dieline, seg(dieline, 'LEFT'), false)).toEqual({ x: -3, y: 88, width: 155, height: 405 });
   });
 });

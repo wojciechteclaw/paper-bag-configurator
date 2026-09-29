@@ -1,0 +1,192 @@
+{
+  "export": {
+    "actions": {
+      "legend": "Export configuration",
+      "intro": "Product sheet (PDF: parameters, dieline with artwork, 3D views and folding options) or a summary workbook for Excel.",
+      "pdf": "Download PDF",
+      "xlsx": "Download Excel",
+      "error": "The file could not be prepared. Please try again.",
+      "done": "The file has been downloaded.",
+      "progress": {
+        "coverage": "Estimating ink coverage…",
+        "views": "Rendering 3D views ({{done}}/{{total}})…",
+        "document": "Building the document…"
+      }
+    },
+    "fileName": {
+      "BLOCK": "block-bottom-bag",
+      "FOLDED": "gusseted-bag"
+    },
+    "section": {
+      "product": "Product",
+      "paper": "Paper",
+      "handle": "Handle",
+      "print": "Print & packaging",
+      "construction": "Construction & sheet",
+      "artwork": "Panel artwork"
+    },
+    "param": {
+      "productType": "Bag type",
+      "width": "Width (W)",
+      "height": "Height (H)",
+      "depth": "Depth (D)",
+      "standardSize": "Standard size",
+      "paperType": "Paper type",
+      "paperColor": "Paper colour",
+      "grammage": "Grammage",
+      "fsc": "FSC® certified",
+      "moistureBarrier": "Moisture barrier",
+      "handleVariant": "Handle variant",
+      "handleMaterial": "Handle material",
+      "handleColor": "Handle colour",
+      "ropeDiameter": "Rope diameter",
+      "stripWidth": "Strip width",
+      "loopLength": "Loop length",
+      "patchWidth": "Patch width",
+      "patchHeight": "Patch height",
+      "handleMounting": "Mounting",
+      "printTechnology": "Print technology",
+      "colorCount": "Number of colours",
+      "pantoneColors": "Pantone colours",
+      "packaging": "Packaging",
+      "bottomAllowance": "Bottom allowance (D + 30) / 2",
+      "glueFlap": "Glue flap",
+      "sheetWidth": "Sheet width",
+      "sheetHeight": "Sheet height",
+      "sheetArea": "Sheet area"
+    },
+    "handleMaterial": {
+      "KRAFT": "strong kraft paper"
+    },
+    "handleMounting": "inside the front and back walls, with a paper patch",
+    "unit": {
+      "cm2": "cm²",
+      "mm2": "mm²"
+    },
+    "placementMode": {
+      "FILL": "fill the panel",
+      "CUSTOM": "custom position"
+    },
+    "coverage": {
+      "none": "The ink coverage could not be estimated.",
+      "noColors": "No Pantone colours — coverage is given as a total only."
+    },
+    "pdf": {
+      "title": "Product sheet",
+      "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
+      "parameters": "Parameters",
+      "footer": "Configuration {{id}}",
+      "page": "Page {{page}} of {{total}}"
+    },
+    "pantone": {
+      "title": "Pantone colours and ink coverage",
+      "swatch": "Colour",
+      "code": "Pantone code / preview",
+      "percent": "% of sheet",
+      "area": "Area [{{unit}}]"
+    },
+    "dieline": {
+      "title": "Dieline with artwork",
+      "scale": "scale 1:{{ratio}} (dimensions in mm)"
+    },
+    "views": {
+      "views": {
+        "title": "3D views",
+        "note": "Full box shape and the standing bag with its walls bent on the creases."
+      },
+      "folding": {
+        "title": "Folded bag options",
+        "note": "Stages of folding the bag flat (sides in, bottom against the back) and the bag folded flat."
+      },
+      "angle": {
+        "FRONT_3_4": "front 3/4",
+        "BACK_3_4": "back 3/4"
+      },
+      "caption": {
+        "box": "Full box — {{angle}}",
+        "standing": "Walls bent (standing) — {{angle}}",
+        "stage": "Folding {{fold}} — {{angle}}",
+        "flat": "Folded flat — {{angle}}"
+      },
+      "unavailable": "3D view not available"
+    },
+    "xlsx": {
+      "sheet": {
+        "parameters": "Parameters",
+        "panels": "Panels & artwork",
+        "coverage": "Pantone & coverage",
+        "dieline": "Dieline"
+      },
+      "col": {
+        "section": "Section",
+        "parameter": "Parameter",
+        "value": "Value",
+        "unit": "Unit",
+        "panel": "Panel",
+        "panelWidth": "Panel width",
+        "panelHeight": "Panel height",
+        "artworkFile": "Artwork file",
+        "imageWidth": "Image width",
+        "imageHeight": "Image height",
+        "placementMode": "Placement mode",
+        "offsetX": "Offset X",
+        "offsetY": "Offset Y",
+        "scale": "Scale",
+        "rotation": "Rotation",
+        "extendToBottom": "Extend to bottom",
+        "artworkAreaHeight": "Artwork area height",
+        "pantoneCode": "Pantone code",
+        "hex": "Preview HEX",
+        "sheetShare": "Sheet coverage",
+        "inkArea": "Ink area",
+        "sheetArea": "Sheet area",
+        "wallArea": "Wall area",
+        "wallShare": "Wall coverage",
+        "column": "Sheet column",
+        "xFrom": "x from",
+        "xTo": "x to",
+        "columnWidth": "Width",
+        "wallHeight": "Wall height",
+        "allowanceHeight": "Bottom allowance",
+        "lineId": "Line",
+        "lineKind": "Kind",
+        "code": "Code",
+        "description": "Description",
+        "x1": "x1",
+        "y1": "y1",
+        "x2": "x2",
+        "y2": "y2",
+        "length": "Length",
+        "x": "x",
+        "y": "y",
+        "width": "Width",
+        "height": "Height"
+      },
+      "note": "Note",
+      "panelCoverage": "Coverage per panel",
+      "dielineSheet": "Sheet",
+      "dielineColumns": "Panel columns",
+      "dielineLines": "Cut and crease lines",
+      "handlePatches": "Handle patches (inside)",
+      "bottomLineY": "Bottom line (y)",
+      "bleed": "Bleed",
+      "origin": "Coordinate system",
+      "originValue": "origin at the bottom-left sheet corner (tube end), x to the right, y up, printed side",
+      "cutOutline": "sheet outline",
+      "lineKind": {
+        "cut": "cut",
+        "crease": "crease"
+      }
+    },
+    "creaseCode": {
+      "C1": "bottom line",
+      "C2": "tube edge",
+      "C3": "glue flap hinge (BACK/LEFT)",
+      "C4": "side gusset centre",
+      "C5": "gusset centre (bottom allowance)",
+      "C6": "rhombus, upper 45°",
+      "C7": "rhombus, lower 45°",
+      "C8": "flat-fold crease"
+    }
+  }
+}

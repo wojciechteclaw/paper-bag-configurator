@@ -18,13 +18,17 @@ import {
   getBottomCreases,
   getPanelCreases,
   getPanelRegions,
+  getVisibleBottomPieces,
+  type BottomPieceId,
   type Crease,
   type FoldPanelId,
   type FoldRegionId,
   type PanelRegion,
 } from '../domain/geometry/blockBottom';
 import { foldPoint, getFoldPose, type FoldPose, type Vec3 } from '../domain/geometry/foldKinematics';
-import type { Dimensions } from '../domain/types';
+import type { Point2 } from '../domain/geometry/sideGusset';
+import { getPanelSize } from '../domain/panels';
+import type { Dimensions, PanelPosition } from '../domain/types';
 import { BOTTOM_LINE_LIFT_MM, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 
 export type BagPanelId = FoldPanelId;
@@ -121,54 +125,94 @@ function placePoint(
 
 export type PanelMesh = {
   id: BagPanelId;
+  /**
+   * The wall whose artwork (texture + UV space) this mesh shows: the wall itself, or — for a piece of the bottom —
+   * the wall whose bottom allowance forms it (FRONT flap / BACK flap). The bottom pieces show that artwork only when
+   * the wall's placement is extended to the bottom (docs/SPEC.md §4f).
+   */
+  artworkPanel: PanelPosition;
+  /** Bottom piece id (BOTTOM meshes only). */
+  piece?: BottomPieceId;
   geometry: BufferGeometry;
-  /** Panel-local (u, v) in mm per vertex. */
+  /** Panel-local (u, v) in mm per vertex (BOTTOM: bottom-local, used for posing). */
   local: Float32Array;
   /** Index into REGION_IDS per vertex. */
   regions: Uint8Array;
 };
 
-function panelSize(id: BagPanelId, d: Dimensions): [number, number] {
-  switch (id) {
-    case 'FRONT':
-    case 'BACK':
-      return [d.width, d.height];
-    case 'BOTTOM':
-      return [d.width, d.depth];
-    default:
-      return [d.depth, d.height];
-  }
-}
+type MeshPart = { region: FoldRegionId; polygon: readonly Point2[]; uvOf: (p: Point2) => [number, number] };
 
 /**
- * Non-indexed geometry (flat normals per region, so creases read as sharp folds). One geometry group per fold region
- * (all material index 0), all sharing the panel's continuous UV space.
+ * Non-indexed geometry (flat normals per region, so creases read as sharp folds). One geometry group per part
+ * (all material index 0); every vertex gets its UV from its part.
  */
-export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMesh {
-  const [sw, sh] = panelSize(id, dimensions);
+function buildMesh(id: BagPanelId, artworkPanel: PanelPosition, parts: readonly MeshPart[], piece?: BottomPieceId): PanelMesh {
   const local: number[] = [];
+  const uv: number[] = [];
   const regions: number[] = [];
   const geometry = new BufferGeometry();
-  for (const { id: region, polygon } of getPanelRegions(id, dimensions)) {
+  for (const { region, polygon, uvOf } of parts) {
     const start = regions.length;
     for (let i = 1; i < polygon.length - 1; i++) {
       for (const p of [polygon[0], polygon[i], polygon[i + 1]]) {
         local.push(p.x, p.y);
+        uv.push(...uvOf(p));
         regions.push(regionCode(region));
       }
     }
     geometry.addGroup(start, regions.length - start, 0);
   }
   const count = regions.length;
-  const uv = new Float32Array(count * 2);
-  for (let i = 0; i < count; i++) {
-    uv[i * 2] = sw > 0 ? local[i * 2] / sw : 0;
-    uv[i * 2 + 1] = sh > 0 ? local[i * 2 + 1] / sh : 0;
-  }
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(count * 3), 3));
   geometry.setAttribute('normal', new BufferAttribute(new Float32Array(count * 3), 3));
-  geometry.setAttribute('uv', new BufferAttribute(uv, 2));
-  return { id, geometry, local: new Float32Array(local), regions: Uint8Array.from(regions) };
+  geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+  return { id, artworkPanel, ...(piece ? { piece } : {}), geometry, local: new Float32Array(local), regions: Uint8Array.from(regions) };
+}
+
+/** UV of a wall point: (x / panelWidth, y / H) of the visible wall; the bottom allowance continues below v = 0. */
+function wallUv(position: PanelPosition, dimensions: Dimensions): (p: Point2) => [number, number] {
+  const { width: sw, height: sh } = getPanelSize(position, dimensions);
+  return (p) => [sw > 0 ? p.x / sw : 0, sh > 0 ? p.y / sh : 0];
+}
+
+/** Visible pieces of the formed bottom (seen from below), each in the UV space of the wall it comes from. */
+function bottomParts(dimensions: Dimensions) {
+  return getVisibleBottomPieces(dimensions).map((piece) => {
+    const uvOfWall = wallUv(piece.panel, dimensions);
+    const part: MeshPart = { region: 'BOTTOM', polygon: piece.polygon, uvOf: (p) => uvOfWall(piece.toPanel(p)) };
+    return { piece, part };
+  });
+}
+
+/**
+ * Mesh of one wall (its fold regions share the wall's continuous UV space), or of the whole BOTTOM (its visible
+ * pieces as groups, each in the UV space of its source wall — FRONT flap, BACK flap).
+ */
+export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMesh {
+  if (id === 'BOTTOM') return buildMesh(id, 'FRONT', bottomParts(dimensions).map(({ part }) => part));
+  const uvOf = wallUv(id, dimensions);
+  return buildMesh(
+    id,
+    id,
+    getPanelRegions(id, dimensions).map(({ id: region, polygon }) => ({ region, polygon, uvOf })),
+  );
+}
+
+/**
+ * The bottom as one mesh per visible piece (so each can carry its own wall's texture): FRONT flap and the visible
+ * part of the BACK flap. They tile the W × D bottom exactly — no overlapping layers, no z-fighting. The ears and
+ * tucks (LEFT/RIGHT allowances) are hidden under the flaps in the formed bottom (`getVisibleBottomPieces`).
+ */
+export function createBottomPieceMeshes(dimensions: Dimensions): PanelMesh[] {
+  return bottomParts(dimensions).map(({ piece, part }) => buildMesh('BOTTOM', piece.panel, [part], piece.id));
+}
+
+/** Walls + bottom pieces: everything BagModel renders for the bag body. */
+export function createBagMeshes(dimensions: Dimensions): PanelMesh[] {
+  return [
+    ...(['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).map((id) => createPanelMesh(id, dimensions)),
+    ...createBottomPieceMeshes(dimensions),
+  ];
 }
 
 /** Rewrites vertex positions (in place) and normals for the given pose. */

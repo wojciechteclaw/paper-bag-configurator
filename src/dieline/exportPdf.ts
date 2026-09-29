@@ -1,11 +1,13 @@
 // PDF export of the dieline, 1:1 in millimetres. jsPDF + svg2pdf.js are loaded lazily (dynamic import) so they
 // stay out of the main bundle.
 
+import { registerPdfFonts, withEmbeddedSvgFont } from '../export/pdfFont';
 import { buildDielineSvg, downloadBlob, embedImages } from './exportSvg';
 import type { DielineScene } from './scene';
 
 // jsPDF's standard fonts only cover WinAnsi (Latin-1-ish): Polish letters outside it (ą ć ę ł ń ś ź ż …) would be
-// garbled. Until a Unicode font is embedded, PDF texts are transliterated; the SVG export keeps the original text.
+// garbled. The export embeds a Unicode font (Noto Sans, src/export/pdfFont.ts); only if that font cannot be loaded
+// are PDF texts transliterated as a fallback. The SVG export always keeps the original text.
 const NON_WIN_ANSI: Record<string, string> = {
   ą: 'a', ć: 'c', ę: 'e', ł: 'l', ń: 'n', ś: 's', ź: 'z', ż: 'z',
   Ą: 'A', Ć: 'C', Ę: 'E', Ł: 'L', Ń: 'N', Ś: 'S', Ź: 'Z', Ż: 'Z',
@@ -24,8 +26,23 @@ function withPdfSafeTexts(scene: DielineScene): DielineScene {
 export async function exportDielinePdfFile(scene: DielineScene, fileName: string, title?: string) {
   const [{ jsPDF }, { svg2pdf }] = await Promise.all([import('jspdf'), import('svg2pdf.js')]);
   const hrefs = await embedImages(scene);
-  const svgText = buildDielineSvg(withPdfSafeTexts(scene), { hrefs, title: title && toWinAnsi(title) });
   const [, , width, height] = scene.viewBox;
+  const pdf = new jsPDF({
+    unit: 'mm',
+    format: [width, height],
+    orientation: width >= height ? 'landscape' : 'portrait',
+    compress: true,
+  });
+  let unicode = true;
+  try {
+    await registerPdfFonts(pdf);
+  } catch (error) {
+    console.warn('PDF font could not be loaded, transliterating Polish letters', error);
+    unicode = false;
+  }
+  const svgText = unicode
+    ? withEmbeddedSvgFont(buildDielineSvg(scene, { hrefs, title }))
+    : buildDielineSvg(withPdfSafeTexts(scene), { hrefs, title: title && toWinAnsi(title) });
 
   const element = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement;
   // svg2pdf reads computed styles, so the element has to be in the document while it renders.
@@ -34,13 +51,7 @@ export async function exportDielinePdfFile(scene: DielineScene, fileName: string
   host.appendChild(document.importNode(element, true));
   document.body.appendChild(host);
   try {
-    const pdf = new jsPDF({
-      unit: 'mm',
-      format: [width, height],
-      orientation: width >= height ? 'landscape' : 'portrait',
-      compress: true,
-    });
-    if (title) pdf.setProperties({ title: toWinAnsi(title) });
+    if (title) pdf.setProperties({ title: unicode ? title : toWinAnsi(title) });
     await svg2pdf(host.firstElementChild as Element, pdf, { x: 0, y: 0, width, height });
     downloadBlob(pdf.output('blob'), fileName);
   } finally {

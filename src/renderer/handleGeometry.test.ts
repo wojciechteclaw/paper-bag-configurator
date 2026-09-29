@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Box3, Vector3, type BufferAttribute } from 'three';
 import { HANDLE_DEFAULTS } from '../domain/config/productCatalog';
 import { getHandleLayout } from '../domain/geometry/handles';
-import type { HandleType } from '../domain/types';
+import { getStandingFoldProgress } from '../domain/geometry/foldKinematics';
+import type { Dimensions, HandleType } from '../domain/types';
 import { getBagFrame, getWallPlaneZ } from './bagGeometry';
 import { MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
 import {
@@ -12,6 +13,8 @@ import {
   createTwistTexture,
   getHandleWallPose,
   handleCentreOffset,
+  handleHalfExtent,
+  HANDLE_WALL_CLEARANCE_MM,
   handleStackThickness,
   patchOffset,
   PATCH_CLEARANCE_MM,
@@ -19,7 +22,7 @@ import {
 
 const dims = { width: 200, height: 400, depth: 150 };
 const s = MM_TO_SCENE;
-const layoutOf = (type: HandleType) => getHandleLayout({ id: 'h', type, ...HANDLE_DEFAULTS[type] }, dims);
+const layoutOf = (type: HandleType, d: Dimensions = dims) => getHandleLayout({ id: 'h', type, ...HANDLE_DEFAULTS[type] }, d);
 
 describe('handle geometry', () => {
   it('builds the rope with the rope radius, from the ends under the patch up to the loop top', () => {
@@ -41,7 +44,8 @@ describe('handle geometry', () => {
     const box = new Box3().setFromBufferAttribute(geometry.getAttribute('position') as BufferAttribute);
     const half = layout.params.width / 2;
     expect(box.max.y).toBeCloseTo((dims.height + layout.loopHeight + half) * s, 3);
-    expect(box.max.x).toBeCloseTo((layout.endSpacing / 2 + layout.footLength) * s, 3);
+    expect(box.max.x).toBeCloseTo((layout.endSpacing / 2 + half) * s, 3); // vertical legs, no feet
+    expect(box.min.y).toBeCloseTo(layout.endY * s, 3);
     expect(box.min.z).toBeGreaterThan(0);
     expect(box.max.x).toBeLessThanOrEqual(layout.patch.x1 * s);
     geometry.dispose();
@@ -115,4 +119,65 @@ describe('getHandleWallPose', () => {
     expect(z[2]).toBeCloseTo(4 * PAPER_LAYER_GAP_MM * s);
     expect(new Vector3(0, 0, z[2]).length()).toBeGreaterThan(0);
   });
+});
+
+describe('handles stay inside the bag (no bleed-through)', () => {
+  const sizes: Dimensions[] = [
+    { width: 75, height: 170, depth: 40 },
+    { width: 100, height: 300, depth: 100 },
+    { width: 200, height: 400, depth: 150 },
+    { width: 260, height: 430, depth: 170 },
+  ];
+  const progresses = [0, getStandingFoldProgress(), 0.5, 0.75, 0.85, 0.9, 0.95, 0.97, 0.99, 1];
+
+  /** All vertices of the handle and patch meshes in handle-local mm. */
+  const verticesOf = (type: HandleType, d: Dimensions) => {
+    const layout = layoutOf(type, d);
+    const handle = type === 'TWISTED_PAPER' ? createRopeGeometry(layout).geometry : createStripGeometry(layout);
+    const patch = createPatchGeometry(layout);
+    const out: Vector3[] = [];
+    for (const g of [handle, patch]) {
+      const pos = g.getAttribute('position') as BufferAttribute;
+      for (let i = 0; i < pos.count; i++) out.push(new Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).divideScalar(s));
+      g.dispose();
+    }
+    return { layout, vertices: out };
+  };
+
+  it('keeps the rope / strip and the patch at least 1 mm off the inner wall surface', () => {
+    expect(HANDLE_WALL_CLEARANCE_MM).toBeGreaterThanOrEqual(1);
+    expect(PATCH_CLEARANCE_MM).toBeGreaterThanOrEqual(1);
+    const rope = layoutOf('TWISTED_PAPER');
+    expect(handleCentreOffset(rope)).toBeGreaterThanOrEqual(1 + rope.params.width / 2);
+  });
+
+  for (const type of ['TWISTED_PAPER', 'FLAT_PAPER'] as const) {
+    it.each(sizes)(`${type}: within the side walls in x in the open bag (%o)`, (d) => {
+      const { vertices } = verticesOf(type, d);
+      for (const v of vertices) expect(Math.abs(v.x)).toBeLessThan(d.width / 2);
+    });
+
+    it.each(sizes)(`${type}: on the inner side of FRONT / BACK and never through a gusset for p ∈ [0, 1] (%o)`, (d) => {
+      const { layout, vertices } = verticesOf(type, d);
+      const stack = handleStackThickness(layout);
+      const halfExtent = handleHalfExtent(layout);
+      for (const p of progresses) {
+        const frame = getBagFrame(d, p);
+        const { gap, sinTheta, cosTheta } = frame.pose;
+        for (const wall of ['FRONT', 'BACK'] as const) {
+          const { squash } = getHandleWallPose(frame, wall, stack, halfExtent);
+          for (const v of vertices) {
+            // Signed distance from the wall towards the bag interior (group z is scaled by squash), mm.
+            const depth = v.z * squash;
+            expect(depth).toBeGreaterThan(0);
+            if (v.y >= d.height) continue; // loop above the top edge: no gusset there
+            const fromEdge = d.width / 2 - Math.abs(v.x);
+            const gusset = sinTheta > 1e-9 ? (fromEdge * cosTheta) / sinTheta : Infinity;
+            // Room up to the gusset / mid-plane, plus the one-layer render push-back between wall and gusset.
+            expect(depth).toBeLessThanOrEqual(Math.min(gap / 2, gusset) + frame.layerShift + 1e-6);
+          }
+        }
+      }
+    });
+  }
 });

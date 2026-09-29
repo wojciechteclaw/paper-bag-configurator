@@ -5,6 +5,8 @@ import coveragePl from './locales/coverage.pl.json';
 import dielineEn from './locales/dieline.en.json';
 import dielinePl from './locales/dieline.pl.json';
 import en from './locales/en.json';
+import exportEn from './locales/export.en.json';
+import exportPl from './locales/export.pl.json';
 import pl from './locales/pl.json';
 
 export const SUPPORTED_LANGUAGES = ['pl', 'en'] as const;
@@ -27,8 +29,8 @@ export function mergeResources(...sources: Tree[]): Tree {
 
 void i18n.use(initReactI18next).init({
   resources: {
-    pl: { translation: mergeResources(pl, dielinePl, coveragePl) },
-    en: { translation: mergeResources(en, dielineEn, coverageEn) },
+    pl: { translation: mergeResources(pl, dielinePl, coveragePl, exportPl) },
+    en: { translation: mergeResources(en, dielineEn, coverageEn, exportEn) },
   },
   lng: 'pl',
   fallbackLng: 'en',
