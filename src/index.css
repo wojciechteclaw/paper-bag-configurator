@@ -137,7 +137,7 @@ legend { font-weight: 600; padding: 0 4px; }
 .subheading { font-size: 14px; margin: 8px 0 6px; }
 .subheading small { font-weight: 400; color: var(--muted); }
 .pantone-list { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0 0 8px; }
-.pantone-list li { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border: 1px solid var(--border); border-radius: 999px; }
+.pantone-list li { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 4px; border: 1px solid var(--border); border-radius: 999px; }
 .pantone-list button { padding: 0 6px; border: none; background: none; font-size: 16px; line-height: 1; }
 .pantone-form { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; }
 .pantone-form label { grid-column: 1 / -1; }
@@ -200,3 +200,18 @@ legend { font-weight: 600; padding: 0 4px; }
 .adjustment-list { margin: 4px 0 0; padding-left: 18px; }
 .field--standard-size { grid-template-columns: 140px 1fr auto; }
 .infotip__line { display: block; }
+
+/* Ink coverage (step 3) */
+.coverage { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--border); }
+.coverage__total { margin: 4px 0; }
+.coverage__total strong { font-size: 18px; }
+.coverage__total small { color: var(--muted); }
+.coverage__bar { display: block; position: relative; height: 8px; border-radius: 4px; background: var(--surface-muted); border: 1px solid var(--border); overflow: hidden; }
+.coverage__fill { display: block; height: 100%; background: var(--accent); }
+.coverage__list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.coverage__row { display: grid; grid-template-columns: 16px minmax(80px, auto) 1fr 56px; align-items: center; gap: 8px; font-size: 13px; }
+.coverage__code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coverage__value { text-align: right; font-variant-numeric: tabular-nums; }
+.coverage .warning { font-size: 12px; }
+.swatch--unassigned { background: repeating-linear-gradient(45deg, var(--surface-muted) 0 3px, var(--border) 3px 6px); }
+.pantone-list__picker { width: 22px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }

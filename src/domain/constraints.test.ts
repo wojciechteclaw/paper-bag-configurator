@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BAG_TYPES } from './config/productCatalog';
-import { clampToStep, constrainDimension, constrainDimensions, constrainGrammage, constrainQuantity, getEffectiveLimits } from './constraints';
+import { clampToStep, constrainDimension, constrainDimensions, constrainGrammage, getEffectiveLimits } from './constraints';
 
 const limits = BAG_TYPES.BLOCK.limits;
 
@@ -139,16 +139,3 @@ describe('constrainGrammage', () => {
   });
 });
 
-describe('constrainQuantity', () => {
-  it('never goes below the minimum run', () => {
-    expect(constrainQuantity(100, 30_000, 30_000)).toBe(30_000);
-  });
-
-  it('rounds to whole pieces', () => {
-    expect(constrainQuantity(45_000.6, 30_000, 30_000)).toBe(45_001);
-  });
-
-  it('keeps the current value for NaN', () => {
-    expect(constrainQuantity(Number.NaN, 30_000, 50_000)).toBe(50_000);
-  });
-});

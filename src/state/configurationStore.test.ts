@@ -4,6 +4,7 @@ import { validateDimensions } from '../domain/validation/dimensions';
 import { BAG_TYPES } from '../domain/config/productCatalog';
 import { useConfigurationStore } from './configurationStore';
 import { CONFIGURATOR_STEPS, useConfiguratorUiStore } from './configuratorUiStore';
+import { usePreviewStore } from './previewStore';
 
 const store = () => useConfigurationStore.getState();
 const config = () => store().configuration;
@@ -229,12 +230,31 @@ describe('panel placement', () => {
   });
 });
 
-describe('print, packaging and quantity', () => {
+describe('print and packaging', () => {
   it('adds normalised Pantone colours and reports errors', () => {
     expect(store().addPantoneColor('  PMS 186 C ')).toBeNull();
     expect(store().addPantoneColor('pms 186 c')).toBe('DUPLICATE');
     expect(store().addPantoneColor('')).toBe('EMPTY');
-    expect(config().print.pantoneColors).toEqual(['PMS 186 C']);
+    expect(config().print.pantoneColors).toEqual([{ code: 'PMS 186 C', hex: '#c8102e' }]);
+  });
+
+  it('stores the given preview colour, rejects an invalid one and suggests distinct colours otherwise', () => {
+    expect(store().addPantoneColor('PMS 7621 C', '#ABC')).toBeNull();
+    expect(store().addPantoneColor('PMS 1 C', 'blue')).toBe('INVALID_HEX');
+    expect(store().addPantoneColor('PMS 2 C')).toBeNull();
+    expect(store().addPantoneColor('PMS 3 C')).toBeNull();
+    const [first, second, third] = config().print.pantoneColors;
+    expect(first).toEqual({ code: 'PMS 7621 C', hex: '#aabbcc' });
+    expect(second.hex).not.toBe(third.hex);
+  });
+
+  it('changes a preview colour and ignores invalid values', () => {
+    store().addPantoneColor('PMS 186 C');
+    store().setPantoneColorHex(0, '#00FF00');
+    expect(config().print.pantoneColors[0].hex).toBe('#00ff00');
+    store().setPantoneColorHex(0, 'nope');
+    store().setPantoneColorHex(5, '#ffffff');
+    expect(config().print.pantoneColors).toEqual([{ code: 'PMS 186 C', hex: '#00ff00' }]);
   });
 
   it('caps Pantone colours at the catalog maximum', () => {
@@ -247,19 +267,12 @@ describe('print, packaging and quantity', () => {
     store().addPantoneColor('A');
     store().addPantoneColor('B');
     store().removePantoneColor(0);
-    expect(config().print.pantoneColors).toEqual(['B']);
+    expect(config().print.pantoneColors.map((color) => color.code)).toEqual(['B']);
   });
 
   it('sets packaging', () => {
     store().setPackaging('FOIL');
     expect(config().packaging).toBe('FOIL');
-  });
-
-  it('keeps quantity at or above the minimum run', () => {
-    store().setQuantity(50_000);
-    expect(config().quantity).toBe(50_000);
-    store().setQuantity(10);
-    expect(config().quantity).toBe(30_000);
   });
 });
 
@@ -292,5 +305,14 @@ describe('configurator UI store', () => {
     useConfiguratorUiStore.getState().setStep('artwork');
     expect(config()).toBe(before);
     expect(config()).not.toHaveProperty('step');
+  });
+});
+
+describe('fold preview state (docs/SPEC.md §4a/§4c)', () => {
+  it('foldProgress never appears on the configuration or its JSON serialisation', () => {
+    usePreviewStore.getState().setFoldProgress(0.42);
+    expect(config()).not.toHaveProperty('foldProgress');
+    const json = JSON.stringify(config());
+    expect(json).not.toMatch(/foldProgress/);
   });
 });

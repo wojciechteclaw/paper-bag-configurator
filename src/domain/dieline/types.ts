@@ -11,8 +11,11 @@ export type { Point2, Polygon2 };
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
-/** Sheet columns from the left: BACK_B | LEFT | FRONT | RIGHT | BACK_A | glue flap (PRODUCTION.md §9.1). */
-export type DielineSegmentId = 'BACK_B' | 'LEFT' | 'FRONT' | 'RIGHT' | 'BACK_A';
+/**
+ * Sheet columns from the left: LEFT | FRONT | RIGHT | BACK | glue flap (PRODUCTION.md §9.1). The seam lies on the
+ * BACK/LEFT tube edge: the glue flap hinges on BACK's outer edge and is glued to LEFT's free edge (sheet x = 0).
+ */
+export type DielineSegmentId = 'LEFT' | 'FRONT' | 'RIGHT' | 'BACK';
 
 export type DielineSegment = {
   id: DielineSegmentId;
@@ -76,7 +79,7 @@ export type Dieline = {
   /** Bottom allowance a = (D + 30) / 2. */
   allowance: number;
   glueFlapWidth: number;
-  /** Seam position on BACK, panel-local x (width of BACK_A). */
+  /** Seam position on BACK, panel-local x: always W, i.e. the BACK/LEFT tube edge (client rule, §9.1). */
   seamOffset: number;
   sheet: { width: number; height: number };
   bottomLineY: number;

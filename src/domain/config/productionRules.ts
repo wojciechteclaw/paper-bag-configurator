@@ -9,11 +9,14 @@
 export const BOTTOM_ALLOWANCE_EXTRA_MM = 30;
 
 export type DielineRules = {
-  /** Longitudinal glue flap `s` (docs/PRODUCTION.md §9.2). Default 20 mm, range 15–25 mm — TO BE CONFIRMED. */
-  glueFlap: { defaultWidth: number; min: number; max: number };
-  /** Position of the longitudinal seam on BACK as a fraction of the width (0.5 = centre of BACK, §9.1). */
-  seamOffsetRatio: number;
-  /** Bleed beyond the cut lines (top, tube end, left sheet edge), mm (§9.4). */
+  /** Longitudinal glue flap width `s`, mm — client rule [K] (2026-09): 10 mm (docs/PRODUCTION.md §9.2). */
+  glueFlapWidth: number;
+  /**
+   * Longitudinal seam position — client rule [K] (2026-09): on the BACK/LEFT tube edge. The glue flap hinges on BACK's
+   * outer edge (BACK x = W) and is glued to the inside of LEFT's free edge (LEFT x = 0), docs/PRODUCTION.md §9.1.
+   */
+  seam: 'BACK_LEFT';
+  /** Bleed beyond the cut lines (top, tube end, left sheet edge = LEFT's free edge), mm (§9.4). */
   bleed: number;
   /** Colour overlap across a crease onto the neighbouring panel, mm (§9.4). */
   creaseOverprint: number;
@@ -33,8 +36,8 @@ export type DielineRules = {
 };
 
 export const DIELINE_RULES: DielineRules = {
-  glueFlap: { defaultWidth: 20, min: 15, max: 25 },
-  seamOffsetRatio: 0.5,
+  glueFlapWidth: 10,
+  seam: 'BACK_LEFT',
   bleed: 3,
   creaseOverprint: 2,
   safetyFromTopAndBottom: 6,

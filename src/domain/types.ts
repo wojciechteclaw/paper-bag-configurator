@@ -117,10 +117,20 @@ export type Paper = {
 
 export type PrintTechnology = 'FLEXO';
 
-/** Print spec. Pantone codes, e.g. "PMS 186 C"; empty array = unprinted bag. */
+/**
+ * One print colour: the Pantone code (e.g. "PMS 186 C") plus a user-chosen preview colour (`#rrggbb`, lower case).
+ * The preview only approximates the Pantone ink on screen; it is used to assign artwork pixels to inks when
+ * estimating ink coverage (docs/SPEC.md §4d).
+ */
+export type PantoneColor = {
+  code: string;
+  hex: string;
+};
+
+/** Print spec. Empty `pantoneColors` = unprinted bag. */
 export type PrintSpec = {
   technology: PrintTechnology;
-  pantoneColors: string[];
+  pantoneColors: PantoneColor[];
 };
 
 export type PackagingType = 'CARTON' | 'FOIL';
@@ -134,5 +144,4 @@ export type BagConfiguration = {
   panels: BagPanels;
   print: PrintSpec;
   packaging: PackagingType;
-  quantity: number;
 };

@@ -23,7 +23,7 @@ beforeEach(async () => {
 describe('DielineView', () => {
   it('draws the sheet with cut and crease layers and dimension labels', () => {
     const { container } = render(<DielineView />);
-    expect(screen.getByRole('img', { name: /arkusz 720 × 490 mm/ })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /arkusz 710 × 490 mm/ })).toBeInTheDocument();
     expect(container.querySelectorAll('[data-layer="cut"] path')).toHaveLength(1);
     expect(container.querySelectorAll('[data-layer="crease"] [data-code="C8"]')).toHaveLength(2);
     expect(screen.getByText('W 200 mm')).toBeInTheDocument();
@@ -37,13 +37,13 @@ describe('DielineView', () => {
     addArtwork('FRONT', 'blob:front');
     expect(container.querySelectorAll('image')).toHaveLength(1);
     addArtwork('BACK', 'blob:back');
-    // BACK is split over both ends of the sheet.
-    expect(container.querySelectorAll('image[href="blob:back"]')).toHaveLength(2);
+    // BACK is one whole column (the seam is on the BACK/LEFT edge).
+    expect(container.querySelectorAll('image[href="blob:back"]')).toHaveLength(1);
 
     fireEvent.click(screen.getByLabelText('Grafiki'));
     expect(container.querySelectorAll('image')).toHaveLength(0);
     fireEvent.click(screen.getByLabelText('Grafiki'));
-    expect(container.querySelectorAll('image')).toHaveLength(3);
+    expect(container.querySelectorAll('image')).toHaveLength(2);
   });
 
   it('toggles creases and dimensions', () => {

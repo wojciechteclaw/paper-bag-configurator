@@ -81,6 +81,16 @@ export function getBagFrame(dimensions: Dimensions, foldProgress: number): BagFr
   };
 }
 
+/**
+ * Scene-space z of the plane of a width wall (FRONT, or the rigid BACK_UPPER region above the pleat) in this frame,
+ * including the render-only layer push-back. Used to attach handles and patches to their wall.
+ */
+export function getWallPlaneZ(frame: BagFrame, wall: 'FRONT' | 'BACK'): number {
+  const z = wall === 'FRONT' ? 0 : -frame.pose.gap;
+  const layer = wall === 'FRONT' ? LAYER.FRONT : LAYER.BACK_UPPER;
+  return (z + frame.zCentre - layer * frame.layerShift) * MM_TO_SCENE;
+}
+
 const scratch: Vec3 = { x: 0, y: 0, z: 0 };
 
 /**

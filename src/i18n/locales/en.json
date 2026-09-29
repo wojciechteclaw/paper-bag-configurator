@@ -142,23 +142,16 @@
       "EMPTY": "Enter a colour code.",
       "TOO_LONG": "The code is too long (max. {{max}} characters).",
       "DUPLICATE": "This colour is already on the list.",
-      "LIMIT_REACHED": "The limit of {{max}} colours has been reached."
-    }
+      "LIMIT_REACHED": "The limit of {{max}} colours has been reached.",
+      "INVALID_HEX": "Invalid colour (use #rrggbb)."
+    },
+    "previewColor": "Preview colour of {{code}}",
+    "previewNote": "The preview colour approximates the Pantone ink on screen (RGB) — used for previews and the ink-coverage estimate."
   },
   "packaging": {
     "label": "Packaging",
     "CARTON": "Carton",
     "FOIL": "Foil"
-  },
-  "quantity": {
-    "label": "Quantity",
-    "unit": "pcs",
-    "min": "Minimum run: {{min}} pcs",
-    "errors": {
-      "NOT_A_NUMBER": "Enter a number",
-      "NOT_INTEGER": "Quantity must be a whole number",
-      "BELOW_MIN": "Minimum run: {{min}} pcs"
-    }
   },
   "summary": {
     "label": "Summary",
@@ -175,7 +168,6 @@
     "printColors": "Pantone colours",
     "noPrint": "unprinted",
     "packaging": "Packaging",
-    "quantity": "Quantity",
     "json": "Configuration (JSON)",
     "copy": "Copy JSON",
     "download": "Download JSON",

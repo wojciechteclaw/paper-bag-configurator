@@ -111,7 +111,7 @@ Płaszczyzna FRONT: `z = 0` (FRONT jest nieruchomy). BACK w stanie stojącym: `z
 | zapas na dno pod każdą ścianką | `a = (D + 30) / 2 = D/2 + 15` | **[K]** |
 | wysokość arkusza (długość odcinka) | `L = H + a = H + (D + 30)/2` | **[K]** |
 | zakładka klap dna | `2a − D = 30 mm` | [W z K] |
-| szerokość zakładki wzdłużnej `s` | domyślnie 20 mm, zakres 15–25 mm | [T/Z], **do potwierdzenia** |
+| szerokość zakładki wzdłużnej `s` | **10 mm**; szew na krawędzi BACK/LEFT (§9.1) | **[K]** (29.09.2026) |
 
 **Co znaczy 30 mm.** Klapa przednia i tylna mają po `a = D/2 + 15`. Każda kładzie się na dnie od swojej
 krawędzi, więc sięga 15 mm za środek dna (`D/2`). Razem zachodzą na siebie na **30 mm**. To jest pas kleju,
@@ -382,30 +382,42 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
 
 ### 9.1 Kolejność paneli i szew
 
-Domyślny układ [Z, do potwierdzenia]: **szew wzdłużny na środku BACK**. Szew na krawędzi rękawa
-(bigu) albo na fałdzie bocznej utrudnia składanie, dlatego jest na płaskiej ściance [T].
+**Decyzja klienta [K] (29.09.2026): szew wzdłużny leży na krawędzi rękawa między BACK a LEFT**, a zakładka
+klejowa ma **10 mm**. BACK jest na wykroju jednym, niepodzielonym panelem.
 Arkusz (strona zadrukowana = zewnętrzna, widok od strony druku), oś X od lewej:
 
 | Segment | X od | X do | Szer. | Zawartość (panel-local x) |
 |---|---|---|---|---|
-| BACK_B (prawa połowa tyłu z zewnątrz) | 0 | W/2 | W/2 | BACK `x ∈ [W/2, W]` |
-| LEFT | W/2 | W/2 + D | D | LEFT `x ∈ [0, D]` |
-| FRONT | W/2 + D | 3W/2 + D | W | FRONT `x ∈ [0, W]` |
-| RIGHT | 3W/2 + D | 3W/2 + 2D | D | RIGHT `x ∈ [0, D]` |
-| BACK_A | 3W/2 + 2D | 2W + 2D | W/2 | BACK `x ∈ [0, W/2]` |
-| zakładka GLUE | 2W + 2D | 2W + 2D + s | s | klejona od wewnątrz pod BACK_B przy X = 0 |
+| LEFT | 0 | D | D | LEFT `x ∈ [0, D]`; `x = 0` to krawędź od strony BACK = wolna krawędź arkusza (szew) |
+| FRONT | D | W + D | W | FRONT `x ∈ [0, W]` |
+| RIGHT | W + D | W + 2D | D | RIGHT `x ∈ [0, D]` |
+| BACK | W + 2D | 2W + 2D | W | BACK `x ∈ [0, W]`; `x = W` to krawędź BACK/LEFT |
+| zakładka GLUE | 2W + 2D | 2W + 2D + s | s = 10 | doczepiona do zewnętrznej krawędzi BACK (big C3), klejona do wolnej krawędzi LEFT |
 
-Parametr `seamOffset` (położenie szwu na BACK, domyślnie `W/2`) pozwala przesunąć szew. Wtedy szerokości
-BACK_A = seamOffset i BACK_B = W − seamOffset. Oś Y: `Y = 0` to linia dna, `Y ∈ [−a, H]`.
+Lokalne `x` każdego panelu (widok z zewnątrz, §3.1) rośnie zgodnie z osią X arkusza, więc obwód
+LEFT → FRONT → RIGHT → BACK jest ciągły, a „tylne” połówki boków (przylegające do BACK) to:
+LEFT `x ∈ [0, D/2]` (początek arkusza) i RIGHT `x ∈ [D/2, D]` (przy BACK). Zgodne z mapowaniem 3D:
+FRONT +Z, BACK −Z, LEFT −X, RIGHT +X.
+
+**Sposób zamknięcia rękawa [Z, typowe w branży]:** zakładka zagina się na C3 do środka rękawa (C3 staje się
+krawędzią rękawa BACK/LEFT, 90°) i jest klejona **od wewnątrz pod wolną krawędź LEFT** (LEFT zachodzi na
+zakładkę od zewnątrz, na pasie LEFT `x ∈ [0, s]`). Od zewnątrz widać tylko krawędź papieru LEFT na narożniku,
+zakładka jest niewidoczna i niezadrukowana. Oś Y: `Y = 0` to linia dna, `Y ∈ [−a, H]`.
+
+Konsekwencje szwu na krawędzi (a nie na płaskiej ściance) [W]:
+- zakładka leży na tylnej połówce LEFT, więc składa się razem z nią: przechodzą przez nią big C8 (`Y = D/2`)
+  oraz ukośne bigi rombu C6/C7 LEFT (odcinki `(2W+2D, 0)–(2W+2D+s, ±s)`), a na zapasie dna trafia w trójkąt
+  wewnętrzny / ucho LEFT (podwójna warstwa w dnie);
+- warunek `s < D/2` (zakładka nie może sięgać środkowego bigu fałdy C4). Przy `D ≥ 40` mm i `s = 10` spełniony.
 
 ### 9.2 Zakładka wzdłużna
 
-`s` domyślnie **20 mm**, zakres **15–25 mm** [T/Z], **do potwierdzenia**. Opcjonalne ścięcie 45° narożników
-zakładki na długości `a` przy końcu dna, żeby ograniczyć grubość w dnie [Z].
+`s = 10 mm` **[K]** (decyzja klienta, 29.09.2026), stała w `productionRules.ts` (`glueFlapWidth`).
+Opcjonalne ścięcie 45° narożników zakładki na długości `a` przy końcu dna, żeby ograniczyć grubość w dnie [Z].
 
 ### 9.3 Linie cięcia i bigowania
 
-`Xc_L = W/2 + D/2`, `Xc_R = 3W/2 + 3D/2` (środki boków), `a = (D+30)/2`.
+`Xc_L = D/2`, `Xc_R = W + 3D/2` (środki boków), `X_T = 2W + 2D` (zawias zakładki), `a = (D+30)/2`.
 
 **Cięcie (CUT):**
 
@@ -420,13 +432,13 @@ zakładki na długości `a` przy końcu dna, żeby ograniczyć grubość w dnie 
 | # | Linia | Odcinek(i) | Typ w torbie stojącej |
 |---|---|---|---|
 | C1 | linia dna | `Y = 0`, `X ∈ [0, 2W+2D+s]` | 90° (ścianka–dno) |
-| C2 | krawędzie rękawa | `X ∈ {W/2, W/2+D, 3W/2+D, 3W/2+2D}`, `Y ∈ [−a, H]` | 90° (grzbiet) |
-| C3 | zawias zakładki | `X = 2W+2D`, `Y ∈ [−a, H]` | 180° (pod BACK_B) |
+| C2 | krawędzie rękawa | `X ∈ {D, W+D, W+2D}` (LEFT/FRONT, FRONT/RIGHT, RIGHT/BACK), `Y ∈ [−a, H]` | 90° (grzbiet) |
+| C3 | zawias zakładki = krawędź BACK/LEFT | `X = X_T`, `Y ∈ [−a, H]` | 90° (grzbiet; zakładka pod LEFT od wewnątrz) |
 | C4 | środek fałdy (ścianka) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [D/2, H]` | 0° na stojąco, 180° na płasko (dolina) |
 | C5 | środek fałdy (zapas) | `X ∈ {Xc_L, Xc_R}`, `Y ∈ [−a, −D/2]` | między uszami |
-| C6 | romb, górne 45° | `(Xc−D/2, 0)–(Xc, D/2)` i `(Xc+D/2, 0)–(Xc, D/2)` dla obu boków | krawędzie T |
-| C7 | romb, dolne 45° | `(Xc−D/2, 0)–(Xc, −D/2)` i `(Xc+D/2, 0)–(Xc, −D/2)` dla obu boków | krawędzie trójkąta wewn. / uszu |
-| C8 | big płaskiego złożenia | `Y = D/2` na: BACK_B `X ∈ [0, W/2]`, LEFT (połówka tylna) `X ∈ [W/2, Xc_L]`, RIGHT (połówka tylna) `X ∈ [Xc_R, 3W/2+2D]`, BACK_A + zakładka `X ∈ [3W/2+2D, 2W+2D+s]` | 0° na stojąco, 180° na płasko |
+| C6 | romb, górne 45° | `(Xc−D/2, 0)–(Xc, D/2)` i `(Xc+D/2, 0)–(Xc, D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, s)` | krawędzie T |
+| C7 | romb, dolne 45° | `(Xc−D/2, 0)–(Xc, −D/2)` i `(Xc+D/2, 0)–(Xc, −D/2)` dla obu boków; na zakładce `(X_T, 0)–(X_T+s, −s)` | krawędzie trójkąta wewn. / uszu |
+| C8 | big płaskiego złożenia | `Y = D/2` na: LEFT (połówka tylna) `X ∈ [0, Xc_L]`, RIGHT (połówka tylna) + cały BACK + zakładka `X ∈ [Xc_R, 2W+2D+s]` | 0° na stojąco, 180° na płasko |
 
 C4 w praktyce biegnie przez cały rękaw (`Y ∈ [−a, H]`), bo tuber bigiuje fałdę na całej długości.
 Wewnątrz rombu (`|Y| < D/2`) jest jednak nieaktywny. W eksporcie SVG rysować go przez rombu tylko
@@ -440,8 +452,8 @@ Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrzn
 
 | | Wartość | Źródło |
 |---|---|---|
-| spad poza cięcie (góra, koniec rękawa, lewa krawędź X = 0) | 3 mm | [T] |
-| zachodzenie koloru przez big na sąsiedni panel | 2 mm | [T], [F goodstart: ≥ 1,6 mm] |
+| spad poza cięcie (góra, koniec rękawa, lewa krawędź X = 0 = wolna krawędź LEFT na szwie) | 3 mm | [T] |
+| zachodzenie koloru przez big na sąsiedni panel (także z BACK na zakładkę, 2 mm) | 2 mm | [T], [F goodstart: ≥ 1,6 mm] |
 | strefa bezpieczna od góry i od linii dna | 6 mm | [F goodstart 1/4"] |
 | strefa bezpieczna od bigów pionowych i szwu | 5 mm | [Z] |
 | boki: treść krytyczna powyżej | `Y ≥ D/2 + 5` | [Z] |
@@ -449,48 +461,46 @@ Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrzn
 
 ### 9.5 Łatki uchwytów (wewnątrz, na wykroju linią przerywaną)
 
-- FRONT: środek łatki `X = W/2 + D + W/2 = W + D`. Zakres `X ∈ [W + D − Lp/2, W + D + Lp/2]`,
-  `Y ∈ [H − 3 − Hp, H − 3]`.
-- BACK: środek łatki `x = W/2` (panel-local), czyli **na szwie**, gdy `seamOffset = W/2`. Łatka jest
-  wtedy podzielona na wykroju na `X ∈ [0, Lp/2]` i `X ∈ [2W+2D − Lp/2, 2W+2D]`. Łatka zakrywa szew
-  od środka, co jest akceptowalne i wzmacnia miejsce [Z].
+- FRONT: środek łatki `X = D + W/2`. Zakres `X ∈ [D + W/2 − Lp/2, D + W/2 + Lp/2]`, `Y ∈ [H − 3 − Hp, H − 3]`.
+- BACK: środek łatki `X = 2D + 3W/2` (panel-local `x = W/2`). BACK jest w jednym kawałku, więc łatka też.
 - `Lp = min(170, W − 20)`, `Hp = 45` [Z]. Końce uchwytu skręcanego: `x = W/2 ± c/2`, `c = clamp(W/2, 75, 150)` [Z].
 
-### 9.6 Przykład: W = 200, H = 400, D = 150, s = 20 → a = 90, arkusz 720 × 490 mm
+### 9.6 Przykład: W = 200, H = 400, D = 150, s = 10 → a = 90, arkusz 710 × 490 mm
 
-X kluczowe: 0 | 100 (BACK|LEFT) | 175 (środek LEFT) | 250 (LEFT|FRONT) | 350 (środek FRONT) | 450 (FRONT|RIGHT) |
-525 (środek RIGHT) | 600 (RIGHT|BACK) | 700 (koniec BACK, zawias zakładki) | 720.
-Skala pozioma 1 znak = 10 mm. Pionowa jest nieliniowa (wiersze opisane wartością Y).
+X kluczowe: 0 (wolna krawędź LEFT, szew) | 75 (środek LEFT) | 150 (LEFT|FRONT) | 250 (środek FRONT) |
+350 (FRONT|RIGHT) | 425 (środek RIGHT) | 500 (RIGHT|BACK) | 600 (środek BACK) | 700 (BACK|zakładka, C3) | 710.
+Skala pozioma 1 znak = 10 mm (zakładka 10 mm = kolumna `S` przy C3). Pionowa jest nieliniowa (wiersze opisane wartością Y).
 
 ```text
-      Y  X=0      100     175    250                 450     525    600       700 720
-         #########################################################################  Y=400 cięcie
-    397 #+++++++++:       |      : ++++++++++++++++++:       |      : ++++++++: #  łatki (wewn.)
-    352 #+++++++++:       |      : ++++++++++++++++++:       |      : ++++++++: #  Y=352
-    ... #         :       |      :                   :       |      :         : #
-    200 # BACK/2  : LEFT  |      :      FRONT        : RIGHT |      : BACK/2  :S#
-    ... #         :       |      :                   :       |      :         : #
-     75 #=================A      :                   :       A==================#  C8 (Y=D/2=75)
-   62.5 #         :     /  \     :                   :     /  \     :         : #
-     50 #         :    /    \    :                   :    /    \    :         : #
-   37.5 #         :   /      \   :                   :   /      \   :         : #
-     25 #         :  /         \ :                   :  /         \ :         : #
-   12.5 #         :/            \:                   :/            \:         : #
-      0 #-----------------------------------------------------------------------#  C1 linia dna
-  -12.5 #         :\            /:                   :\            /:         : #
-    -25 #         :  \         / :                   :  \         / :         : #
-  -37.5 # BACK_FLAP   \      /   :   FRONT_FLAP      :   \      /   :BACK_FL  : #
-    -50 #         :    \    /    :                   :    \    /    :         : #
-  -62.5 #         :     \  /     :                   :     \  /     :         : #
-    -75 #         :       V      :                   :       V      :         : #  dolny wierzch. rombu
-    -82 #         :       |      :                   :       |      :         : #  C5
-    -90 #########################################################################  Y=−a=−90 cięcie
-  legenda: # cięcie  : big krawędzi rękawa  | big środkowy fałdy  / \ bigi 45° rombu
-           = big płaskiego złożenia  - linia dna  + obrys łatki (wewnątrz)  S zakładka klejowa
+      Y 0      75     150                 350     425    500                  700|710
+    400 ########################################################################
+    397 #       |      : +++++++++++++++++ :       |      : +++++++++++++++++ :#
+    352 #       |      : +++++++++++++++++ :       |      : +++++++++++++++++ :#
+    ... #       |      :                   :       |      :                   :#
+    200 # LEFT  |      :     FRONT         : RIGHT |      :       BACK        S#
+    ... #       |      :                   :       |      :                   :#
+     75 #=======A      :                   :       A===========================#
+   62.5 #     /  \     :                   :     /  \     :                   :#
+     50 #    /    \    :                   :    /    \    :                   :#
+   37.5 #   /      \   :                   :   /      \   :                   :#
+     25 #  /         \ :                   :  /         \ :                   :#
+   12.5 #/            \:                   :/            \:                   :#
+      0 #----------------------------------------------------------------------#
+  -12.5 #\            /:                   :\            /:                   :#
+    -25 #  \         / :                   :  \         / :                   :#
+  -37.5 #   \      /   :   FRONT_FLAP      :   \      /   :     BACK_FLAP     :#
+    -50 #    \    /    :                   :    \    /    :                   :#
+  -62.5 #     \  /     :                   :     \  /     :                   :#
+    -75 #       V      :                   :       V      :                   :#
+    -82 #       |      :                   :       |      :                   :#
+    -90 ########################################################################
+  legenda: # cięcie  : big krawędzi rękawa / zawias zakładki C3  | big środkowy fałdy  / \ bigi 45° rombu
+           = big płaskiego złożenia  - linia dna  + obrys łatki (wewnątrz)  S zakładka klejowa (10 mm)
 ```
 
-Współrzędne rombu LEFT: `(100,0)–(175,75)–(250,0)–(175,−75)`. Romb RIGHT: `(450,0)–(525,75)–(600,0)–(525,−75)`.
-Łatka FRONT: `X ∈ [265, 435]`, `Y ∈ [352, 397]`. Łatka BACK: `X ∈ [0, 85] ∪ [615, 700]`, `Y` j.w.
+Romb LEFT: `(0,0)–(75,75)–(150,0)–(75,−75)`. Romb RIGHT: `(350,0)–(425,75)–(500,0)–(425,−75)`.
+Na zakładce: C6 `(700,0)–(710,10)`, C7 `(700,0)–(710,−10)`. C8 (`Y = 75`): `X ∈ [0, 75] ∪ [425, 710]`.
+Łatka FRONT: `X ∈ [165, 335]`, `Y ∈ [352, 397]`. Łatka BACK: `X ∈ [515, 685]`, `Y` j.w.
 
 ---
 
@@ -638,7 +648,7 @@ Renderer może je liczyć z normalnych regionów.
 | `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?) | do potwierdzenia |
 
 Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D) => (D + 30) / 2`,
-`SEAM_FLAP_MM = 20` (do potwierdzenia), `HANDLE_PATCH = { topOffset: 3, height: 45, maxLength: 170 }` [Z],
+`SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `HANDLE_PATCH = { topOffset: 3, height: 45, maxLength: 170 }` [Z],
 `FLAT_FOLD_PLEAT_RATIO = 0.5`.
 
 ---
@@ -648,7 +658,10 @@ Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D)
 1. **Zakres D**: potwierdzić 40–170 mm (maszyna klasy TRIUMPH 2B/2-T8) zamiast 40–300. Jaki jest
    maks. stosunek D/W na maszynie klienta?
 2. **Która maszyna i jaki zakres cut-off** (`H + (D+30)/2`)? Przy jakich minimach się zatrzymuje?
-3. **Szew wzdłużny**: na BACK (środek czy przesunięty)? Jaka szerokość zakładki (proponujemy 20 mm)?
+3. ~~**Szew wzdłużny**: na BACK (środek czy przesunięty)? Jaka szerokość zakładki (proponujemy 20 mm)?~~
+   Rozstrzygnięte [K] (29.09.2026): szew na krawędzi rękawa BACK/LEFT, zakładka 10 mm (§9.1–9.2). Do potwierdzenia
+   pozostaje tylko strona klejenia: zakładka od wewnątrz pod wolną krawędzią LEFT (nasze założenie [Z]) czy na wierzchu.
+   Czy tuber klienta prowadzi szew na krawędzi (zakładka w fałdzie bocznej, podwójna warstwa w dnie po stronie LEFT)?
 4. **Kolejność klap dna**: czy przednia klapa jest na wierzchu (zakładamy tak), czy tylna?
 5. **Na którą ściankę dno kładzie się w torbie płaskiej** (zakładamy BACK, z zawiasem na przednim bigu)?
    ~~Czy big `D/2` na tyle jest bigowany na wstędze?~~ Rozstrzygnięte: tak, to linia bigowania (C8) [K].

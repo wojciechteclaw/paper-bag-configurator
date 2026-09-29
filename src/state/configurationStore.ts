@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { FILL_PLACEMENT, normalizePlacement } from '../domain/artworkPlacement';
 import { BAG_TYPES } from '../domain/config/productCatalog';
-import { constrainDimension, constrainDimensions, constrainGrammage, constrainQuantity } from '../domain/constraints';
+import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle } from '../domain/factories';
 import {
   constrainPaperToVariant,
@@ -11,6 +11,8 @@ import {
   type PaperAdjustment,
 } from '../domain/handleVariants';
 import { getPanelSize } from '../domain/panels';
+import { suggestPantonePreviewHex } from '../domain/printColors';
+import { normalizeHex } from '../domain/printCoverage/color';
 import type {
   Artwork,
   ArtworkPlacement,
@@ -56,11 +58,15 @@ type ConfigurationState = {
   setPanelPlacement: (position: PanelPosition, placement: ArtworkPlacement) => void;
   /** Back to FILL (image stretched over the whole wall). */
   resetPanelPlacement: (position: PanelPosition) => void;
-  /** Returns the validation error, or null when the colour was added. */
-  addPantoneColor: (code: string) => PantoneError | null;
+  /**
+   * Adds a Pantone entry with a preview colour (`hex`; when omitted, a suggestion for the code is used).
+   * Returns the validation error, or null when the colour was added.
+   */
+  addPantoneColor: (code: string, hex?: string) => PantoneError | null;
+  /** Changes the preview colour of an entry; invalid hex values are ignored. */
+  setPantoneColorHex: (index: number, hex: string) => void;
   removePantoneColor: (index: number) => void;
   setPackaging: (packaging: PackagingType) => void;
-  setQuantity: (quantity: number) => void;
 };
 
 function revokeArtworkUrl(artwork: Artwork | null) {
@@ -149,21 +155,41 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
     resetPanelPlacement: (position) =>
       update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], placement: FILL_PLACEMENT } } })),
 
-    addPantoneColor: (code) => {
+    addPantoneColor: (code, hex) => {
       const { configuration } = get();
       const { pantoneColors } = configuration.print;
       const error = validatePantoneColorToAdd(pantoneColors, code, definitionOf(configuration).print.maxColors);
       if (error) return error;
-      update((c) => ({ print: { ...c.print, pantoneColors: [...pantoneColors, normalizePantoneCode(code)] } }));
+      const normalizedCode = normalizePantoneCode(code);
+      const preview =
+        hex === undefined
+          ? suggestPantonePreviewHex(normalizedCode, pantoneColors.map((color) => color.hex))
+          : normalizeHex(hex);
+      if (!preview) return 'INVALID_HEX';
+      update((c) => ({
+        print: { ...c.print, pantoneColors: [...pantoneColors, { code: normalizedCode, hex: preview }] },
+      }));
       return null;
+    },
+
+    setPantoneColorHex: (index, hex) => {
+      const preview = normalizeHex(hex);
+      if (!preview) return;
+      update((c) =>
+        index >= 0 && index < c.print.pantoneColors.length
+          ? {
+              print: {
+                ...c.print,
+                pantoneColors: c.print.pantoneColors.map((color, i) => (i === index ? { ...color, hex: preview } : color)),
+              },
+            }
+          : {},
+      );
     },
 
     removePantoneColor: (index) =>
       update((c) => ({ print: { ...c.print, pantoneColors: c.print.pantoneColors.filter((_, i) => i !== index) } })),
 
     setPackaging: (packaging) => update((c) => (definitionOf(c).packaging.includes(packaging) ? { packaging } : {})),
-
-    setQuantity: (quantity) =>
-      update((c) => ({ quantity: constrainQuantity(quantity, definitionOf(c).minQuantity, c.quantity) })),
   };
 });

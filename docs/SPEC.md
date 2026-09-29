@@ -30,7 +30,7 @@ Konfiguracja jest docelowo wejściem do wyceny, ale **cena nie jest implementowa
 | Uchwyt (encja `Handle`) | materiał: mocny papier kraft (`material: 'KRAFT'`); płaski — wielokrotnie składany; domyślne wymiary per typ w `HANDLE_DEFAULTS` | Promar [2, 3] |
 | Mocowanie uchwytu | oba typy przyklejane od wewnątrz płaską papierową łatką (`HandlePatch`) | Promar [2, 3] / wywiad |
 | Nadruk | fleksografia, do 8 kolorów Pantone | Promar |
-| Nakład | min. 30 000 szt. | Promar |
+| Nakład | **usunięty z konfiguracji** (decyzja klienta 29.09.2026); min. 30 000 szt. to tylko informacja handlowa — nakład jest parametrem wyceny (`PricingEngine.quote(configuration, quantity)`), nie częścią `BagConfiguration` | Promar |
 | Pakowanie | karton / folia | Promar |
 
 Źródła: [0] <https://www.promarjarocin.pl/torby-klockowe/>,
@@ -141,19 +141,46 @@ W kroku **Grafiki**, aktualizowane na żywo:
 - „Brak farby”: piksele przezroczyste; na papierze **białym** także piksele bliskie bieli; na papierze **brązowym** biel jest farbą (biały nadruk).
 - Wynik to przybliżenie do wyceny (zużycie farby), nie separacja produkcyjna. Liczenie jako czysta funkcja domenowa na tablicach pikseli (testowalna), próbkowanie na zmniejszonych obrazach.
 
+**Model i algorytm (implementacja 29.09.2026):**
+
+- `PrintSpec.pantoneColors: { code, hex }[]` — kod Pantone + kolor podglądu `#rrggbb` (wybierany w kroku 4 próbnikiem koloru). Przy dodaniu kodu podpowiadany jest kolor: przybliżenie dla popularnych kodów (`PANTONE_PREVIEW_SUGGESTIONS` w katalogu), inaczej pierwszy nieużyty kolor z palety zastępczej. Pantone → RGB jest przybliżone.
+- `computeInkCoverage` (`src/domain/printCoverage`): każda widoczna ścianka (prostokąt ścianki kolumny wykroju z `buildDieline`) jest próbkowana siatką w mm (256 komórek na dłuższym boku ścianki); środek komórki → współrzędne tekstury przez `computePanelUvTransform` (to samo mapowanie co 3D i wykrój 2D) → piksel próbki. Poza obrazem = goły papier.
+- **Nie liczą się:** spad, zapas na dno (klapy dna), zakładka klejowa — grafika wchodząca w zapas na dno na wykroju 2D nie jest wliczana (zgodnie z „przycięte do ścianek”). Mianownik = powierzchnia arkusza bez spadu (z zakładką i zapasem na dno).
+- Klasyfikacja piksela: alfa < 8/255 → brak farby, powyżej — farba ważona alfą; „bliski bieli” = ΔE76 do bieli ≤ 8 (tylko na papierze białym); przypisanie do najbliższego podglądu Pantone w CIELAB (ΔE76). Pusta lista Pantone → tylko wynik łączny („bez przypisanego koloru”) + podpowiedź. Jeśli > 10 % farby ma ΔE > 30 do najbliższego podglądu — podpowiedź „kolory odległe od listy” (farba nadal liczona do najbliższego koloru). Progi w `PRINT_COVERAGE_RULES`.
+- UI: próbka każdej grafiki dekodowana raz na `fileUrl` (maks. 256 px na dłuższym boku, `createImageBitmap` z przeskalowaniem, cache), przeliczenie z opóźnieniem 200 ms w `requestIdleCallback`.
+- Ograniczenia: fotografie / przejścia tonalne są przypisywane „na najbliższy kolor” (bez rastra i nakładania farb), więc suma per kolor = pokrycie łączne i nie przekracza 100 %; biała farba pod innymi kolorami na brązowym papierze (podkład) nie jest liczona osobno.
+
 ### 4b. Wykrój (dieline) — wywiad 29.09.2026
 
 Płaski rozkład arkusza jednej torby generowany z konfiguracji.
 
 - **Wyjścia:** podgląd 2D w UI (obok / zamiennie z 3D), eksport **SVG** (warstwy: cięcie, bigowanie, grafika, oznaczenia), eksport **PDF** (skala 1:1, mm).
 - **Geometria:**
-  - ścianki w rzędzie rękawa (kolejność i położenie szwu wg `docs/PRODUCTION.md`) + **zakładka klejowa wzdłużna** — szerokość jako parametr katalogu, wartość zaproponuje agent produkcyjny (do potwierdzenia),
+  - ścianki w rzędzie rękawa w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka klejowa wzdłużna** (BACK w jednym kawałku); **szew na krawędzi rękawa między BACK a LEFT**, **zakładka 10 mm** doczepiona do zewnętrznej krawędzi BACK i klejona do wolnej krawędzi LEFT — decyzja klienta (29.09.2026), stała w `productionRules.ts`; szczegóły w `docs/PRODUCTION.md` §9 (np. 200 × 400 × 150 → arkusz 710 × 490 mm),
   - wysokość arkusza = `H + (D + 30) / 2` (zapas na dno pod każdą ścianką),
   - linie bigowania: krawędzie ścianek, linia dna, bigi fałd bocznych (środek + 45°), bigi klap dna wg `docs/PRODUCTION.md`,
   - linie cięcia: obrys arkusza (+ ewentualne nacięcia klap dna).
 - **Grafiki:** wgrane grafiki nałożone na swoje ścianki (ten sam tryb `ArtworkPlacement` co w 3D), przełącznik pokaż/ukryj; widać, co wchodzi w dno i zakładkę.
 - **Oznaczenia:** linie wymiarowe (W, D, H, zapas na dno, zakładka), spad i strefa bezpieczna, nazwy ścianek, obrys łatek uchwytów na przodzie i tyle.
 - **Architektura:** geometria wykroju to czysta funkcja domenowa (`src/domain/dieline`), jedno źródło prawdy dla podglądu, SVG i PDF; widok 2D i eksporty są osobnymi adapterami.
+
+### 4f. Wyrównanie grafiki i rozciągnięcie na dno (wywiad 29.09.2026)
+
+Na wykroju (edycja grafiki), per ścianka:
+
+- **Wyrównanie (align):** do lewej / środka / prawej krawędzi i do góry / środka / dołu ścianki (ustawia `offsetX/offsetY` w `ArtworkPlacement`).
+- **Rozciągnięcie na dno:** przełącznik rozszerzający obszar grafiki ścianki o zapas na dno `(D + 30) / 2` poniżej linii dna — obszar ścianki `W × (H + a)` / `D × (H + a)`; grafika wtedy pokrywa klapy / uszy / trójkąty dna i jest widoczna od spodu w 3D. Wyrównanie „do dołu” odnosi się wtedy do dolnej krawędzi zapasu.
+- 2D i 3D nadal liczą mapowanie tą samą funkcją; pokrycie farbą uwzględnia rozszerzony obszar.
+
+### 4e. Eksport konfiguracji: PDF i Excel (wywiad 29.09.2026)
+
+- **PDF — karta produktu** (wszystko):
+  1. strona z parametrami (typ, wymiary, papier: rodzaj/kolor/gramatura/FSC/bariera, uchwyt, nadruk + Pantone z pokryciem, pakowanie, zapas na dno, wymiar arkusza),
+  2. wykrój z grafikami i wymiarami,
+  3. widoki 3D (pełna bryła, po zgięciu ścianek) + **opcje złożonej torby** (złożona na płasko, etapy składania).
+- **Excel — kilka arkuszy:** Parametry / Ścianki i grafiki / Pantone i pokrycie / Wykrój (wymiary arkusza, kolumny ścianek, linie cięcia i bigowania).
+- Eksport z kroku Podsumowanie; generowany z `BagConfiguration` + funkcji domenowych (`buildDieline`, pokrycie), zrzuty 3D renderowane offscreen z tego samego modelu. Biblioteki ładowane leniwie.
+- **Nakład usunięty z konfiguracji** (decyzja klienta) — nie występuje w eksporcie.
 
 ## 5. Architektura
 
@@ -182,7 +209,7 @@ App
 │   ├── PaperConfigurator
 │   ├── HandleConfigurator
 │   ├── ArtworkConfigurator → PanelArtworkUploader × 4
-│   └── ProductionOptions (nadruk, pakowanie, nakład)
+│   └── ProductionOptions (nadruk z kolorami podglądu Pantone, pakowanie)
 └── BagPreview3D
     ├── BagModel → BagPanel × N
     ├── HandleModel
@@ -225,12 +252,14 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Czy bariera na wilgoć i FSC® łączą się z każdym rodzajem papieru?
 - Zakres głębokości (brak na stronie referencyjnej).
 - Czy 200/400/150 to na pewno wartości domyślne (a nie np. inne zakresy)?
-- Czy nadruk / pakowanie / nakład mają być edytowalne w UI MVP, czy tylko obecne w modelu danych?
+- Czy nadruk / pakowanie mają być edytowalne w UI MVP, czy tylko obecne w modelu danych?
 - Gramatury: czy dostępne są wszystkie wartości co 10 g/m² w zakresach wariantów (50–120 / 70–110 / 70–120; przyjęte w katalogu jako `grammage.step`), czy tylko wybrane?
-- Nakład: czy obowiązuje krok (np. co 1 000 szt.) lub górny limit? Obecnie tylko minimum 30 000, liczba całkowita.
 - Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów).
+- Pokrycie farbą: czy grafika wchodząca w zapas na dno (widoczna na wykroju) ma być wliczana? Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
 - Wykrój: rozmiar łatki uchwytu — encja `Handle.patch` z katalogu (80 × 50 mm) vs `docs/PRODUCTION.md` §9.5
   (`Lp = min(170, W − 20)`, `Hp = 45`). Wykrój używa `Handle.patch`, a wzór z §9.5 tylko, gdy łatki brak.
+  Model 3D robi tak samo (`src/domain/geometry/handles.ts`). Końce uchwytu muszą leżeć pod łatką, więc łatka 80 mm
+  zawęża rozstaw końców: skręcany 65 mm (zamiast `clamp(W/2, 75, 150)`), płaski 34 mm (zamiast ok. 80–110 mm).
 - Wykrój PDF: standardowe fonty jsPDF nie mają polskich znaków spoza WinAnsi — teksty w PDF są transliterowane
   (ł → l). Osadzić font Unicode?
 - Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?

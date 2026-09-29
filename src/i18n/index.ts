@@ -1,5 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import coverageEn from './locales/coverage.en.json';
+import coveragePl from './locales/coverage.pl.json';
 import dielineEn from './locales/dieline.en.json';
 import dielinePl from './locales/dieline.pl.json';
 import en from './locales/en.json';
@@ -25,8 +27,8 @@ export function mergeResources(...sources: Tree[]): Tree {
 
 void i18n.use(initReactI18next).init({
   resources: {
-    pl: { translation: mergeResources(pl, dielinePl) },
-    en: { translation: mergeResources(en, dielineEn) },
+    pl: { translation: mergeResources(pl, dielinePl, coveragePl) },
+    en: { translation: mergeResources(en, dielineEn, coverageEn) },
   },
   lng: 'pl',
   fallbackLng: 'en',

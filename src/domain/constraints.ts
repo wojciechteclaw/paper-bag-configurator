@@ -58,8 +58,3 @@ export function constrainGrammage(value: number, grammage: Range & { step: numbe
   return clampToStep(value, grammage, grammage.step);
 }
 
-/** Whole pieces, never below the minimum run. Non-finite input keeps `current`. */
-export function constrainQuantity(value: number, minQuantity: number, current: number): number {
-  if (!Number.isFinite(value)) return current;
-  return Math.max(minQuantity, Math.round(value));
-}

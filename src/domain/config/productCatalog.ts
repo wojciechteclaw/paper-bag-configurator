@@ -58,7 +58,6 @@ export type BagTypeDefinition = {
   paperColors: PaperColor[];
   print: { technologies: PrintTechnology[]; maxColors: number };
   packaging: PackagingType[];
-  minQuantity: number;
 };
 
 const size = (width: number, depth: number, height: number, sizeClass?: StandardSizeClass): StandardSize => ({
@@ -142,7 +141,6 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     paperColors: ['BROWN', 'WHITE'],
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
-    minQuantity: 30_000,
   },
   // Not available yet — placeholder data so the type is selectable once geometry exists.
   FOLDED: {
@@ -158,7 +156,6 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     paperColors: ['BROWN', 'WHITE'],
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
-    minQuantity: 30_000,
   },
 };
 
@@ -186,3 +183,57 @@ export const ARTWORK_RULES: ArtworkRules = {
 
 /** Max length of a single Pantone colour entry, e.g. "PMS 186 C". */
 export const PANTONE_CODE_MAX_LENGTH = 32;
+
+/**
+ * Suggested on-screen preview colours for common Pantone (solid coated) inks, keyed by the normalised code
+ * (upper case, without the "PMS" / "PANTONE" prefix). Approximate sRGB values — the user can always change them.
+ */
+export const PANTONE_PREVIEW_SUGGESTIONS: Readonly<Record<string, string>> = {
+  'BLACK C': '#2d2926',
+  'WHITE': '#ffffff',
+  'YELLOW C': '#fedd00',
+  '109 C': '#ffd100',
+  '021 C': '#fe5000',
+  'ORANGE 021 C': '#fe5000',
+  'WARM RED C': '#f9423a',
+  '485 C': '#da291c',
+  '186 C': '#c8102e',
+  'RUBINE RED C': '#ce0058',
+  '2685 C': '#330072',
+  'REFLEX BLUE C': '#001489',
+  '300 C': '#005eb8',
+  'PROCESS BLUE C': '#0085ca',
+  'GREEN C': '#00ab84',
+  '354 C': '#00b140',
+  'COOL GRAY 11 C': '#53565a',
+  '877 C': '#8a8d8f',
+  '871 C': '#84754e',
+};
+
+/** Distinct fallback preview colours for codes without a suggestion (first one not yet used is taken). */
+export const PANTONE_FALLBACK_PREVIEW_COLORS: readonly string[] = [
+  '#2d2926',
+  '#c8102e',
+  '#005eb8',
+  '#ffd100',
+  '#00ab84',
+  '#fe5000',
+  '#330072',
+  '#8a8d8f',
+];
+
+/** Ink-coverage estimate (docs/SPEC.md §4d). Distances are CIE76 ΔE*ab. */
+export const PRINT_COVERAGE_RULES = {
+  /** Pixels with alpha below this (0–255) carry no ink; above it ink is weighted by alpha. */
+  minAlpha: 8,
+  /** On WHITE paper, a pixel within this ΔE of paper white (#ffffff) is unprinted paper, not ink. */
+  nearWhiteDeltaE: 8,
+  /** A pixel farther than this from its nearest Pantone preview still counts for it but raises a hint. */
+  poorMatchDeltaE: 30,
+  /** Share of ink (0–1) that must be poorly matched before the hint is shown. */
+  poorMatchHintShare: 0.1,
+  /** Sampling grid of each wall: cells along its longer side. */
+  gridCellsLongSide: 256,
+  /** Artwork is decoded once per file into a canvas of at most this many px on the long side. */
+  sampleMaxSidePx: 256,
+} as const;

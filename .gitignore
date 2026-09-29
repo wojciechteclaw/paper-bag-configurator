@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .idea/
+
+# Claude Code agent worktrees
+.claude/worktrees/

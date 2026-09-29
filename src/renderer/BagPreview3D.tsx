@@ -1,7 +1,8 @@
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { MathUtils, Vector3, type Group, type PerspectiveCamera } from 'three';
+import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { MM_TO_SCENE } from './constants';
@@ -81,6 +82,12 @@ export type BagPreview3DProps = {
 export function BagPreview3D({ configuration, foldProgress = 0 }: BagPreview3DProps) {
   const { dimensions, paper } = configuration;
   const [w, h, d] = [dimensions.width * MM_TO_SCENE, dimensions.height * MM_TO_SCENE, dimensions.depth * MM_TO_SCENE];
+  const { handle } = configuration;
+  // Handle loops stick out above the top edge: include them in the camera fit.
+  const loopHeight = useMemo(
+    () => (handle ? getHandleLayout(handle, dimensions).loopHeight * MM_TO_SCENE : 0),
+    [handle, dimensions],
+  );
 
   return (
     <Canvas camera={{ position: DEFAULT_VIEW_DIRECTION.clone().multiplyScalar(7.5).toArray(), fov: CAMERA_FOV }}>
@@ -102,14 +109,14 @@ export function BagPreview3D({ configuration, foldProgress = 0 }: BagPreview3DPr
         dimensions={dimensions}
         paperColor={paper.color}
         panels={configuration.panels}
+        handle={configuration.handle}
         foldProgress={foldProgress}
       />
-      {/* TODO(3d-renderer): <HandleModel handle={configuration.handle} … /> — handles are not implemented yet. */}
 
       {/* Slightly below the bag bottom so the shadow plane never z-fights with it (visible through the open top). */}
       <ContactShadows position={[0, -0.002, 0]} opacity={0.45} scale={Math.max(w, d) * 4} blur={2.4} far={h} />
       <OrbitControls makeDefault />
-      <CameraFit w={w} h={h} d={d} />
+      <CameraFit w={w} h={h + loopHeight} d={d} />
     </Canvas>
   );
 }

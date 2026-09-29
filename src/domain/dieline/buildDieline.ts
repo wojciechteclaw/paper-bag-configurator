@@ -18,10 +18,8 @@ import type {
 } from './types';
 
 export type DielineOptions = {
-  /** Longitudinal glue flap width `s`, mm (clamped to the rules' range). */
+  /** Longitudinal glue flap width `s`, mm. Defaults to the client rule (10 mm); only for what-if previews/tests. */
   glueFlapWidth?: number;
-  /** Seam position on BACK, panel-local x (width of BACK_A); clamped to [0, W]. */
-  seamOffset?: number;
 };
 
 const p = (x: number, y: number): Point2 => ({ x, y });
@@ -52,25 +50,24 @@ export function buildDieline(
   const rules = DIELINE_RULES;
   const a = getBottomAllowance(dimensions);
   const h = Math.min(D / 2, H);
-  const s = clamp(options.glueFlapWidth ?? rules.glueFlap.defaultWidth, rules.glueFlap.min, rules.glueFlap.max);
-  const seam = clamp(options.seamOffset ?? W * rules.seamOffsetRatio, 0, W);
-  const backB = W - seam;
+  const s = Math.max(0, options.glueFlapWidth ?? rules.glueFlapWidth);
 
   const sheetWidth = 2 * W + 2 * D + s;
   const sheetHeight = H + a;
   const y0 = a; // bottom line (C1) in sheet coordinates
   const yTop = sheetHeight;
 
-  // ——— Columns ———
-  const columns: { id: DielineSegmentId; panel: PanelPosition; width: number; localX0: number }[] = [
-    { id: 'BACK_B', panel: 'BACK', width: backB, localX0: seam },
-    { id: 'LEFT', panel: 'LEFT', width: D, localX0: 0 },
-    { id: 'FRONT', panel: 'FRONT', width: W, localX0: 0 },
-    { id: 'RIGHT', panel: 'RIGHT', width: D, localX0: 0 },
-    { id: 'BACK_A', panel: 'BACK', width: seam, localX0: 0 },
+  // ——— Columns: LEFT | FRONT | RIGHT | BACK (+ glue flap); every panel whole, panel-local x runs with sheet x ———
+  // Seen from outside, the perimeter LEFT → FRONT → RIGHT → BACK is continuous (§3.1), so every column starts at its
+  // panel's x = 0. LEFT x = 0 is its BACK edge = the free sheet edge at x = 0, where the seam closes the tube.
+  const columns: { id: DielineSegmentId; panel: PanelPosition; width: number }[] = [
+    { id: 'LEFT', panel: 'LEFT', width: D },
+    { id: 'FRONT', panel: 'FRONT', width: W },
+    { id: 'RIGHT', panel: 'RIGHT', width: D },
+    { id: 'BACK', panel: 'BACK', width: W },
   ];
   let cursor = 0;
-  const segments: DielineSegment[] = columns.map(({ id, panel, width, localX0 }) => {
+  const segments: DielineSegment[] = columns.map(({ id, panel, width }) => {
     const x0 = cursor;
     cursor += width;
     return {
@@ -78,13 +75,13 @@ export function buildDieline(
       panel,
       x0,
       x1: cursor,
-      localX0,
+      localX0: 0,
       wall: rect(x0, y0, cursor, yTop),
       allowance: rect(x0, 0, cursor, y0),
     };
   });
   const seg = (id: DielineSegmentId) => segments.find((segment) => segment.id === id)!;
-  const tubeEnd = cursor; // = 2W + 2D, glue flap hinge
+  const tubeEnd = cursor; // = 2W + 2D: glue flap hinge on BACK's outer edge (the BACK/LEFT tube edge)
   const glueFlap = rect(tubeEnd, 0, sheetWidth, sheetHeight);
 
   // ——— Cut: the sheet outline (no bottom-flap slits, §9.3) ———
@@ -96,13 +93,11 @@ export function buildDieline(
     if (Math.hypot(to.x - from.x, to.y - from.y) > 1e-9) creases.push({ id, code, from, to });
   };
   add('C1', 'C1', p(0, y0), p(sheetWidth, y0));
-  // Tube edges between columns (a zero-width BACK half would put two edges on top of each other — skip those).
-  const edgeXs = [...new Set(segments.slice(0, -1).map((segment) => segment.x1).filter((x) => x > 0 && x < tubeEnd))];
-  edgeXs.forEach((x, i) => add('C2', `C2-${i + 1}`, p(x, 0), p(x, yTop)));
+  // Tube edges LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK; the fourth one (BACK/LEFT) is the glue flap hinge C3.
+  segments.slice(0, -1).forEach((segment, i) => add('C2', `C2-${i + 1}`, p(segment.x1, 0), p(segment.x1, yTop)));
   add('C3', 'C3', p(tubeEnd, 0), p(tubeEnd, yTop));
 
-  const sides = [seg('LEFT'), seg('RIGHT')];
-  for (const side of sides) {
+  for (const side of [seg('LEFT'), seg('RIGHT')]) {
     const xc = side.x0 + D / 2;
     const tag = side.id;
     add('C4', `C4-${tag}`, p(xc, y0 + h), p(xc, yTop));
@@ -112,11 +107,15 @@ export function buildDieline(
     add('C7', `C7-${tag}-1`, p(side.x0, y0), p(xc, y0 - D / 2));
     add('C7', `C7-${tag}-2`, p(side.x1, y0), p(xc, y0 - D / 2));
   }
-  // C8 flat-fold crease y = D/2 on BACK and the back halves of the sides (LEFT: x ∈ [0, D/2] at BACK; RIGHT mirrored).
-  const leftCentre = seg('LEFT').x0 + D / 2;
-  const rightCentre = seg('RIGHT').x0 + D / 2;
-  add('C8', 'C8-1', p(0, y0 + h), p(leftCentre, y0 + h));
-  add('C8', 'C8-2', p(rightCentre, y0 + h), p(sheetWidth, y0 + h));
+  // The glue flap is glued to the inside of LEFT's strip x ∈ [0, s] and folds together with it, so LEFT's 45° rhombus
+  // creases continue across the flap (flap distance t from C3 = LEFT x = t).
+  const flapRun = Math.min(s, h, D / 2);
+  add('C6', 'C6-GLUE', p(tubeEnd, y0), p(tubeEnd + flapRun, y0 + flapRun));
+  add('C7', 'C7-GLUE', p(tubeEnd, y0), p(tubeEnd + flapRun, y0 - flapRun));
+  // C8 flat-fold crease y = D/2 on the whole BACK and on the halves of the sides adjacent to BACK: LEFT x ∈ [0, D/2]
+  // at the start of the sheet; RIGHT x ∈ [D/2, D], BACK and the glue flap (lying on LEFT's back half) at the end.
+  add('C8', 'C8-1', p(0, y0 + h), p(seg('LEFT').x0 + D / 2, y0 + h));
+  add('C8', 'C8-2', p(seg('RIGHT').x0 + D / 2, y0 + h), p(sheetWidth, y0 + h));
 
   // ——— Zones ———
   const zones: DielineZone[] = [];
@@ -124,9 +123,8 @@ export function buildDieline(
   zones.push({ id: 'bleed', kind: 'BLEED', rect: rect(-bleed, -bleed, tubeEnd, sheetHeight + bleed) });
   zones.push({ id: 'bottom-allowance', kind: 'BOTTOM_ALLOWANCE', rect: rect(0, 0, tubeEnd, y0) });
   zones.push({ id: 'glue-flap', kind: 'GLUE_FLAP', rect: glueFlap });
-  for (const id of ['FRONT', 'BACK_B', 'BACK_A'] as const) {
+  for (const id of ['FRONT', 'BACK'] as const) {
     const segment = seg(id);
-    if (segment.x1 - segment.x0 <= 0) continue;
     zones.push({
       id: `bottom-flap-glue-${id}`,
       kind: 'BOTTOM_FLAP_GLUE',
@@ -147,28 +145,21 @@ export function buildDieline(
     }
   }
 
-  // ——— Handle patches (inside FRONT and BACK, drawn dashed) ———
+  // ——— Handle patches (inside FRONT and BACK, centred, drawn dashed) ———
   const handlePatches: DielineHandlePatch[] = [];
   if (handle) {
     const patch = getHandlePatchSize(handle, W);
     const top = yTop - rules.handlePatch.topOffset;
     const bottom = top - patch.height;
-    const localFrom = W / 2 - patch.width / 2;
-    const localTo = W / 2 + patch.width / 2;
-    const front = seg('FRONT');
-    handlePatches.push({
-      id: 'patch-FRONT',
-      panel: 'FRONT',
-      segment: 'FRONT',
-      rect: rect(front.x0 + localFrom, bottom, front.x0 + localTo, top),
-    });
-    for (const id of ['BACK_B', 'BACK_A'] as const) {
+    for (const id of ['FRONT', 'BACK'] as const) {
       const segment = seg(id);
-      const from = Math.max(localFrom, segment.localX0);
-      const to = Math.min(localTo, segment.localX0 + (segment.x1 - segment.x0));
-      if (to - from <= 1e-9) continue;
-      const shift = segment.x0 - segment.localX0;
-      handlePatches.push({ id: `patch-${id}`, panel: 'BACK', segment: id, rect: rect(from + shift, bottom, to + shift, top) });
+      const cx = (segment.x0 + segment.x1) / 2;
+      handlePatches.push({
+        id: `patch-${id}`,
+        panel: id,
+        segment: id,
+        rect: rect(cx - patch.width / 2, bottom, cx + patch.width / 2, top),
+      });
     }
   }
 
@@ -189,10 +180,8 @@ export function buildDieline(
   const labelSize = clamp(Math.min(W, H) / 12, 6, 16);
   const labels: DielineLabel[] = [];
   for (const segment of segments) {
-    const width = segment.x1 - segment.x0;
-    if (width <= 0) continue;
     const cx = (segment.x0 + segment.x1) / 2;
-    const size = Math.min(labelSize, width / 5);
+    const size = Math.min(labelSize, (segment.x1 - segment.x0) / 5);
     labels.push({ id: `label-${segment.id}`, key: segment.panel, at: p(cx, y0 + H * 0.6), size });
     const flapKey = segment.panel === 'FRONT' ? 'frontFlap' : segment.panel === 'BACK' ? 'backFlap' : 'sideFlap';
     labels.push({ id: `label-flap-${segment.id}`, key: flapKey, at: p(cx, y0 - a * 0.25), size: Math.min(size, a / 5) * 0.75 });
@@ -203,7 +192,7 @@ export function buildDieline(
     dimensions: { ...dimensions },
     allowance: a,
     glueFlapWidth: s,
-    seamOffset: seam,
+    seamOffset: W,
     sheet: { width: sheetWidth, height: sheetHeight },
     bottomLineY: y0,
     segments,
@@ -229,7 +218,8 @@ export function panelToSheet(segment: DielineSegment, bottomLineY: number, point
 
 /**
  * Artwork clip area of a column in sheet mm: the wall and its bottom allowance, extended by the crease overprint
- * towards neighbouring panels and by the bleed beyond the cut (top, tube end, left sheet edge).
+ * towards neighbouring panels and by the bleed beyond the cut (top, tube end, left sheet edge = LEFT's free edge).
+ * BACK's right edge gets only the overprint: the glue flap beyond it stays unprinted (§9.4).
  */
 export function getArtworkClipRect(dieline: Dieline, segment: DielineSegment): Rect {
   const { bleed, creaseOverprint } = DIELINE_RULES;

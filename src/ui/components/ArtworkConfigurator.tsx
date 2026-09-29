@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { PANEL_POSITIONS } from '../../domain/factories';
+import { InkCoveragePanel } from './InkCoveragePanel';
 import { PanelArtworkUploader } from './PanelArtworkUploader';
 
 export function ArtworkConfigurator() {
@@ -13,6 +14,7 @@ export function ArtworkConfigurator() {
           <PanelArtworkUploader key={position} position={position} />
         ))}
       </div>
+      <InkCoveragePanel />
     </fieldset>
   );
 }

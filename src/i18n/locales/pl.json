@@ -142,23 +142,16 @@
       "EMPTY": "Wpisz kod koloru.",
       "TOO_LONG": "Kod jest za długi (maks. {{max}} znaków).",
       "DUPLICATE": "Ten kolor jest już na liście.",
-      "LIMIT_REACHED": "Osiągnięto limit {{max}} kolorów."
-    }
+      "LIMIT_REACHED": "Osiągnięto limit {{max}} kolorów.",
+      "INVALID_HEX": "Nieprawidłowy kolor (użyj formatu #rrggbb)."
+    },
+    "previewColor": "Kolor podglądu {{code}}",
+    "previewNote": "Kolor podglądu to przybliżenie Pantone na ekranie (RGB) — służy do podglądu i szacowania pokrycia farbą."
   },
   "packaging": {
     "label": "Pakowanie",
     "CARTON": "Karton",
     "FOIL": "Folia"
-  },
-  "quantity": {
-    "label": "Nakład",
-    "unit": "szt.",
-    "min": "Minimalny nakład: {{min}} szt.",
-    "errors": {
-      "NOT_A_NUMBER": "Podaj liczbę",
-      "NOT_INTEGER": "Nakład musi być liczbą całkowitą",
-      "BELOW_MIN": "Minimalny nakład: {{min}} szt."
-    }
   },
   "summary": {
     "label": "Podsumowanie",
@@ -175,7 +168,6 @@
     "printColors": "Kolory Pantone",
     "noPrint": "bez nadruku",
     "packaging": "Pakowanie",
-    "quantity": "Nakład",
     "json": "Konfiguracja (JSON)",
     "copy": "Kopiuj JSON",
     "download": "Pobierz JSON",

@@ -34,7 +34,6 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     panels,
     print: { technology: 'FLEXO', pantoneColors: [] },
     packaging: 'CARTON',
-    quantity: definition.minQuantity,
   };
 }
 

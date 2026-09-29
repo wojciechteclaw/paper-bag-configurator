@@ -18,7 +18,7 @@ describe('ProductionOptions', () => {
     const input = screen.getByLabelText('Kod Pantone');
     fireEvent.change(input, { target: { value: 'PMS 186 C' } });
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj' }));
-    expect(config().print.pantoneColors).toEqual(['PMS 186 C']);
+    expect(config().print.pantoneColors).toEqual([{ code: 'PMS 186 C', hex: '#c8102e' }]);
     expect(input).toHaveValue('');
 
     fireEvent.change(input, { target: { value: 'pms 186 c' } });
@@ -27,6 +27,15 @@ describe('ProductionOptions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usuń PMS 186 C' }));
     expect(config().print.pantoneColors).toEqual([]);
+  });
+
+  it('edits the preview colour of a Pantone entry', () => {
+    useConfigurationStore.getState().addPantoneColor('PMS 186 C');
+    render(<ProductionOptions />);
+    const picker = screen.getByLabelText('Kolor podglądu PMS 186 C');
+    expect(picker).toHaveValue('#c8102e');
+    fireEvent.change(picker, { target: { value: '#112233' } });
+    expect(config().print.pantoneColors[0].hex).toBe('#112233');
   });
 
   it('disables adding once the catalog maximum is reached', () => {
@@ -42,16 +51,9 @@ describe('ProductionOptions', () => {
     expect(config().packaging).toBe('FOIL');
   });
 
-  it('does not commit a quantity below the minimum and clamps it on blur', () => {
+  it('has no quantity input (removed from the configuration)', () => {
     render(<ProductionOptions />);
-    const input = screen.getByLabelText('Nakład', { selector: 'input' });
-    fireEvent.change(input, { target: { value: '500' } });
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(config().quantity).toBe(30_000);
-    fireEvent.blur(input);
-    expect(config().quantity).toBe(30_000);
-
-    fireEvent.change(input, { target: { value: '45000' } });
-    expect(config().quantity).toBe(45_000);
+    expect(screen.queryByText('Nakład')).not.toBeInTheDocument();
+    expect('quantity' in config()).toBe(false);
   });
 });

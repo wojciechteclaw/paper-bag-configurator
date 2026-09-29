@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type Componen
 import { BackSide, FrontSide, type InterleavedBufferAttribute } from 'three';
 import { FILL_PLACEMENT } from '../domain/artworkPlacement';
 import { getPanelSize } from '../domain/panels';
-import type { BagPanel, BagPanels, Dimensions, PaperColor } from '../domain/types';
+import type { BagPanel, BagPanels, Dimensions, Handle, PaperColor } from '../domain/types';
 import {
   BAG_PANEL_IDS,
   createPanelMesh,
@@ -17,13 +17,16 @@ import {
   type PanelMesh,
 } from './bagGeometry';
 import { PAPER_PALETTES, type PaperPalette } from './constants';
+import { getHandleWallPose, HANDLE_WALLS } from './handleGeometry';
+import { HandleModel, type HandleWallGroups } from './HandleModel';
 import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTransform } from './panelTexture';
 
 // Procedural block-bottom bag body. Face mapping (see bagGeometry.ts):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y; the top is open (no top face, no turn-in).
 // Each panel is its own mesh with its own outer material, so every PanelPosition maps to exactly one artwork
 // texture (UVs continuous across the fold regions of the panel). The bottom has no artwork (plain paper).
-// TODO(3d-renderer): HandleModel (TWISTED_PAPER / FLAT_PAPER + inner patches) attached to FRONT/BACK.
+// Handles (HandleModel) are two wall groups posed here together with the panels, so they follow the fold: FRONT, and
+// the rigid BACK_UPPER region above the pleat (handleGeometry.ts).
 
 /** Exponential damping rate of the fold animation (1/s). Higher = snappier. */
 const FOLD_DAMPING = 6;
@@ -36,6 +39,8 @@ type BagModelProps = {
   paperColor: PaperColor;
   /** Per-panel artwork and placement (from BagConfiguration). */
   panels: BagPanels;
+  /** Internal handle (FRONT + BACK) or null. */
+  handle: Handle | null;
   /** Target fold state 0..1 (view state); the model animates towards it. */
   foldProgress: number;
 };
@@ -97,7 +102,7 @@ function PanelView({ mesh, palette, dimensions, panel }: PanelViewProps) {
   );
 }
 
-export function BagModel({ dimensions, paperColor, panels, foldProgress }: BagModelProps) {
+export function BagModel({ dimensions, paperColor, panels, handle, foldProgress }: BagModelProps) {
   const { width, height, depth } = dimensions;
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
@@ -115,20 +120,30 @@ export function BagModel({ dimensions, paperColor, panels, foldProgress }: BagMo
   /** Currently displayed (animated) fold progress. Starts at the target: no animation on first mount. */
   const current = useRef(foldProgress);
 
+  const handleGroups = useRef<HandleWallGroups>({ FRONT: null, BACK: null });
+
   const pose = useCallback(
     (progress: number) => {
       const frame = getBagFrame(dims, progress);
       for (const mesh of meshes) updatePanelMesh(mesh, frame);
       writeLine(edgesRef.current, edgeSpecs, frame);
       writeLine(creasesRef.current, creaseSpecs, frame);
+      for (const wall of HANDLE_WALLS) {
+        const group = handleGroups.current[wall];
+        if (!group) continue;
+        const { z, rotationY, squash } = getHandleWallPose(frame, wall, group.userData.stackThickness ?? 0);
+        group.position.set(0, 0, z);
+        group.rotation.set(0, rotationY, 0);
+        group.scale.set(1, 1, squash);
+      }
     },
     [dims, meshes, edgeSpecs, creaseSpecs],
   );
 
-  // New geometry (dimension change) or new line buffers → pose them before the browser paints.
+  // New geometry (dimension change), new line buffers or (re)mounted handles → pose them before the browser paints.
   useLayoutEffect(() => {
     pose(current.current);
-  }, [pose, edgePoints, creasePoints]);
+  }, [pose, edgePoints, creasePoints, handle]);
 
   useFrame((_, delta) => {
     const target = Math.min(1, Math.max(0, Number.isFinite(foldProgress) ? foldProgress : 0));
@@ -151,6 +166,8 @@ export function BagModel({ dimensions, paperColor, panels, foldProgress }: BagMo
           panel={mesh.id === 'BOTTOM' ? null : panels[mesh.id]}
         />
       ))}
+
+      {handle && <HandleModel handle={handle} dimensions={dims} wallGroups={handleGroups} />}
 
       {/* Positions are rewritten in place every pose; bounding volumes are stale, so skip frustum culling. */}
       <Line ref={edgesRef} segments points={edgePoints} color={palette.edge} lineWidth={1} frustumCulled={false} />

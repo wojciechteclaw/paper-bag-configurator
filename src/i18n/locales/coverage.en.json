@@ -1,0 +1,17 @@
+{
+  "coverage": {
+    "title": "Ink coverage",
+    "computing": "updating…",
+    "empty": "Add artwork to estimate ink coverage.",
+    "total": "Total",
+    "ofSheet": "of the sheet (≈ {{ink}} of {{sheet}} cm²)",
+    "perColor": "Coverage per Pantone colour",
+    "unassigned": "no assigned colour",
+    "unavailable": "Could not read artwork for the estimate: {{panels}}.",
+    "estimateNote": "Estimated from the artwork pixels as placed, clipped to the walls (no bleed or bottom allowance), as % of the dieline sheet area. An approximation for quoting, not a production separation.",
+    "hints": {
+      "NO_PANTONE_COLORS": "Add Pantone colours in the \"Print & production\" step to see coverage per colour.",
+      "POOR_COLOR_MATCH": "Some artwork colours are far from every Pantone preview colour — check the colour list and previews in the \"Print & production\" step."
+    }
+  }
+}

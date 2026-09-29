@@ -2,13 +2,11 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import { useConfigurationStore } from '../../state/configurationStore';
-import { useFormatNumber } from '../useFormatNumber';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
 
 export function ConfigurationSummary() {
   const { t } = useTranslation();
-  const formatNumber = useFormatNumber();
   const jsonId = useId();
   const configuration = useConfigurationStore((s) => s.configuration);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>(null);
@@ -69,16 +67,12 @@ export function ConfigurationSummary() {
           <dt>{t('summary.printColors')}</dt>
           <dd>
             {t(`print.${print.technology}`)}:{' '}
-            {print.pantoneColors.length > 0 ? print.pantoneColors.join(', ') : t('summary.noPrint')}
+            {print.pantoneColors.length > 0 ? print.pantoneColors.map((color) => color.code).join(', ') : t('summary.noPrint')}
           </dd>
 
           <dt>{t('summary.packaging')}</dt>
           <dd>{t(`packaging.${configuration.packaging}`)}</dd>
 
-          <dt>{t('summary.quantity')}</dt>
-          <dd>
-            {formatNumber(configuration.quantity)} {t('quantity.unit')}
-          </dd>
         </dl>
       </fieldset>
 
