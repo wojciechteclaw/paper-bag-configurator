@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { BAG_TYPES } from '../domain/config/productCatalog';
-import { constrainDimension, constrainGrammage, constrainQuantity } from '../domain/constraints';
+import { constrainDimension, constrainDimensions, constrainGrammage, constrainQuantity } from '../domain/constraints';
 import { createConfiguration, createHandle } from '../domain/factories';
+import {
+  constrainPaperToVariant,
+  getHandleVariantDefinition,
+  getStandardSizeViolations,
+  getSupportedHandleTypes,
+  type PaperAdjustment,
+} from '../domain/handleVariants';
 import type {
   Artwork,
   BagConfiguration,
@@ -11,6 +18,7 @@ import type {
   PackagingType,
   PanelPosition,
   PaperColor,
+  PaperType,
 } from '../domain/types';
 import { normalizePantoneCode, validatePantoneColorToAdd, type PantoneError } from '../domain/validation/production';
 
@@ -21,10 +29,24 @@ type ConfigurationState = {
   setProductType: (type: BagType) => void;
   /** Clamps into the effective limits (depth ≤ width) and snaps to the 5 mm step. */
   setDimension: (key: keyof Dimensions, value: number) => void;
+  /**
+   * Applies a standard size of the current handle variant. Sizes outside the dimension limits are ignored
+   * (never silently clamped into a different size). Returns whether the size was applied.
+   */
+  applyStandardSize: (sizeId: string) => boolean;
+  /** Ignored when the type is not allowed for the current handle variant. */
+  setPaperType: (type: PaperType) => void;
   setPaperColor: (color: PaperColor) => void;
+  /** Clamped into the current handle variant's range and snapped to its step. */
   setGrammage: (grammage: number) => void;
   setFscCertified: (fscCertified: boolean) => void;
-  setHandle: (type: HandleType | null) => void;
+  /** Enabling is ignored when the current handle variant does not offer a moisture barrier. */
+  setMoistureBarrier: (moistureBarrier: boolean) => void;
+  /**
+   * Sets the handle variant and constrains the paper into the new variant's options.
+   * Returns what had to be adjusted (empty when nothing changed) so the UI can tell the user.
+   */
+  setHandle: (type: HandleType | null) => PaperAdjustment[];
   /** Replaces or removes panel artwork; the previous object URL is revoked. */
   setPanelArtwork: (position: PanelPosition, artwork: Artwork | null) => void;
   /** Returns the validation error, or null when the colour was added. */
@@ -44,6 +66,8 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
   const update = (patch: (configuration: BagConfiguration) => Partial<BagConfiguration>) =>
     set(({ configuration }) => ({ configuration: { ...configuration, ...patch(configuration) } }));
   const definitionOf = (configuration: BagConfiguration) => BAG_TYPES[configuration.productType];
+  const variantOf = (configuration: BagConfiguration) =>
+    getHandleVariantDefinition(definitionOf(configuration), configuration.handle);
 
   return {
     configuration: createConfiguration('BLOCK'),
@@ -60,22 +84,45 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
         dimensions: { ...dimensions, [key]: constrainDimension(key, value, dimensions, BAG_TYPES[productType].limits) },
       })),
 
+    applyStandardSize: (sizeId) => {
+      const { configuration } = get();
+      const { limits } = definitionOf(configuration);
+      const standardSize = variantOf(configuration).standardSizes.find((s) => s.id === sizeId);
+      if (!standardSize || getStandardSizeViolations(standardSize, limits).length > 0) return false;
+      update((c) => ({ dimensions: constrainDimensions(standardSize.dimensions, c.dimensions, limits) }));
+      return true;
+    },
+
+    setPaperType: (type) =>
+      update((c) => (variantOf(c).paperTypes.includes(type) ? { paper: { ...c.paper, type } } : {})),
+
     setPaperColor: (color) =>
       update((c) => (definitionOf(c).paperColors.includes(color) ? { paper: { ...c.paper, color } } : {})),
 
     setGrammage: (grammage) =>
       update((c) => ({
-        paper: { ...c.paper, grammage: constrainGrammage(grammage, definitionOf(c).grammage, c.paper.grammage) },
+        paper: { ...c.paper, grammage: constrainGrammage(grammage, variantOf(c).grammage, c.paper.grammage) },
       })),
 
     setFscCertified: (fscCertified) => update((c) => ({ paper: { ...c.paper, fscCertified } })),
 
-    setHandle: (type) =>
-      update((c) => {
-        if (type === null) return { handle: null };
-        if (!definitionOf(c).supportedHandles.includes(type) || c.handle?.type === type) return {};
-        return { handle: createHandle(type) };
-      }),
+    setMoistureBarrier: (moistureBarrier) =>
+      update((c) =>
+        moistureBarrier && !variantOf(c).moistureBarrierAvailable ? {} : { paper: { ...c.paper, moistureBarrier } },
+      ),
+
+    setHandle: (type) => {
+      const { configuration } = get();
+      if ((configuration.handle?.type ?? null) === type) return [];
+      if (type !== null && !getSupportedHandleTypes(definitionOf(configuration)).includes(type)) return [];
+      const handle = type === null ? null : createHandle(type);
+      const { paper, adjustments } = constrainPaperToVariant(
+        configuration.paper,
+        getHandleVariantDefinition(definitionOf(configuration), handle),
+      );
+      update(() => ({ handle, paper }));
+      return adjustments;
+    },
 
     setPanelArtwork: (position, artwork) => {
       const previous = get().configuration.panels[position].artwork;

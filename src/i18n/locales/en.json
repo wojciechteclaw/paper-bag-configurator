@@ -1,4 +1,7 @@
 {
+  "common": {
+    "moreInfo": "More info: {{field}}"
+  },
   "app": {
     "title": "Bag configurator",
     "configuration": "Configuration",
@@ -39,6 +42,23 @@
       "ABOVE_MAX": "Maximum: {{max}} mm",
       "DEPTH_EXCEEDS_WIDTH": "Depth cannot exceed width",
       "NOT_ON_STEP": "Value must be a multiple of {{step}} mm"
+    },
+    "standardSize": {
+      "label": "Standard size",
+      "custom": "Custom",
+      "option": "{{width}} × {{depth}} × {{height}} mm",
+      "withClass": "{{size}} ({{sizeClass}})",
+      "class": {
+        "S": "small",
+        "M": "medium",
+        "L": "large",
+        "XL": "XL"
+      },
+      "unavailable": "{{size}} — out of range",
+      "info": "Catalogue sizes for the selected handle (W × D × H). Changing any dimension makes it a custom size.",
+      "unavailableInfo": "Greyed-out sizes exceed the current configurator limits:",
+      "violation": "{{size}}: {{dimension}} {{value}} mm outside {{min}}–{{max}} mm",
+      "none": "There are no standard sizes for the selected handle — enter custom dimensions."
     }
   },
   "handle": {
@@ -47,7 +67,19 @@
     "type": "Handle type",
     "TWISTED_PAPER": "Internal, twisted paper",
     "FLAT_PAPER": "Internal, flat paper",
-    "placementNote": "Handles are glued to the inside of the front and back walls."
+    "placementNote": "Handles are glued to the inside of the front and back walls.",
+    "description": {
+      "NONE": "Classic block-bottom bag without a handle — the widest choice of papers and an optional moisture barrier.",
+      "FLAT_PAPER": "Flat handle of strong, multi-folded kraft paper, glued inside and reinforced with a paper patch.",
+      "TWISTED_PAPER": "Twisted handle of strong kraft paper, glued inside and reinforced with a paper patch."
+    },
+    "capacity": "Capacity {{min}}–{{max}} l.",
+    "adjusted": {
+      "intro": "The paper was adjusted to the selected handle:",
+      "type": "paper type: {{from}} → {{to}} (the previous one is not available with this handle)",
+      "grammage": "grammage: {{from}} → {{to}} g/m² (available range {{min}}–{{max}} g/m²)",
+      "moistureBarrier": "moisture barrier switched off (not available with this handle)"
+    }
   },
   "artwork": {
     "label": "Artwork",
@@ -82,7 +114,17 @@
     "BROWN": "Brown",
     "grammage": "Grammage",
     "grammageUnit": "g/m²",
-    "fsc": "FSC® certified"
+    "fsc": "FSC® certified",
+    "type": "Paper type",
+    "types": {
+      "KRAFT": "Kraft",
+      "RECYCLED": "Recycled",
+      "COATED": "Coated",
+      "FILM_COATED": "Film-coated",
+      "GREASEPROOF": "Greaseproof"
+    },
+    "grammageRange": "Range for the selected handle: {{min}}–{{max}} g/m², in steps of {{step}} g/m²",
+    "moistureBarrier": "Moisture barrier"
   },
   "print": {
     "label": "Print",
@@ -138,6 +180,10 @@
     "copy": "Copy JSON",
     "download": "Download JSON",
     "copied": "Copied to clipboard.",
-    "copyFailed": "Could not copy — select the text manually."
+    "copyFailed": "Could not copy — select the text manually.",
+    "moistureBarrier": "moisture barrier"
+  },
+  "preview": {
+    "fold": "Fold"
   }
 }

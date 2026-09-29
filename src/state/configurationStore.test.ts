@@ -59,23 +59,108 @@ describe('setDimension', () => {
   });
 });
 
+describe('applyStandardSize', () => {
+  it('applies a standard size of the current handle variant regardless of update order', () => {
+    // Default 200 × 150 depth: a naive width-first update to 80 would be clamped by the depth lock.
+    expect(store().applyStandardSize('80x45x220')).toBe(true);
+    expect(config().dimensions).toEqual({ width: 80, depth: 45, height: 220 });
+    expect(validateDimensions(config().dimensions, BAG_TYPES.BLOCK.limits)).toEqual({});
+  });
+
+  it('ignores sizes outside the dimension limits and unknown ids', () => {
+    expect(store().applyStandardSize('320x220x400')).toBe(false);
+    expect(store().applyStandardSize('nope')).toBe(false);
+    expect(config().dimensions).toEqual(BAG_TYPES.BLOCK.defaultDimensions);
+  });
+
+  it('only offers sizes of the current handle variant', () => {
+    expect(store().applyStandardSize('180x85x230')).toBe(false);
+    store().setHandle('FLAT_PAPER');
+    expect(store().applyStandardSize('180x85x230')).toBe(true);
+    expect(config().dimensions).toEqual({ width: 180, depth: 85, height: 230 });
+  });
+});
+
 describe('paper', () => {
-  it('sets colour, grammage and FSC', () => {
+  it('defaults to brown kraft without extras', () => {
+    expect(config().paper).toEqual({
+      type: 'KRAFT',
+      color: 'BROWN',
+      grammage: 80,
+      fscCertified: false,
+      moistureBarrier: false,
+    });
+  });
+
+  it('sets type, colour, grammage, FSC and moisture barrier', () => {
+    store().setPaperType('GREASEPROOF');
     store().setPaperColor('WHITE');
     store().setGrammage(60);
     store().setFscCertified(true);
-    expect(config().paper).toEqual({ color: 'WHITE', grammage: 60, fscCertified: true });
+    store().setMoistureBarrier(true);
+    expect(config().paper).toEqual({
+      type: 'GREASEPROOF',
+      color: 'WHITE',
+      grammage: 60,
+      fscCertified: true,
+      moistureBarrier: true,
+    });
   });
 
-  it('constrains grammage to the catalog range and step', () => {
+  it('constrains grammage to the current handle variant range and step', () => {
     store().setGrammage(200);
-    expect(config().paper.grammage).toBe(100);
+    expect(config().paper.grammage).toBe(120);
+    store().setGrammage(10);
+    expect(config().paper.grammage).toBe(50);
     store().setGrammage(63);
     expect(config().paper.grammage).toBe(60);
+    store().setHandle('FLAT_PAPER');
+    store().setGrammage(200);
+    expect(config().paper.grammage).toBe(110);
+  });
+
+  it('ignores paper types and moisture barrier not offered for the handle variant', () => {
+    store().setHandle('TWISTED_PAPER');
+    store().setPaperType('COATED');
+    store().setMoistureBarrier(true);
+    expect(config().paper.type).toBe('KRAFT');
+    expect(config().paper.moistureBarrier).toBe(false);
+    store().setPaperType('RECYCLED');
+    expect(config().paper.type).toBe('RECYCLED');
   });
 });
 
 describe('setHandle', () => {
+  it('constrains the paper into the new variant and reports the adjustments', () => {
+    store().setPaperType('COATED');
+    store().setGrammage(50);
+    store().setMoistureBarrier(true);
+    store().setFscCertified(true);
+    const adjustments = store().setHandle('FLAT_PAPER');
+    expect(adjustments).toEqual([
+      { field: 'type', from: 'COATED', to: 'KRAFT' },
+      { field: 'grammage', from: 50, to: 70 },
+      { field: 'moistureBarrier', from: true, to: false },
+    ]);
+    expect(config().paper).toEqual({
+      type: 'KRAFT',
+      color: 'BROWN',
+      grammage: 70,
+      fscCertified: true,
+      moistureBarrier: false,
+    });
+  });
+
+  it('reports nothing when the paper already fits', () => {
+    expect(store().setHandle('TWISTED_PAPER')).toEqual([]);
+    expect(store().setHandle(null)).toEqual([]);
+  });
+
+  it('creates a kraft handle with a patch from the catalog defaults', () => {
+    store().setHandle('TWISTED_PAPER');
+    expect(config().handle).toMatchObject({ type: 'TWISTED_PAPER', material: 'KRAFT', patch: { width: 80, height: 50 } });
+  });
+
   it('adds, keeps and removes a handle', () => {
     store().setHandle('FLAT_PAPER');
     const handle = config().handle;

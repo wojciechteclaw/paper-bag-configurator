@@ -47,8 +47,9 @@ export function ConfigurationSummary() {
 
           <dt>{t('summary.paper')}</dt>
           <dd>
-            {t(`paper.${paper.color}`)}, {paper.grammage} {t('paper.grammageUnit')}, {t('summary.fsc')}:{' '}
-            {t(paper.fscCertified ? 'summary.yes' : 'summary.no')}
+            {t(`paper.types.${paper.type}`)}, {t(`paper.${paper.color}`)}, {paper.grammage} {t('paper.grammageUnit')},{' '}
+            {t('summary.fsc')}: {t(paper.fscCertified ? 'summary.yes' : 'summary.no')}, {t('summary.moistureBarrier')}:{' '}
+            {t(paper.moistureBarrier ? 'summary.yes' : 'summary.no')}
           </dd>
 
           <dt>{t('summary.handle')}</dt>

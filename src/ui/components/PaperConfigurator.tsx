@@ -1,18 +1,26 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BAG_TYPES } from '../../domain/config/productCatalog';
+import { getHandleVariantDefinition } from '../../domain/handleVariants';
 import { useConfigurationStore } from '../../state/configurationStore';
+import { InfoTip } from './InfoTip';
 
+/** Paper options; types, grammage range and moisture barrier come from the current handle variant. */
 export function PaperConfigurator() {
   const { t } = useTranslation();
-  const grammageId = useId();
+  const idPrefix = useId();
+  const grammageId = `${idPrefix}-grammage`;
   const productType = useConfigurationStore((s) => s.configuration.productType);
+  const handle = useConfigurationStore((s) => s.configuration.handle);
   const paper = useConfigurationStore((s) => s.configuration.paper);
+  const setPaperType = useConfigurationStore((s) => s.setPaperType);
   const setPaperColor = useConfigurationStore((s) => s.setPaperColor);
   const setGrammage = useConfigurationStore((s) => s.setGrammage);
   const setFscCertified = useConfigurationStore((s) => s.setFscCertified);
+  const setMoistureBarrier = useConfigurationStore((s) => s.setMoistureBarrier);
 
-  const { paperColors, grammage } = BAG_TYPES[productType];
+  const definition = BAG_TYPES[productType];
+  const { paperTypes, grammage, moistureBarrierAvailable } = getHandleVariantDefinition(definition, handle);
   const grammages: number[] = [];
   for (let g = grammage.min; g <= grammage.max; g += grammage.step) grammages.push(g);
 
@@ -20,12 +28,33 @@ export function PaperConfigurator() {
     <fieldset>
       <legend>{t('paper.label')}</legend>
 
-      <div role="radiogroup" aria-label={t('paper.color')} className="choice-group choice-group--inline">
-        {paperColors.map((color) => (
+      <h3 id={`${idPrefix}-type`} className="subheading">
+        {t('paper.type')}
+      </h3>
+      <div role="radiogroup" aria-labelledby={`${idPrefix}-type`} className="choice-group choice-group--inline">
+        {paperTypes.map((type) => (
+          <label key={type} className="choice">
+            <input
+              type="radio"
+              name={`${idPrefix}-paperType`}
+              value={type}
+              checked={paper.type === type}
+              onChange={() => setPaperType(type)}
+            />
+            <span>{t(`paper.types.${type}`)}</span>
+          </label>
+        ))}
+      </div>
+
+      <h3 id={`${idPrefix}-color`} className="subheading">
+        {t('paper.color')}
+      </h3>
+      <div role="radiogroup" aria-labelledby={`${idPrefix}-color`} className="choice-group choice-group--inline">
+        {definition.paperColors.map((color) => (
           <label key={color} className="choice">
             <input
               type="radio"
-              name="paperColor"
+              name={`${idPrefix}-paperColor`}
               value={color}
               checked={paper.color === color}
               onChange={() => setPaperColor(color)}
@@ -38,19 +67,38 @@ export function PaperConfigurator() {
 
       <div className="field">
         <label htmlFor={grammageId}>{t('paper.grammage')}</label>
-        <select id={grammageId} value={paper.grammage} onChange={(e) => setGrammage(Number(e.target.value))}>
+        <select
+          id={grammageId}
+          value={paper.grammage}
+          aria-describedby={`${grammageId}-hint`}
+          onChange={(e) => setGrammage(Number(e.target.value))}
+        >
           {grammages.map((g) => (
             <option key={g} value={g}>
               {g} {t('paper.grammageUnit')}
             </option>
           ))}
         </select>
+        <InfoTip id={`${grammageId}-hint`} label={t('common.moreInfo', { field: t('paper.grammage') })}>
+          {t('paper.grammageRange', { min: grammage.min, max: grammage.max, step: grammage.step })}
+        </InfoTip>
       </div>
 
       <label className="choice">
         <input type="checkbox" checked={paper.fscCertified} onChange={(e) => setFscCertified(e.target.checked)} />
         <span>{t('paper.fsc')}</span>
       </label>
+
+      {moistureBarrierAvailable && (
+        <label className="choice">
+          <input
+            type="checkbox"
+            checked={paper.moistureBarrier}
+            onChange={(e) => setMoistureBarrier(e.target.checked)}
+          />
+          <span>{t('paper.moistureBarrier')}</span>
+        </label>
+      )}
     </fieldset>
   );
 }

@@ -13,6 +13,16 @@ export type Dimensions = {
 export type HandleType = 'TWISTED_PAPER' | 'FLAT_PAPER';
 
 /**
+ * Handle variant of the bag as a product choice: no handle or one of the handle types.
+ * Available paper types, grammage range and standard sizes depend on it (`handleVariants` in the catalog).
+ * Derived from `BagConfiguration.handle` (`null` → `'NONE'`), never stored separately.
+ */
+export type HandleVariant = 'NONE' | HandleType;
+
+/** Material of the handle itself. Both MVP handle types are made of strong kraft paper. */
+export type HandleMaterial = 'KRAFT';
+
+/**
  * Flat paper strip glued to the inside of the bag wall that anchors the handle.
  * Both handle types in MVP are attached this way.
  */
@@ -28,6 +38,7 @@ export type HandlePatch = {
 export type Handle = {
   id: string;
   type: HandleType;
+  material: HandleMaterial;
   color?: string;
   /** Rope diameter (twisted) or strip width (flat), mm. */
   width?: number;
@@ -69,11 +80,24 @@ export type BagPanels = Record<PanelPosition, BagPanel>;
 
 export type PaperColor = 'WHITE' | 'BROWN';
 
+/**
+ * Paper type (independent of colour), after the reference offer:
+ * - `KRAFT` — kraft paper (papier kraft; for handle bags: strong / single-ply kraft),
+ * - `RECYCLED` — recycled paper (papier z recyklingu),
+ * - `COATED` — coated paper (papier kredowany),
+ * - `FILM_COATED` — film-laminated paper (papier powlekany folią),
+ * - `GREASEPROOF` — greaseproof paper (papier tłuszczoszczelny).
+ */
+export type PaperType = 'KRAFT' | 'RECYCLED' | 'COATED' | 'FILM_COATED' | 'GREASEPROOF';
+
 export type Paper = {
+  type: PaperType;
   color: PaperColor;
   /** g/m² */
   grammage: number;
   fscCertified: boolean;
+  /** Moisture barrier. Only `true` when the handle variant allows it (catalog `moistureBarrierAvailable`). */
+  moistureBarrier: boolean;
 };
 
 export type PrintTechnology = 'FLEXO';

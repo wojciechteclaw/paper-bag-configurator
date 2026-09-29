@@ -1,4 +1,7 @@
 {
+  "common": {
+    "moreInfo": "Informacje: {{field}}"
+  },
   "app": {
     "title": "Konfigurator toreb",
     "configuration": "Konfiguracja",
@@ -39,6 +42,23 @@
       "ABOVE_MAX": "Maksimum: {{max}} mm",
       "DEPTH_EXCEEDS_WIDTH": "Głębokość nie może być większa od szerokości",
       "NOT_ON_STEP": "Wymiar musi być wielokrotnością {{step}} mm"
+    },
+    "standardSize": {
+      "label": "Rozmiar standardowy",
+      "custom": "Własny",
+      "option": "{{width}} × {{depth}} × {{height}} mm",
+      "withClass": "{{size}} ({{sizeClass}})",
+      "class": {
+        "S": "mały",
+        "M": "średni",
+        "L": "duży",
+        "XL": "XL"
+      },
+      "unavailable": "{{size}} — poza zakresem",
+      "info": "Rozmiary z oferty dla wybranego uchwytu (szer. × gł. × wys.). Zmiana dowolnego wymiaru daje rozmiar własny.",
+      "unavailableInfo": "Wyszarzone rozmiary przekraczają obecne limity konfiguratora:",
+      "violation": "{{size}}: {{dimension}} {{value}} mm poza zakresem {{min}}–{{max}} mm",
+      "none": "Dla wybranego uchwytu nie ma rozmiarów standardowych — podaj wymiary własne."
     }
   },
   "handle": {
@@ -47,7 +67,19 @@
     "type": "Rodzaj uchwytu",
     "TWISTED_PAPER": "Wewnętrzny, papier skręcany",
     "FLAT_PAPER": "Wewnętrzny, papier płaski",
-    "placementNote": "Uchwyty są przyklejane od wewnątrz do ścianki przedniej i tylnej."
+    "placementNote": "Uchwyty są przyklejane od wewnątrz do ścianki przedniej i tylnej.",
+    "description": {
+      "NONE": "Klasyczna torba klockowa bez uchwytu — najszerszy wybór papierów i opcjonalna bariera na wilgoć.",
+      "FLAT_PAPER": "Płaski uchwyt z mocnego, wielokrotnie składanego papieru kraft, wklejony od wewnątrz i wzmocniony papierową łatką.",
+      "TWISTED_PAPER": "Skręcany uchwyt z mocnego papieru kraft, wklejony od wewnątrz i wzmocniony papierową łatką."
+    },
+    "capacity": "Pojemność {{min}}–{{max}} l.",
+    "adjusted": {
+      "intro": "Dostosowano papier do wybranego uchwytu:",
+      "type": "rodzaj papieru: {{from}} → {{to}} (poprzedni nie jest dostępny z tym uchwytem)",
+      "grammage": "gramatura: {{from}} → {{to}} g/m² (dostępny zakres {{min}}–{{max}} g/m²)",
+      "moistureBarrier": "wyłączono barierę na wilgoć (niedostępna z tym uchwytem)"
+    }
   },
   "artwork": {
     "label": "Grafiki",
@@ -82,7 +114,17 @@
     "BROWN": "Brązowy",
     "grammage": "Gramatura",
     "grammageUnit": "g/m²",
-    "fsc": "Certyfikat FSC®"
+    "fsc": "Certyfikat FSC®",
+    "type": "Rodzaj papieru",
+    "types": {
+      "KRAFT": "Kraft",
+      "RECYCLED": "Z recyklingu",
+      "COATED": "Kredowany",
+      "FILM_COATED": "Powlekany folią",
+      "GREASEPROOF": "Tłuszczoszczelny"
+    },
+    "grammageRange": "Zakres dla wybranego uchwytu: {{min}}–{{max}} g/m², co {{step}} g/m²",
+    "moistureBarrier": "Bariera na wilgoć"
   },
   "print": {
     "label": "Nadruk",
@@ -138,6 +180,10 @@
     "copy": "Kopiuj JSON",
     "download": "Pobierz JSON",
     "copied": "Skopiowano do schowka.",
-    "copyFailed": "Nie udało się skopiować — zaznacz tekst ręcznie."
+    "copyFailed": "Nie udało się skopiować — zaznacz tekst ręcznie.",
+    "moistureBarrier": "bariera na wilgoć"
+  },
+  "preview": {
+    "fold": "Złożenie"
   }
 }

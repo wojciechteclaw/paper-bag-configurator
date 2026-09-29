@@ -18,8 +18,8 @@ const STEP_CONTENT: Record<ConfiguratorStep, () => ReactNode> = {
   ),
   paperAndHandle: () => (
     <>
-      <PaperConfigurator />
       <HandleConfigurator />
+      <PaperConfigurator />
     </>
   ),
   artwork: () => <ArtworkConfigurator />,

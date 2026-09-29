@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BAG_TYPES } from './config/productCatalog';
-import { clampToStep, constrainDimension, constrainGrammage, constrainQuantity, getEffectiveLimits } from './constraints';
+import { clampToStep, constrainDimension, constrainDimensions, constrainGrammage, constrainQuantity, getEffectiveLimits } from './constraints';
 
 const limits = BAG_TYPES.BLOCK.limits;
 
@@ -89,8 +89,41 @@ describe('constrainDimension', () => {
   });
 });
 
+describe('constrainDimensions', () => {
+  const dims = { width: 200, height: 400, depth: 150 };
+
+  it('applies a whole set independent of the current depth lock', () => {
+    expect(constrainDimensions({ width: 80, height: 220, depth: 45 }, dims, limits)).toEqual({
+      width: 80,
+      height: 220,
+      depth: 45,
+    });
+  });
+
+  it('clamps into the catalog ranges and caps depth at the new width', () => {
+    expect(constrainDimensions({ width: 999, height: 1000, depth: 998 }, dims, limits)).toEqual({
+      width: 260,
+      height: 430,
+      depth: 260,
+    });
+    expect(constrainDimensions({ width: 100, height: 302, depth: 150 }, dims, limits)).toEqual({
+      width: 100,
+      height: 300,
+      depth: 100,
+    });
+  });
+
+  it('keeps current values for non-finite input', () => {
+    expect(constrainDimensions({ width: Number.NaN, height: 300, depth: Number.NaN }, dims, limits)).toEqual({
+      width: 200,
+      height: 300,
+      depth: 150,
+    });
+  });
+});
+
 describe('constrainGrammage', () => {
-  const grammage = BAG_TYPES.BLOCK.grammage;
+  const grammage = { min: 40, max: 100, step: 10 };
   it.each([
     [70, 70],
     [74, 70],

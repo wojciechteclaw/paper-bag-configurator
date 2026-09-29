@@ -17,14 +17,33 @@ Konfiguracja jest docelowo wejściem do wyceny, ale **cena nie jest implementowa
 | Szerokość | 75–260 mm, domyślnie 200 | Promar / wywiad |
 | Wysokość | 170–430 mm, domyślnie 400 | Promar / wywiad |
 | Głębokość | 40–300 mm (**do potwierdzenia**), domyślnie 150 | wywiad |
-| Kolor papieru | biały / brązowy | Promar |
-| Gramatura | 40–100 g/m² | Promar |
-| FSC® | opcjonalnie | Promar |
-| Uchwyt | brak / wewnętrzny papier płaski (`FLAT_PAPER`) / wewnętrzny papier skręcany (`TWISTED_PAPER`) | Promar / wywiad |
-| Mocowanie uchwytu | oba typy przyklejane od wewnątrz płaską papierową łatką (`HandlePatch`) | wywiad |
+| Wariant uchwytu | brak (`NONE`) / wewnętrzny papier płaski (`FLAT_PAPER`) / wewnętrzny papier skręcany (`TWISTED_PAPER`) — pierwszy wybór w kroku 2; od niego zależą rodzaje papieru, gramatura, bariera i rozmiary standardowe | Promar [1–3] / wywiad |
+| Kolor papieru | biały / brązowy (`WHITE` / `BROWN`) — niezależny od rodzaju papieru i uchwytu | Promar [0] |
+| Rodzaj papieru — bez uchwytu | kraft (`KRAFT`), z recyklingu (`RECYCLED`), kredowany (`COATED`), powlekany folią (`FILM_COATED`), tłuszczoszczelny (`GREASEPROOF`) | Promar [1] |
+| Rodzaj papieru — z uchwytem | płaski: mocny kraft lub z recyklingu; skręcany: jednowarstwowy kraft lub z recyklingu (`KRAFT` / `RECYCLED`) | Promar [2, 3] |
+| Gramatura | bez uchwytu 50–120 g/m²; płaski 70–110 g/m²; skręcany 70–120 g/m²; krok 10 g/m² (założenie), domyślnie 80 | Promar [1–3] |
+| Bariera na wilgoć | opcjonalnie, **tylko bez uchwytu** (`paper.moistureBarrier`) | Promar [1] |
+| FSC® | opcjonalnie | Promar [0] |
+| Rozmiary standardowe (szer. × gł. × wys.) — bez uchwytu | S: 80×45×220, 110×60×270; M: 120×70×200, 160×90×230; L: 180×110×260, 220×110×300; XL: 250×140×400, 320×220×400 (tylko opublikowane krańce klas) | Promar [1] |
+| Rozmiary standardowe — uchwyt płaski | 180×85×230, 250×110×280, 200×140×400, 280×170×280, 320×110×400, 350×170×400, 450×170×470; pojemność 3–40 l | Promar [2] |
+| Rozmiary standardowe — uchwyt skręcany | brak tabeli; pojemność 3–30 l | Promar [3] |
+| Uchwyt (encja `Handle`) | materiał: mocny papier kraft (`material: 'KRAFT'`); płaski — wielokrotnie składany; domyślne wymiary per typ w `HANDLE_DEFAULTS` | Promar [2, 3] |
+| Mocowanie uchwytu | oba typy przyklejane od wewnątrz płaską papierową łatką (`HandlePatch`) | Promar [2, 3] / wywiad |
 | Nadruk | fleksografia, do 8 kolorów Pantone | Promar |
 | Nakład | min. 30 000 szt. | Promar |
 | Pakowanie | karton / folia | Promar |
+
+Źródła: [0] <https://www.promarjarocin.pl/torby-klockowe/>,
+[1] <https://www.promarjarocin.pl/torby-klockowe/bez-uchwytu/>,
+[2] <https://www.promarjarocin.pl/torby-klockowe-z-uchwytem-wewnetrznym/>,
+[3] <https://www.promarjarocin.pl/torby-klockowe/z-uchwytem-wewnetrznym-skrecanym/> (zweryfikowane 09.2026).
+
+Reguły wariantu uchwytu i papieru:
+
+- Zmiana wariantu uchwytu dopasowuje papier do nowego zestawu (`constrainPaperToVariant`): niedostępny rodzaj →
+  domyślny wariantu (kraft), gramatura przycinana do zakresu, bariera na wilgoć wyłączana. UI informuje, co zmieniono.
+- Rozmiar standardowy ustawia W/D/H przez ograniczenia store (`applyStandardSize`); rozmiary spoza limitów
+  wymiarów są widoczne, ale nieaktywne (z wyjaśnieniem). Wymiary niepasujące do żadnego rozmiaru = „własny”.
 
 Reguły wymiarów i kształtu:
 
@@ -33,6 +52,7 @@ Reguły wymiarów i kształtu:
 - Uchwyty montowane **wyłącznie na ściankach przedniej i tylnej** (na szerokości).
 - **Góra torby jest otwarta** (pusta) — w 3D i na ikonach. Na razie bez zawinięcia górnej krawędzi.
 - **Blokada**: nie da się ustawić szerokości mniejszej niż głębokość (ani głębokości większej niż szerokość) — efektywne min/max pól zależą od drugiego wymiaru, store nigdy nie przechowuje takiej kombinacji.
+- **Zapas na dno** (reguła od klienta): każda ścianka rękawa (przód, tył, oba boki) jest przedłużona poniżej linii dna o `(30 mm + głębokość) / 2`. Długość odcinka rękawa = `wysokość + (głębokość + 30) / 2` (np. D = 150 → zapas 90 mm).
 - Dno tworzy zawinięcia (klapy dna) — szczegóły konstrukcyjne w `docs/PRODUCTION.md`.
 - Przy polach wymiarów ikony pokazujące kierunek wymiaru (szerokość / wysokość / głębokość) na szkicu torby z otwartą górą.
 
@@ -92,6 +112,33 @@ Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `de
 - Stan złożenia to **stan widoku**, a nie konfiguracji produktu — nie trafia do `BagConfiguration`
   (osobny `previewStore`). Geometria bigów to natomiast wiedza produktowa (przyszłe wykrojniki) —
   liczona w `src/domain` jako czysta geometria 2D.
+
+> **Korekta (wg `docs/PRODUCTION.md` §10):** w stanie złożonym dno obraca się na przedniej krawędzi dna i kładzie na **zewnętrznej stronie tylnej ścianki**; tylna ściana łamie się w „Z” na bigu `y = D/2`, więc górne krawędzie pozostają równo. Na tylnej połowie boku jest dodatkowy poziomy big od krawędzi do wierzchołka. Model kinematyczny i wzory — `docs/PRODUCTION.md` §10.5; ma pierwszeństwo przed opisem powyżej.
+
+### 4c. Tryby podglądu (wywiad 29.09.2026)
+
+Przełącznik trybów w panelu podglądu:
+
+1. **Wykrój 2D** — płaski arkusz z grafikami (podgląd + edycja: przesuwanie/skalowanie grafiki na ściance).
+2. **3D pełne** — prostopadłościan (foldProgress = 0).
+3. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki).
+4. **3D złożona na płasko** — foldProgress = 1.
+
+Przełączenie trybu 3D animuje przejście. **Suwak złożenia zostaje jako dodatek** (tylko w trybach 3D): płynny podgląd całego składania; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane na razie **per ścianka**.
+
+### 4b. Wykrój (dieline) — wywiad 29.09.2026
+
+Płaski rozkład arkusza jednej torby generowany z konfiguracji.
+
+- **Wyjścia:** podgląd 2D w UI (obok / zamiennie z 3D), eksport **SVG** (warstwy: cięcie, bigowanie, grafika, oznaczenia), eksport **PDF** (skala 1:1, mm).
+- **Geometria:**
+  - ścianki w rzędzie rękawa (kolejność i położenie szwu wg `docs/PRODUCTION.md`) + **zakładka klejowa wzdłużna** — szerokość jako parametr katalogu, wartość zaproponuje agent produkcyjny (do potwierdzenia),
+  - wysokość arkusza = `H + (D + 30) / 2` (zapas na dno pod każdą ścianką),
+  - linie bigowania: krawędzie ścianek, linia dna, bigi fałd bocznych (środek + 45°), bigi klap dna wg `docs/PRODUCTION.md`,
+  - linie cięcia: obrys arkusza (+ ewentualne nacięcia klap dna).
+- **Grafiki:** wgrane grafiki nałożone na swoje ścianki (ten sam tryb `ArtworkPlacement` co w 3D), przełącznik pokaż/ukryj; widać, co wchodzi w dno i zakładkę.
+- **Oznaczenia:** linie wymiarowe (W, D, H, zapas na dno, zakładka), spad i strefa bezpieczna, nazwy ścianek, obrys łatek uchwytów na przodzie i tyle.
+- **Architektura:** geometria wykroju to czysta funkcja domenowa (`src/domain/dieline`), jedno źródło prawdy dla podglądu, SVG i PDF; widok 2D i eksporty są osobnymi adapterami.
 
 ## 5. Architektura
 
@@ -153,6 +200,18 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 
 ## 8. Otwarte pytania
 
+- **Limity szerokości / wysokości — konflikt źródeł:** strona główna [0] podaje szerokość 75–260 mm i wysokość
+  170–430 mm, a tabela toreb z uchwytem płaskim [2] zawiera rozmiary do 450×170×470 (szerokość 280–450, wysokość 470).
+  Które limity obowiązują (ogólne czy zależne od wariantu uchwytu)? Na razie zostają 75–260 / 170–430; rozmiary
+  standardowe poza nimi (bez uchwytu: 320×220×400; płaski: 280×170×280, 320×110×400, 350×170×400, 450×170×470)
+  są pokazane jako niedostępne.
+- Rozmiary standardowe bez uchwytu: znane są tylko krańce klas (S/M/L/XL) — czy są rozmiary pośrednie?
+- Czy kolor papieru (biały / brązowy) jest dostępny dla każdego rodzaju papieru (np. kredowany, tłuszczoszczelny)?
+- Czy bariera na wilgoć i FSC® łączą się z każdym rodzajem papieru?
 - Zakres głębokości (brak na stronie referencyjnej).
 - Czy 200/400/150 to na pewno wartości domyślne (a nie np. inne zakresy)?
 - Czy nadruk / pakowanie / nakład mają być edytowalne w UI MVP, czy tylko obecne w modelu danych?
+- Gramatury: czy dostępne są wszystkie wartości co 10 g/m² w zakresach wariantów (50–120 / 70–110 / 70–120; przyjęte w katalogu jako `grammage.step`), czy tylko wybrane?
+- Nakład: czy obowiązuje krok (np. co 1 000 szt.) lub górny limit? Obecnie tylko minimum 30 000, liczba całkowita.
+- Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów).
+- Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.

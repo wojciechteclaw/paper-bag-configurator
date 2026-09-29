@@ -39,6 +39,19 @@ export function constrainDimension(
   return clampToStep(value, getEffectiveLimits(dimensions, limits)[key], DIMENSION_STEP_MM);
 }
 
+/**
+ * Constrains a whole set of dimensions at once (e.g. applying a standard size): width and height into the
+ * catalog range, then depth into its range capped by the new width. Unlike three `constrainDimension` calls
+ * this does not depend on the order of updates. Non-finite values keep the current ones.
+ */
+export function constrainDimensions(requested: Dimensions, current: Dimensions, limits: DimensionLimits): Dimensions {
+  const pick = (key: keyof Dimensions) => (Number.isFinite(requested[key]) ? requested[key] : current[key]);
+  const width = clampToStep(pick('width'), limits.width, DIMENSION_STEP_MM);
+  const height = clampToStep(pick('height'), limits.height, DIMENSION_STEP_MM);
+  const depthRange = { min: limits.depth.min, max: Math.min(limits.depth.max, width) };
+  return { width, height, depth: clampToStep(pick('depth'), depthRange, DIMENSION_STEP_MM) };
+}
+
 /** Grammage snapped to the catalog step and clamped into its range. Non-finite input keeps `current`. */
 export function constrainGrammage(value: number, grammage: Range & { step: number }, current: number): number {
   if (!Number.isFinite(value)) return current;

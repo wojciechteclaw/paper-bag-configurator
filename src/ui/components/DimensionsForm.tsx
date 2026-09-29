@@ -2,10 +2,13 @@ import { useId, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BAG_TYPES, DIMENSION_STEP_MM } from '../../domain/config/productCatalog';
 import { getEffectiveLimits } from '../../domain/constraints';
+import { findStandardSize, getHandleVariantDefinition, getStandardSizeViolations } from '../../domain/handleVariants';
+import type { StandardSize } from '../../domain/config/productCatalog';
 import type { Dimensions } from '../../domain/types';
 import { validateDimensionValue } from '../../domain/validation/dimensions';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { DimensionIcon } from './DimensionIcon';
+import { InfoTip } from './InfoTip';
 import { parseNumberDraft } from './parseNumberDraft';
 
 type DimensionKey = keyof Dimensions;
@@ -23,11 +26,30 @@ export function DimensionsForm() {
   const idPrefix = useId();
   const productType = useConfigurationStore((s) => s.configuration.productType);
   const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
+  const handle = useConfigurationStore((s) => s.configuration.handle);
   const setDimension = useConfigurationStore((s) => s.setDimension);
+  const applyStandardSize = useConfigurationStore((s) => s.applyStandardSize);
   const [drafts, setDrafts] = useState<Drafts>({});
 
-  const limits = BAG_TYPES[productType].limits;
+  const definition = BAG_TYPES[productType];
+  const limits = definition.limits;
   const effective = getEffectiveLimits(dimensions, limits);
+  const { standardSizes } = getHandleVariantDefinition(definition, handle);
+  const matchedSize = findStandardSize(dimensions, standardSizes);
+  const sizeOptions = standardSizes.map((size) => ({ size, violations: getStandardSizeViolations(size, limits) }));
+  const unavailableSizes = sizeOptions.filter(({ violations }) => violations.length > 0);
+  const sizeSelectId = `${idPrefix}-standardSize`;
+
+  const sizeLabel = ({ dimensions: d, sizeClass }: StandardSize) => {
+    const label = t('dimensions.standardSize.option', d);
+    return sizeClass
+      ? t('dimensions.standardSize.withClass', { size: label, sizeClass: t(`dimensions.standardSize.class.${sizeClass}`) })
+      : label;
+  };
+
+  const selectStandardSize = (id: string) => {
+    if (id && applyStandardSize(id)) setDrafts({});
+  };
 
   const clearDraft = (key: DimensionKey) =>
     setDrafts((current) => {
@@ -68,6 +90,52 @@ export function DimensionsForm() {
   return (
     <fieldset>
       <legend>{t('dimensions.label')}</legend>
+      {standardSizes.length > 0 ? (
+        <div className="field field--standard-size">
+          <label htmlFor={sizeSelectId}>{t('dimensions.standardSize.label')}</label>
+          <select
+            id={sizeSelectId}
+            value={matchedSize?.id ?? ''}
+            aria-describedby={`${sizeSelectId}-hint`}
+            onChange={(e) => selectStandardSize(e.target.value)}
+          >
+            <option value="" disabled={matchedSize !== null}>
+              {t('dimensions.standardSize.custom')}
+            </option>
+            {sizeOptions.map(({ size, violations }) => (
+              <option key={size.id} value={size.id} disabled={violations.length > 0}>
+                {violations.length > 0
+                  ? t('dimensions.standardSize.unavailable', { size: sizeLabel(size) })
+                  : sizeLabel(size)}
+              </option>
+            ))}
+          </select>
+          <InfoTip id={`${sizeSelectId}-hint`} label={t('common.moreInfo', { field: t('dimensions.standardSize.label') })}>
+            {t('dimensions.standardSize.info')}
+            {unavailableSizes.length > 0 && (
+              <>
+                <br />
+                {t('dimensions.standardSize.unavailableInfo')}
+                {unavailableSizes.map(({ size, violations }) =>
+                  violations.map(({ key, value, range }) => (
+                    <span key={`${size.id}-${key}`} className="infotip__line">
+                      {t('dimensions.standardSize.violation', {
+                        size: t('dimensions.standardSize.option', size.dimensions),
+                        dimension: t(`dimensions.${key}`),
+                        value,
+                        min: range.min,
+                        max: range.max,
+                      })}
+                    </span>
+                  )),
+                )}
+              </>
+            )}
+          </InfoTip>
+        </div>
+      ) : (
+        <p className="note">{t('dimensions.standardSize.none')}</p>
+      )}
       {FIELDS.map((key) => {
         const id = `${idPrefix}-${key}`;
         const draft = drafts[key];
@@ -95,10 +163,10 @@ export function DimensionsForm() {
               onKeyDown={(e) => keyDown(key, e)}
             />
             <span>{t('dimensions.unit')}</span>
-            <small id={`${id}-hint`} className="hint">
+            <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: t(`dimensions.${key}`) })}>
               {t('dimensions.range', { min, max })}
-              {lock && <span className="hint__lock"> · {lock}</span>}
-            </small>
+              {lock && <> · {lock}</>}
+            </InfoTip>
             {error && (
               <small id={`${id}-error`} className="error">
                 {t(`dimensions.errors.${error}`, { min: limits[key].min, max: limits[key].max, step: DIMENSION_STEP_MM })}
