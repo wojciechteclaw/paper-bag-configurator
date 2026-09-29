@@ -1,0 +1,143 @@
+{
+  "app": {
+    "title": "Bag configurator",
+    "configuration": "Configuration",
+    "preview": "3D preview"
+  },
+  "steps": {
+    "navLabel": "Configurator steps",
+    "position": "Step {{current}} of {{total}}",
+    "back": "Back",
+    "next": "Next",
+    "typeAndDimensions": "Type & dimensions",
+    "paperAndHandle": "Paper & handle",
+    "artwork": "Artwork",
+    "production": "Print & production",
+    "summary": "Summary"
+  },
+  "productType": {
+    "label": "Bag type",
+    "BLOCK": "Block-bottom bag",
+    "FOLDED": "Gusseted bag",
+    "comingSoon": "coming soon"
+  },
+  "dimensions": {
+    "label": "Dimensions",
+    "width": "Width",
+    "height": "Height",
+    "depth": "Depth",
+    "unit": "mm",
+    "range": "{{min}}–{{max}} mm",
+    "lock": {
+      "widthMin": "min. = depth ({{value}} mm)",
+      "depthMax": "max. = width ({{value}} mm)"
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Enter a number",
+      "NOT_POSITIVE": "Value must be greater than 0",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maximum: {{max}} mm",
+      "DEPTH_EXCEEDS_WIDTH": "Depth cannot exceed width",
+      "NOT_ON_STEP": "Value must be a multiple of {{step}} mm"
+    }
+  },
+  "handle": {
+    "label": "Handle",
+    "none": "No handle",
+    "type": "Handle type",
+    "TWISTED_PAPER": "Internal, twisted paper",
+    "FLAT_PAPER": "Internal, flat paper",
+    "placementNote": "Handles are glued to the inside of the front and back walls."
+  },
+  "artwork": {
+    "label": "Artwork",
+    "FRONT": "Front",
+    "BACK": "Back",
+    "LEFT": "Left",
+    "RIGHT": "Right",
+    "panelSize": "{{width}} × {{height}} mm",
+    "pixelSize": "{{width}} × {{height}} px",
+    "drop": "Drop a file here",
+    "choose": "or click / press Enter to choose one",
+    "dropZoneLabel": "{{panel}} panel: add artwork",
+    "fileInputLabel": "{{panel}} panel: artwork file",
+    "accepted": "PNG, JPG, WEBP, max. {{maxMb}} MB",
+    "fillNote": "Artwork is stretched over the whole panel.",
+    "loading": "Loading…",
+    "thumbnailAlt": "Thumbnail: {{name}}",
+    "remove": "Remove",
+    "replace": "Replace",
+    "aspectMismatch": "The artwork's proportions ({{imageRatio}}) differ from the panel's ({{panelRatio}}) — the artwork will be distorted.",
+    "errors": {
+      "UNSUPPORTED_TYPE": "Unsupported file format. Allowed: PNG, JPG, WEBP.",
+      "EMPTY_FILE": "The file is empty.",
+      "FILE_TOO_LARGE": "The file is too large (max. {{maxMb}} MB).",
+      "DECODE_FAILED": "The file could not be read as an image."
+    }
+  },
+  "paper": {
+    "label": "Paper",
+    "color": "Paper colour",
+    "WHITE": "White",
+    "BROWN": "Brown",
+    "grammage": "Grammage",
+    "grammageUnit": "g/m²",
+    "fsc": "FSC® certified"
+  },
+  "print": {
+    "label": "Print",
+    "technology": "Technology",
+    "FLEXO": "Flexography",
+    "colors": "Pantone colours",
+    "maxColors": "max. {{max}} colours",
+    "usage": "{{current}} / {{max}}",
+    "newColor": "Pantone code",
+    "placeholder": "e.g. PMS 186 C",
+    "add": "Add",
+    "removeColor": "Remove {{code}}",
+    "none": "No colours — unprinted bag.",
+    "errors": {
+      "EMPTY": "Enter a colour code.",
+      "TOO_LONG": "The code is too long (max. {{max}} characters).",
+      "DUPLICATE": "This colour is already on the list.",
+      "LIMIT_REACHED": "The limit of {{max}} colours has been reached."
+    }
+  },
+  "packaging": {
+    "label": "Packaging",
+    "CARTON": "Carton",
+    "FOIL": "Foil"
+  },
+  "quantity": {
+    "label": "Quantity",
+    "unit": "pcs",
+    "min": "Minimum run: {{min}} pcs",
+    "errors": {
+      "NOT_A_NUMBER": "Enter a number",
+      "NOT_INTEGER": "Quantity must be a whole number",
+      "BELOW_MIN": "Minimum run: {{min}} pcs"
+    }
+  },
+  "summary": {
+    "label": "Summary",
+    "productType": "Bag type",
+    "dimensions": "Dimensions (W × H × D)",
+    "dimensionsValue": "{{width}} × {{height}} × {{depth}} mm",
+    "paper": "Paper",
+    "fsc": "FSC®",
+    "yes": "yes",
+    "no": "no",
+    "handle": "Handle",
+    "artwork": "Artwork",
+    "noArtwork": "none",
+    "printColors": "Pantone colours",
+    "noPrint": "unprinted",
+    "packaging": "Packaging",
+    "quantity": "Quantity",
+    "json": "Configuration (JSON)",
+    "copy": "Copy JSON",
+    "download": "Download JSON",
+    "copied": "Copied to clipboard.",
+    "copyFailed": "Could not copy — select the text manually."
+  }
+}

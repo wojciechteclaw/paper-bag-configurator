@@ -1,0 +1,143 @@
+{
+  "app": {
+    "title": "Konfigurator toreb",
+    "configuration": "Konfiguracja",
+    "preview": "Podgląd 3D"
+  },
+  "steps": {
+    "navLabel": "Kroki konfiguratora",
+    "position": "Krok {{current}} z {{total}}",
+    "back": "Wstecz",
+    "next": "Dalej",
+    "typeAndDimensions": "Typ i wymiary",
+    "paperAndHandle": "Papier i uchwyt",
+    "artwork": "Grafiki",
+    "production": "Nadruk i produkcja",
+    "summary": "Podsumowanie"
+  },
+  "productType": {
+    "label": "Typ torby",
+    "BLOCK": "Torba klockowa",
+    "FOLDED": "Torba fałdowa",
+    "comingSoon": "wkrótce"
+  },
+  "dimensions": {
+    "label": "Wymiary",
+    "width": "Szerokość",
+    "height": "Wysokość",
+    "depth": "Głębokość",
+    "unit": "mm",
+    "range": "{{min}}–{{max}} mm",
+    "lock": {
+      "widthMin": "min. = głębokość ({{value}} mm)",
+      "depthMax": "maks. = szerokość ({{value}} mm)"
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Podaj liczbę",
+      "NOT_POSITIVE": "Wartość musi być większa od 0",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maksimum: {{max}} mm",
+      "DEPTH_EXCEEDS_WIDTH": "Głębokość nie może być większa od szerokości",
+      "NOT_ON_STEP": "Wymiar musi być wielokrotnością {{step}} mm"
+    }
+  },
+  "handle": {
+    "label": "Uchwyt",
+    "none": "Bez uchwytu",
+    "type": "Rodzaj uchwytu",
+    "TWISTED_PAPER": "Wewnętrzny, papier skręcany",
+    "FLAT_PAPER": "Wewnętrzny, papier płaski",
+    "placementNote": "Uchwyty są przyklejane od wewnątrz do ścianki przedniej i tylnej."
+  },
+  "artwork": {
+    "label": "Grafiki",
+    "FRONT": "Przednia",
+    "BACK": "Tylna",
+    "LEFT": "Lewa",
+    "RIGHT": "Prawa",
+    "panelSize": "{{width}} × {{height}} mm",
+    "pixelSize": "{{width}} × {{height}} px",
+    "drop": "Przeciągnij plik tutaj",
+    "choose": "lub kliknij / naciśnij Enter, aby wybrać",
+    "dropZoneLabel": "Ścianka {{panel}}: dodaj grafikę",
+    "fileInputLabel": "Ścianka {{panel}}: plik grafiki",
+    "accepted": "PNG, JPG, WEBP, maks. {{maxMb}} MB",
+    "fillNote": "Grafika jest rozciągana na całą ściankę.",
+    "loading": "Wczytywanie…",
+    "thumbnailAlt": "Miniatura: {{name}}",
+    "remove": "Usuń",
+    "replace": "Zamień",
+    "aspectMismatch": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji ścianki ({{panelRatio}}) — grafika zostanie zdeformowana.",
+    "errors": {
+      "UNSUPPORTED_TYPE": "Nieobsługiwany format pliku. Dozwolone: PNG, JPG, WEBP.",
+      "EMPTY_FILE": "Plik jest pusty.",
+      "FILE_TOO_LARGE": "Plik jest za duży (maks. {{maxMb}} MB).",
+      "DECODE_FAILED": "Nie udało się odczytać obrazu z pliku."
+    }
+  },
+  "paper": {
+    "label": "Papier",
+    "color": "Kolor papieru",
+    "WHITE": "Biały",
+    "BROWN": "Brązowy",
+    "grammage": "Gramatura",
+    "grammageUnit": "g/m²",
+    "fsc": "Certyfikat FSC®"
+  },
+  "print": {
+    "label": "Nadruk",
+    "technology": "Technologia",
+    "FLEXO": "Fleksografia",
+    "colors": "Kolory Pantone",
+    "maxColors": "maks. {{max}} kolorów",
+    "usage": "{{current}} / {{max}}",
+    "newColor": "Kod Pantone",
+    "placeholder": "np. PMS 186 C",
+    "add": "Dodaj",
+    "removeColor": "Usuń {{code}}",
+    "none": "Brak kolorów — torba bez nadruku.",
+    "errors": {
+      "EMPTY": "Wpisz kod koloru.",
+      "TOO_LONG": "Kod jest za długi (maks. {{max}} znaków).",
+      "DUPLICATE": "Ten kolor jest już na liście.",
+      "LIMIT_REACHED": "Osiągnięto limit {{max}} kolorów."
+    }
+  },
+  "packaging": {
+    "label": "Pakowanie",
+    "CARTON": "Karton",
+    "FOIL": "Folia"
+  },
+  "quantity": {
+    "label": "Nakład",
+    "unit": "szt.",
+    "min": "Minimalny nakład: {{min}} szt.",
+    "errors": {
+      "NOT_A_NUMBER": "Podaj liczbę",
+      "NOT_INTEGER": "Nakład musi być liczbą całkowitą",
+      "BELOW_MIN": "Minimalny nakład: {{min}} szt."
+    }
+  },
+  "summary": {
+    "label": "Podsumowanie",
+    "productType": "Typ torby",
+    "dimensions": "Wymiary (szer. × wys. × gł.)",
+    "dimensionsValue": "{{width}} × {{height}} × {{depth}} mm",
+    "paper": "Papier",
+    "fsc": "FSC®",
+    "yes": "tak",
+    "no": "nie",
+    "handle": "Uchwyt",
+    "artwork": "Grafiki",
+    "noArtwork": "brak",
+    "printColors": "Kolory Pantone",
+    "noPrint": "bez nadruku",
+    "packaging": "Pakowanie",
+    "quantity": "Nakład",
+    "json": "Konfiguracja (JSON)",
+    "copy": "Kopiuj JSON",
+    "download": "Pobierz JSON",
+    "copied": "Skopiowano do schowka.",
+    "copyFailed": "Nie udało się skopiować — zaznacz tekst ręcznie."
+  }
+}
