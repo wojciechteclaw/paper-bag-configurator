@@ -431,29 +431,28 @@ długość 265–590) ma podobne proporcje [T, ogłoszenia maszyn używanych].
 |---|---|---|---|
 | przekrój | sznurek Ø 3–5 mm (podgląd: 5 mm) | taśma **20 mm** | [T] paperbagline, cxgiae / **[K]** płaski |
 | długość sznurka | 340–460 mm | — | [T] paperbagline |
-| szerokość uchwytu po zewnętrznych krawędziach | **90 mm, stała** (niezależna od W) | **90 mm, stała** | **[P] oczekuje na potwierdzenie klienta**; w kodzie 80 mm [K] |
-| wysokość pętli nad górną krawędzią | **50 mm** (zadana) | **50 mm** | **[P] oczekuje na potwierdzenie**; w kodzie wynika z długości 180 mm → ok. 72 mm |
-| łatka (pasek mocujący) | **150 × 20 mm** (szer. × wys.) | **150 × 20 mm** | **[P] oczekuje na potwierdzenie**; w kodzie 100 × 20 mm [K] |
+| szerokość uchwytu po zewnętrznych krawędziach | **90 mm, stała** (niezależna od W) | **90 mm, stała** | **[K]** (29.09.2026) |
+| wysokość pętli nad górną krawędzią | **50 mm** (zadana) | **50 mm** | **[K]** (29.09.2026) |
+| łatka (pasek mocujący) | **110 × 20 mm** (90 + 2 · 10 naddatku) | **110 × 20 mm** | **[K]** (29.09.2026) |
 | papier łatki | 80–120 g/m² kraft | j.w. | [Z] |
 | pozycja łatki | od wewnątrz FRONT i BACK, wyśrodkowana (`x = W/2`), górna krawędź łatki **20 mm** pod górną krawędzią → `y ∈ [H − 40, H − 20]` | j.w. | **[K]** |
 
 - Uchwyty są tylko na FRONT/BACK [K]. Bez zawinięcia górnego łatka jest klejona 20 mm pod krawędzią
   cięcia [K]. W typowej torbie z uchwytem łatkę zakrywa zawinięcie. Brak zawinięcia to decyzja
   klienta i trzeba ją potwierdzić ze względu na wytrzymałość (§11).
-- **Zmiana proporcji — prośba klienta z podglądu 29.09.2026, oczekuje na potwierdzenie [P]** („uchwyty niższe
-  i trochę szersze”): szerokość 90 mm, wysokość nad torbą 50 mm, łatka 150 × 20 mm. Do czasu potwierdzenia kod
-  (commit 11df311) stosuje 80 mm / długość pętli 180 mm / łatka 100 × 20 mm. Wartości w tym rozdziale, §9.5 i §10
-  opisują **wariant docelowy [P]**, a w nawiasach — stan kodu.
-- Wysokość pętli w wariancie [P] jest **zadana** (50 mm), a nie wyliczana z `handle.length`. Długość łuku (półelipsa)
-  wynika z niej: sznurek Ø5 (rozstaw osi 85 mm) ok. 146 mm, taśma 20 mm (rozstaw 70 mm) ok. 135 mm [W]. Łatka
-  wystaje poza uchwyt o (150 − 90)/2 = 30 mm z każdej strony (`PATCH_OVERHANG_MM = 10` staje się minimum).
-- Końce uchwytu (oba typy) biegną pionowo w dół na `x = W/2 ± c/2`, `c = 90 − szer.` (kod: `80 − szer.`), i kończą się
-  pod łatką, 5 mm nad jej dolną krawędzią [Z]. Sznurek Ø5 → c = 85 (kod 75), taśma 20 mm → c = 70 (kod 60),
-  zajmuje `|x − W/2| ∈ [25, 45]` (kod [20, 40]); końce proste, bez stopek [Z].
-- Zabezpieczenie wąskich ścianek [Z]: łatka zachowuje 5 mm od bocznych bigów: szerokość `min(150, W − 10)`, dotyczy
-  W < 160 (kod: `min(100, W − 10)`, W < 110). Gdy łatka jest za wąska na rozstaw z zachowaniem 10 mm naddatku,
-  rozstaw jest zmniejszany (krawędzie końców najwyżej równo z bokami łatki), a układ ma flagę `endSpacingReduced`
-  (`src/domain/geometry/handles.ts`). Dla W < ok. 180 mm maszyny z uchwytem skręcanym zwykle nie
+- **Proporcje uchwytu [K]** (klient, 29.09.2026: „uchwyty niższe i trochę szersze”, „łatka zostaje po 10 mm
+  z każdej strony”): szerokość po zewnętrznych krawędziach **90 mm** (`HANDLE_OUTER_WIDTH_MM = 90`), pętla
+  **50 mm** nad górną krawędzią (`HANDLE_LOOP_HEIGHT_MM = 50`), łatka **110 × 20 mm** (90 + 2 · 10,
+  `PATCH_OVERHANG_MM = 10`). Poprzednie wartości (80 mm, długość pętli 180 → ok. 72 mm, łatka 100 × 20) są wycofane.
+- Wysokość pętli jest **zadana**; długość łuku (półelipsa) wynika z wysokości i rozstawu: sznurek Ø5 (rozstaw osi
+  85 mm) ok. 146 mm, taśma 20 mm (rozstaw 70 mm) ok. 135 mm [W].
+- Końce uchwytu (oba typy) biegną pionowo w dół na `x = W/2 ± c/2`, `c = 90 − szerokość uchwytu` [K], i kończą się
+  pod łatką, 5 mm nad jej dolną krawędzią [Z]. Sznurek Ø5 → c = 85 mm, taśma 20 mm → c = 70 mm i zajmuje
+  `|x − W/2| ∈ [25, 45]`, czyli z łatką `[−55, 55]` zostaje 10 mm naddatku; końce proste, bez stopek [Z].
+- Zabezpieczenie wąskich ścianek [Z]: łatka zachowuje 5 mm od bocznych bigów, szerokość `min(110, W − 10)`
+  (dotyczy W < 120). Gdy `W − 10 < 110`, rozstaw jest zmniejszany tak, by zachować 10 mm naddatku łatki
+  (`c = łatka − 20 − szerokość uchwytu`), nigdy poniżej 2 szerokości uchwytu; układ ma wtedy flagę
+  `endSpacingReduced` (`src/domain/geometry/handles.ts`). Dla W < ok. 180 mm maszyny z uchwytem skręcanym zwykle nie
   pracują (Garant QT/SK od 180 mm). **Do potwierdzenia: minimalne W dla uchwytów** (§11).
 - EN 13590: bada nośność przez wielokrotne podnoszenie torby napełnionej obciążeniem zależnym od
   objętości [F]. Wytyczna CEPI Eurokraft / EUROSAC: dobra torba z uchwytami udźwignie co najmniej 6 kg
@@ -612,12 +611,12 @@ Klej na uszach: trójkątne strefy zapasów bocznych poza trójkątem wewnętrzn
 - FRONT: środek łatki `X = D + W/2`. Zakres `X ∈ [D + W/2 − Lp/2, D + W/2 + Lp/2]`, `Y ∈ [H − 20 − Hp, H − 20]`
   = `[H − 40, H − 20]` [K].
 - BACK: środek łatki `X = 2D + 3W/2` (panel-local `x = W/2`). BACK jest w jednym kawałku, więc łatka też.
-- `Lp = 150`, `Hp = 20` **[P] oczekuje na potwierdzenie** (kod: `Lp = 100` [K]), górna krawędź 20 mm pod cięciem [K]
-  (`DIELINE_RULES.handlePatch`, `HANDLE_DEFAULTS.patch`). Na wąskich ściankach `Lp = min(150, W − 10)` (kod:
-  `min(100, W − 10)`), 5 mm od bigów bocznych [Z]. Końce uchwytu (oba typy): `x = W/2 ± c/2`, `c = 90 − szerokość
-  uchwytu` [P] (kod: `80 −`, `HANDLE_OUTER_WIDTH_MM = 80`); łatka wystaje co najmniej 10 mm poza obrys rączki
-  (`PATCH_OVERHANG_MM`) [K], w wariancie [P] 30 mm. Sznurek Ø5 → c = 85 (kod 75), taśma 20 mm → c = 70 (kod 60).
-  Zmniejszane tylko, gdy łatka jest za wąska (§5).
+- `Lp = 110`, `Hp = 20`, górna krawędź 20 mm pod cięciem [K] (`DIELINE_RULES.handlePatch`, `HANDLE_DEFAULTS.patch`).
+  Na wąskich ściankach `Lp = min(110, W − 10)` (5 mm od bigów bocznych) [Z]. Końce uchwytu (oba typy):
+  `x = W/2 ± c/2`, `c = 90 − szerokość uchwytu` [K] (`HANDLE_OUTER_WIDTH_MM = 90`); łatka wystaje 10 mm poza obrys
+  rączki z każdej strony [K] (`PATCH_OVERHANG_MM`) → 90 + 2 · 10 = 110 mm. Sznurek Ø5 → c = 85 mm, taśma 20 mm →
+  c = 70 mm. Pętla 50 mm nad górną krawędzią [K] (`HANDLE_LOOP_HEIGHT_MM`). Rozstaw zmniejszany tylko, gdy łatka
+  jest za wąska (`W − 10 < 110`), nigdy poniżej 2 szerokości uchwytu (§5).
   Dawny wzór `Lp = min(170, W − 20)`, `Hp = 45`, `c = clamp(W/2, 75, 150)` [Z] jest wycofany.
 
 ### 9.6 Przykład: W = 200, H = 400, D = 150, s = 10 → a = 90, arkusz 710 × 490 mm
@@ -815,14 +814,13 @@ Renderer może je liczyć z normalnych regionów.
 | `HEIGHT_TOO_SMALL_FOR_DEPTH` | `H > D/2` twardo; zalecane `H ≥ D` | błąd / ostrzeżenie [F/W] |
 | `DEPTH_ABOVE_MACHINE_RATIO` | `D > 0,65·W` | ostrzeżenie [F dane maszyn], do potwierdzenia |
 | `CUTOFF_OUT_OF_RANGE` | `H + (D+30)/2` poza zakresem maszyny klienta | ostrzeżenie, zakres do potwierdzenia |
-| `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?); geometria zmniejsza rozstaw na wąskich ściankach (kod: poniżej W = 95 / 110; wariant [P]: poniżej W = 115 / 130) (`endSpacingReduced`, §5) | do potwierdzenia |
+| `HANDLE_WIDTH_TOO_SMALL` | uchwyt przy `W < W_min_handle` (≈180?); geometria zmniejsza rozstaw na wąskich ściankach (łatka `min(110, W − 10)`; rozstaw maleje, gdy `W − 10 < 110`, tj. W < 120) (`endSpacingReduced`, §5) | do potwierdzenia |
 | `BOTTOM_TRAPEZOID_DEGENERATE` | `W ≥ D + 30` (§3.4.1) | **[P] propozycja**, czeka na decyzję klienta (błąd czy ostrzeżenie) |
 
 Stałe do `productCatalog.ts`: `BOTTOM_OVERLAP_MM = 30`, `BOTTOM_ALLOWANCE = (D) => (D + 30) / 2`,
 `SEAM_FLAP_MM = 10` [K] (`DIELINE_RULES.glueFlapWidth`), szew na krawędzi BACK/LEFT [K], `FLAT_FOLD_PLEAT_RATIO = 0.5`.
-Uchwyty — kod [K]: `DIELINE_RULES.handlePatch = { width: 100, height: 20, topOffset: 20 }` (+ `sideClearance: 5` [Z]),
-`HANDLE_OUTER_WIDTH_MM = 80`, `PATCH_OVERHANG_MM = 10`, długość pętli 180. Wariant **[P] oczekujący na
-potwierdzenie**: `handlePatch.width = 150`, `HANDLE_OUTER_WIDTH_MM = 90`, wysokość pętli zadana 50 mm (§5).
+Uchwyty [K]: `DIELINE_RULES.handlePatch = { width: 110, height: 20, topOffset: 20 }` (+ `sideClearance: 5` [Z]),
+`HANDLE_OUTER_WIDTH_MM = 90`, `PATCH_OVERHANG_MM = 10`, `HANDLE_LOOP_HEIGHT_MM = 50` (§5).
 
 ### 10.8 Składanie z arkusza (oś czasu podglądu, `assemblyKinematics.ts`)
 
@@ -878,9 +876,9 @@ do uformowanej torby (dokładnie poza BOX modelu §10.5, `p = 0`; test):
 6. **Strefy kleju dna**: tylko zakładka 30 mm, czy też uszy? Czy stosujecie łatę lub wkładkę dna?
 7. **Uchwyty bez zawinięcia górnego**: czy to realny wariant produkcyjny (wytrzymałość łatki przy
    krawędzi cięcia)? Minimalne W dla uchwytów skręcanych i płaskich? Wysokość (długość) pętli?
-   Rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod górną krawędzią, rozstaw końców zawsze 80 mm,
-   taśma płaska 20 mm (§5, §9.5). **Nowe, do potwierdzenia [P]:** z podglądu padła prośba o niższe i szersze uchwyty —
-   szerokość 90 mm, pętla 50 mm nad krawędzią, łatka 150 × 20 mm. Czy zastępuje 80 mm / 100 × 20?
+   Rozstrzygnięte [K] (29.09.2026): uchwyt 90 mm szerokości po zewnętrznych krawędziach, pętla 50 mm nad górną
+   krawędzią, łatka 110 × 20 mm (10 mm naddatku z każdej strony), 20 mm pod górną krawędzią, taśma płaska 20 mm
+   (§5, §9.5). Otwarte pozostają: wytrzymałość bez zawinięcia i minimalne W dla uchwytów.
 8. **Gramatura z uchwytem**: minimalna gramatura dla toreb z uchwytem (typowo ≥ 70–80 g/m²)?
 9. **Nadruk**: inline na tuberze czy rola zadrukowana wcześniej (8 kolorów)? Tolerancja nadruku względem
    bigów i cięcia? Czy drukujecie zapas dna (widoczny od spodu)?
