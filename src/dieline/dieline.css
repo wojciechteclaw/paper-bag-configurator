@@ -46,21 +46,24 @@
   min-height: 2rem;
   min-width: 2rem;
   padding: 0.2rem 0.6rem;
-  border: 1px solid #c9c4ba;
-  border-radius: 6px;
-  background: #fff;
-  color: #222;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   cursor: pointer;
 }
 
 .dieline-view button:hover:not(:disabled) {
-  background: #f3f0ea;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.dieline-view button[aria-pressed='true'] {
-  background: #e8e1d3;
-  border-color: #8a7a5c;
+.dieline-view button[aria-pressed='true'],
+.dieline-view button[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .dieline-view button:disabled {
@@ -70,36 +73,37 @@
 
 .dieline-view button:focus-visible,
 .dieline-view input:focus-visible {
-  outline: 2px solid #0a6cc2;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .dieline-view__edit {
   justify-content: flex-start;
   padding: 0.35rem 0.5rem;
-  border: 1px solid #d8d2c6;
-  border-radius: 8px;
-  background: #faf8f4;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
 }
 
 .dieline-view__readout {
-  color: #555;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
   margin-right: auto;
 }
 
 .dieline-view__error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--error);
 }
 
 .dieline-view__canvas {
   position: relative;
   flex: 1 1 auto;
   min-height: 240px;
-  border: 1px solid #e2ddd3;
-  border-radius: 8px;
-  background: #eceae5;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
   overflow: hidden;
 }
 
@@ -136,7 +140,7 @@
 
 .dieline-view__text text {
   fill: #222;
-  font-family: system-ui, Arial, sans-serif;
+  font-family: var(--font-body);
 }
 
 .dieline-view__labels text {
@@ -175,7 +179,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.25rem 1rem;
-  color: #555;
+  color: var(--muted);
 }
 
 .dieline-view__legend {
@@ -259,3 +263,6 @@
   vector-effect: non-scaling-stroke;
 }
 .dieline-view .swatch--allowance-printed { background: transparent; border: 2px dashed #7c3aed; }
+
+/* Chrome in the configurator's promarjarocin.pl-derived style (tokens from src/index.css). */
+.dieline-view__toggle input { accent-color: var(--accent); }

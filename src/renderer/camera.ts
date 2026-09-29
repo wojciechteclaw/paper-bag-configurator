@@ -7,7 +7,8 @@ export const CAMERA_FOV = 40;
 export const DEFAULT_VIEW_DIRECTION = new Vector3(4, 3, 6).normalize();
 /** Extra room around the bag's bounding sphere when fitting the camera. */
 export const FIT_MARGIN = 1.15;
-export const BACKGROUND_COLOR = '#eeeeec';
+/** Neutral light grey matching the UI's --bg token (promarjarocin.pl section background #f2f3f3). */
+export const BACKGROUND_COLOR = '#f2f3f3';
 
 /** Distance at which a sphere of `radius` fits the camera's narrower field of view. */
 export function fitDistance(camera: Pick<PerspectiveCamera, 'fov' | 'aspect'>, radius: number): number {
