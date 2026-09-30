@@ -4,6 +4,7 @@
 // brought into its options (same idea as `constrainPaperToVariant` for handle variants). What had to change is
 // reported so the UI can tell the user. Artwork (both layouts), print colours, paper colour / FSC and the id are kept.
 
+import type { AllowanceGeometry } from './artworkAllowance';
 import { setPlacementExtendToBottom } from './artworkPlacement';
 import { getArtworkTargetArea, getWrapLayers, wrapLayerTarget } from './artworkLayout';
 import { BAG_TYPES, type BagTypeDefinition } from './config/productCatalog';
@@ -52,21 +53,21 @@ export function getDimensionWarningsFor(
 function withoutBottomExtension(
   target: ArtworkTarget,
   placement: ArtworkPlacement,
-  configuration: Pick<BagConfiguration, 'dimensions'>,
+  configuration: AllowanceGeometry,
   artwork: { width: number; height: number } | null,
 ): ArtworkPlacement {
-  const from = getArtworkTargetArea(target, configuration.dimensions, placement);
-  const to = getArtworkTargetArea(target, configuration.dimensions, { extendToBottom: false });
+  const from = getArtworkTargetArea(target, configuration, placement);
+  const to = getArtworkTargetArea(target, configuration, { extendToBottom: false });
   return setPlacementExtendToBottom(placement, false, from, to, artwork);
 }
 
 /**
- * Drops "extend to bottom" from every panel and every whole-bag layer when `definition` does not offer it (the
- * gusseted bag prints no bottom strip). All layers are kept (order, ids, artwork); only their placements change.
+ * Drops "extend to bottom" from every panel and every whole-bag layer when `definition` does not offer it (no bag
+ * type does so today: block bottom and gusseted bag both print their bottom allowance). All layers are kept (order, ids, artwork); only their placements change.
  * `targets` lists what was changed. Shared by the type switch and by loading a saved configuration.
  */
 export function constrainPlacements(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'panels'> & Partial<Pick<BagConfiguration, 'wrapLayers'>>,
+  configuration: AllowanceGeometry & Pick<BagConfiguration, 'panels'> & Partial<Pick<BagConfiguration, 'wrapLayers'>>,
   definition: Pick<BagTypeDefinition, 'extendToBottomAvailable'>,
 ): { panels: BagPanels; wrapLayers: WrapArtworkLayer[]; targets: ArtworkTarget[] } {
   const layers = getWrapLayers(configuration);

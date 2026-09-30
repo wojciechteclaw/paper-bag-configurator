@@ -15,7 +15,7 @@
 // Window openings (gusseted bag, docs/SPEC.md §2b) are cut out of the paper: their cells are never visited and their
 // area is not part of the wall / printable area.
 
-import { computePanelUvTransform, getPanelArtworkArea, type PanelArtworkArea, type Size2 } from '../artworkPlacement';
+import { computePanelUvTransform, type PanelArtworkArea, type Size2 } from '../artworkPlacement';
 import type { Dieline } from '../dieline/types';
 import { getPanelSize } from '../panels';
 import type { ArtworkPlacement, PanelPosition, PaperColor } from '../types';
@@ -35,7 +35,8 @@ export type CoveragePanelInput = {
   placement: ArtworkPlacement;
   /**
    * Artwork area the placement refers to, panel-local mm (`resolvePanelArtwork(...).layers[i].area` — e.g. the whole
-   * wall row for a whole-bag layer, docs/SPEC.md §3a). Omitted: the panel's own area (`getPanelArtworkArea`).
+   * wall row for a whole-bag layer, docs/SPEC.md §3a). Omitted: the panel's own area (the wall, or the wall plus the
+   * dieline's bottom allowance with `extendToBottom` — block zone or gusseted strip, like `getPanelArtworkArea`).
    */
   area?: PanelArtworkArea;
   /**
@@ -87,14 +88,20 @@ type PreparedLayer = {
   y1: number;
 };
 
+/** The layer's artwork area: given, or the panel's own (wall, plus the dieline's bottom allowance when extended). */
+function layerArea(layer: CoveragePanelInput, panelSize: Size2, allowance: number): PanelArtworkArea {
+  if (layer.area) return layer.area;
+  if (!layer.placement.extendToBottom) return { x: 0, y: 0, width: panelSize.width, height: panelSize.height };
+  return { x: 0, y: -allowance, width: panelSize.width, height: panelSize.height + allowance };
+}
+
 function prepareLayer(
   layer: CoveragePanelInput,
-  position: PanelPosition,
   panelSize: Size2,
-  dimensions: Dieline['dimensions'],
+  allowance: number,
 ): PreparedLayer | null {
   if (!validSample(layer.sample)) return null;
-  const area = layer.area ?? getPanelArtworkArea(position, dimensions, layer.placement);
+  const area = layerArea(layer, panelSize, allowance);
   const { repeat, offset, rotation } = computePanelUvTransform(panelSize, layer.imageSize, layer.placement, area);
   return {
     sample: layer.sample,
@@ -142,12 +149,14 @@ export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number
     const position = segment.panel;
     const panelSize = getPanelSize(position, dieline.dimensions);
     const layers = layersOf(input.panels[position]);
+    // The column's bottom allowance (block zone or gusseted strip) is the height of its allowance rectangle.
+    const allowance = segment.allowance.height;
     const bottom = Math.min(
       0,
-      ...layers.map((layer) => (layer.area ?? getPanelArtworkArea(position, dieline.dimensions, layer.placement)).y),
+      ...layers.map((layer) => layerArea(layer, panelSize, allowance).y),
     );
     const prepared = layers
-      .map((layer) => prepareLayer(layer, position, panelSize, dieline.dimensions))
+      .map((layer) => prepareLayer(layer, panelSize, allowance))
       .filter((layer): layer is PreparedLayer => layer !== null);
     // Openings on this panel (panel-local mm); only the part inside this column matters.
     const holes = (dieline.windows ?? []).filter((w) => w.panel === position).map((w) => w.localOpening);

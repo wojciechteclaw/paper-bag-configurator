@@ -408,19 +408,18 @@ describe('setProductType', () => {
     revoke.mockRestore();
   });
 
-  it('never stores "extend to bottom" on a gusseted-bag bag', () => {
+  it('extends artwork over the gusseted bottom strip d (client [K]): walls and whole-bag layers', () => {
     store().setProductType('FOLDED');
     store().setPanelArtwork('BACK', artwork('blob:back'));
     store().setPanelExtendToBottom('BACK', true);
-    expect(config().panels.BACK.placement.extendToBottom).toBe(false);
+    expect(config().panels.BACK.placement.extendToBottom).toBe(true);
     store().setPanelPlacement('BACK', { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, extendToBottom: true });
-    expect(config().panels.BACK.placement).toMatchObject({ mode: 'CUSTOM', extendToBottom: false });
+    expect(config().panels.BACK.placement).toMatchObject({ mode: 'CUSTOM', extendToBottom: true });
     const layerId = store().addWrapLayer(artwork('blob:layer'))!;
-    expect(config().wrapLayers[0].placement.extendToBottom).toBe(false);
     store().setPanelExtendToBottom(wrapLayerTarget(layerId), true);
-    expect(config().wrapLayers[0].placement.extendToBottom).toBe(false);
+    expect(config().wrapLayers[0].placement.extendToBottom).toBe(true);
     store().setPanelPlacement(wrapLayerTarget(layerId), { mode: 'FILL', extendToBottom: true });
-    expect(config().wrapLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: false });
+    expect(config().wrapLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
   });
 });
 

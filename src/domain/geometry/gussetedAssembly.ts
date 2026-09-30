@@ -1,5 +1,5 @@
 // Gusseted bag (FOLDED): forming from the printed sheet as on the machine, arriving at the open bag of the gusseted
-// model (gussetedBag.ts) — pure maths in millimetres (docs/SPEC.md §4i, docs/PRODUCTION.md §13.6). Client [K]
+// model (gussetedBag.ts) — pure maths in millimetres (docs/SPEC.md §4i, docs/PRODUCTION.md §13.7). Client [K]
 // 30.09.2026: the same timeline shape as the block bottom — forming 0 → 60 % ending in the open bag ("3D pełne"),
 // then the existing open → flat fold of the gusseted model.
 //

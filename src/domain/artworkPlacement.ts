@@ -13,9 +13,9 @@
 // - texture coordinates t ∈ [0,1]², t = (0,0) at the image's bottom-left (three.js `flipY = true` convention).
 
 import { ARTWORK_EXTEND_TO_BOTTOM_DEFAULT, ARTWORK_PLACEMENT_RULES } from './config/productionRules';
-import { getBottomAllowance } from './geometry/tube';
+import { getArtworkBottomAllowance, getSourceDimensions, type AllowanceSource } from './artworkAllowance';
 import { getPanelSize } from './panels';
-import type { ArtworkPlacement, ArtworkRotation, Dimensions, PanelPosition } from './types';
+import type { ArtworkPlacement, ArtworkRotation, PanelPosition } from './types';
 
 export type Size2 = { width: number; height: number };
 
@@ -93,16 +93,18 @@ export function wallArtworkArea(panelSize: Size2): PanelArtworkArea {
 
 /**
  * Artwork area of a panel in panel-local mm: the visible wall (y ∈ [0, H]) or, with `extendToBottom`, the wall plus
- * the bottom allowance (y ∈ [−a, H], a = (D + 30) / 2) — W × (H + a) on FRONT/BACK, D × (H + a) on LEFT/RIGHT.
+ * the bottom allowance (y ∈ [−a, H]; block bottom a = (D + 30) / 2, gusseted bag the strip d —
+ * `getArtworkBottomAllowance`; pass the bag geometry for the gusseted bag, bare dimensions mean a block bottom) —
+ * W × (H + a) on FRONT/BACK, D × (H + a) on LEFT/RIGHT.
  */
 export function getPanelArtworkArea(
   position: PanelPosition,
-  dimensions: Dimensions,
+  source: AllowanceSource,
   placement: Pick<ArtworkPlacement, 'extendToBottom'>,
 ): PanelArtworkArea {
-  const size = getPanelSize(position, dimensions);
+  const size = getPanelSize(position, getSourceDimensions(source));
   if (!placement.extendToBottom) return wallArtworkArea(size);
-  const a = getBottomAllowance(dimensions);
+  const a = getArtworkBottomAllowance(source);
   return { x: 0, y: -a, width: size.width, height: size.height + a };
 }
 

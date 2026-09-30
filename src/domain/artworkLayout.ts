@@ -30,7 +30,7 @@ import { getArtworkRect, getPanelArtworkArea, normalizePlacement, type PanelArtw
 import { ARTWORK_RULES, DEFAULT_ARTWORK_LAYOUT, MAX_WRAP_ARTWORK_LAYERS } from './config/productCatalog';
 import { buildDieline } from './dieline/buildDieline';
 import type { Dieline } from './dieline/types';
-import { getBottomAllowance } from './geometry/tube';
+import { getArtworkBottomAllowance, getSourceDimensions, type AllowanceSource } from './artworkAllowance';
 import { getPanelSize } from './panels';
 import type {
   Artwork,
@@ -242,14 +242,17 @@ export function getWrapSize(dimensions: Dimensions): Size2 {
   return { width: 2 * dimensions.width + 2 * dimensions.depth, height: dimensions.height };
 }
 
-/** Artwork area of a wrap layer in wrap coordinates: (2W + 2D) × H, or × (H + a) from y = −a with `extendToBottom`. */
+/**
+ * Artwork area of a wrap layer in wrap coordinates: (2W + 2D) × H, or × (H + a) from y = −a with `extendToBottom` (a =
+ * the type's bottom allowance, `getArtworkBottomAllowance`: pass the bag geometry for the gusseted bag).
+ */
 export function getWrapArtworkArea(
-  dimensions: Dimensions,
+  source: AllowanceSource,
   placement: Pick<ArtworkPlacement, 'extendToBottom'>,
 ): PanelArtworkArea {
-  const { width, height } = getWrapSize(dimensions);
+  const { width, height } = getWrapSize(getSourceDimensions(source));
   if (!placement.extendToBottom) return { x: 0, y: 0, width, height, periodicX: true };
-  const a = getBottomAllowance(dimensions);
+  const a = getArtworkBottomAllowance(source);
   return { x: 0, y: -a, width, height: height + a, periodicX: true };
 }
 
@@ -259,11 +262,11 @@ export function getWrapArtworkArea(
  * covers exactly [0, P].
  */
 export function getWrapImageExtent(
-  dimensions: Dimensions,
+  source: AllowanceSource,
   image: Size2,
   placement: ArtworkPlacement,
 ): { x0: number; x1: number } {
-  const area = getWrapArtworkArea(dimensions, placement);
+  const area = getWrapArtworkArea(source, placement);
   const period = area.width;
   const rect = getArtworkRect(area, image, placement, area);
   const half = (rect.rotation === 90 || rect.rotation === 270 ? rect.height : rect.width) / 2;
@@ -317,12 +320,11 @@ export function getArtworkTargetArea(
   source: Dimensions | ArtworkGeometry,
   placement: Pick<ArtworkPlacement, 'extendToBottom'>,
 ): PanelArtworkArea {
-  const { dimensions } = geometryOf(source);
   const layout = getLayerTargetInfo(target)?.layout;
   if (layout === 'SHEET') return getSheetArtworkArea(source);
   return layout === 'WRAP'
-    ? getWrapArtworkArea(dimensions, placement)
-    : getPanelArtworkArea(target as PanelPosition, dimensions, placement);
+    ? getWrapArtworkArea(source, placement)
+    : getPanelArtworkArea(target as PanelPosition, source, placement);
 }
 
 /** Aspect-kept placement fitting `image` inside `rect` (contain) and centred on it; `area` = the placement's area. */
@@ -380,7 +382,7 @@ export function getNewLayerPlacement(
   existingLayers: number,
   extendToBottom: boolean,
 ): ArtworkPlacement {
-  if (layout === 'WRAP') return getNewWrapLayerPlacement(geometry.dimensions, image, existingLayers, extendToBottom);
+  if (layout === 'WRAP') return getNewWrapLayerPlacement(geometry, image, existingLayers, extendToBottom);
   if (existingLayers === 0 || !(image.width > 0 && image.height > 0)) return { mode: 'FILL', extendToBottom: true };
   const front = getSheetDieline(geometry).segments.find((segment) => segment.panel === 'FRONT');
   const area = getSheetArtworkArea(geometry);
@@ -393,13 +395,14 @@ export function getNewLayerPlacement(
  * the layers below nor get stretched. `extendToBottom` is the given default.
  */
 export function getNewWrapLayerPlacement(
-  dimensions: Dimensions,
+  source: AllowanceSource,
   image: Size2,
   existingLayers: number,
   extendToBottom: boolean,
 ): ArtworkPlacement {
   if (existingLayers === 0 || !(image.width > 0 && image.height > 0)) return { mode: 'FILL', extendToBottom };
-  const area = getWrapArtworkArea(dimensions, { extendToBottom });
+  const dimensions = getSourceDimensions(source);
+  const area = getWrapArtworkArea(source, { extendToBottom });
   const wall = getPanelSize('FRONT', dimensions);
   const wallLeft = getWrapPanelOffset('FRONT', dimensions);
   const containWall = Math.min(wall.width / image.width, wall.height / image.height);
@@ -484,8 +487,8 @@ export function resolvePanelArtwork(configuration: ArtworkSource, position: Pane
     const wallX1 = wallX0 + getPanelSize(position, dimensions).width;
     layers = [];
     getWrapLayers(configuration).forEach(({ id, artwork, placement }, stackIndex) => {
-      const area = getWrapArtworkArea(dimensions, placement);
-      const extent = getWrapImageExtent(dimensions, artwork, placement);
+      const area = getWrapArtworkArea(configuration, placement);
+      const extent = getWrapImageExtent(configuration, artwork, placement);
       for (const k of WRAP_COPIES) {
         const x0 = extent.x0 + k * area.width;
         const x1 = extent.x1 + k * area.width;
@@ -504,7 +507,7 @@ export function resolvePanelArtwork(configuration: ArtworkSource, position: Pane
   } else {
     const { artwork, placement } = configuration.panels[position];
     layers = artwork
-      ? [{ target: position, artwork, placement, area: getPanelArtworkArea(position, dimensions, placement), stackIndex: 0 }]
+      ? [{ target: position, artwork, placement, area: getPanelArtworkArea(position, configuration, placement), stackIndex: 0 }]
       : [];
   }
   return { position, layers, extendsToBottom: layers.some((layer) => layer.placement.extendToBottom === true) };

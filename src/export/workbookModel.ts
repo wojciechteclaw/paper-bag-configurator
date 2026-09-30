@@ -5,7 +5,7 @@ import { getArtworkLayout, getLayers, getSheetDieline, getWrapSize, isLayeredLay
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
-import { getBottomAllowance } from '../domain/geometry/tube';
+import { getArtworkBottomAllowance } from '../domain/artworkAllowance';
 import { getPanelSize } from '../domain/panels';
 import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { Artwork, ArtworkPlacement, BagConfiguration } from '../domain/types';
@@ -143,7 +143,7 @@ export function buildWorkbookModel(
       custom ? round(custom.scale, 3) : null,
       custom ? custom.rotation : null,
       ...(hasExtend
-        ? [yesNo(extend ?? false), round(areaHeight ?? size.height + (extend ? getBottomAllowance(dimensions) : 0), 2)]
+        ? [yesNo(extend ?? false), round(areaHeight ?? size.height + (extend ? getArtworkBottomAllowance(configuration) : 0), 2)]
         : []),
     ];
   });
