@@ -7,6 +7,10 @@ import {
   getBottomTrapezoidDepth,
   getBottomZoneDiagonals,
   getBottomZonePieces,
+  getInnerBottomEdges,
+  getInnerVisibleBottomPieces,
+  INNER_BOTTOM_STACK,
+  subtractConvexPolygon,
   getPanelCreases,
   getPanelRegions,
   getVisibleBottomPieces,
@@ -311,5 +315,119 @@ describe('formed bottom seen from below (BOTTOM-local)', () => {
     getVisibleBottomZoneParts('FRONT', d).forEach((part) =>
       part.forEach((p) => expect(p.y).toBeLessThanOrEqual(1e-9)),
     );
+  });
+});
+
+describe('formed bottom seen from inside (open top)', () => {
+  const GLUE = 10;
+  const d = { width: 200, height: 400, depth: 150 }; // E = 90, strip between the side flaps x ∈ [90, 110]
+
+  it('subtracts a convex polygon into disjoint convex parts', () => {
+    const square = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    const hole = [
+      { x: 2, y: 2 },
+      { x: 5, y: 2 },
+      { x: 5, y: 5 },
+      { x: 2, y: 5 },
+    ];
+    const parts = subtractConvexPolygon(square, hole);
+    parts.forEach((part) => expect(polygonArea(part)).toBeGreaterThan(0));
+    expect(parts.reduce((sum, part) => sum + polygonArea(part), 0)).toBeCloseTo(100 - 9);
+    expect(subtractConvexPolygon(hole, square)).toEqual([]);
+  });
+
+  it('shows the glue flap strip, both side flaps and, between them, the FRONT / BACK trapezoids [K]', () => {
+    const pieces = getInnerVisibleBottomPieces(d, GLUE);
+    const area = (id: string) =>
+      (pieces.find((p) => p.id === id)?.visibleParts ?? []).reduce((sum, part) => sum + polygonArea(part), 0);
+    expect(pieces.filter((p) => p.visibleParts.length > 0).map((p) => p.id)).toEqual([
+      'GLUE_FLAP',
+      'SIDE_FLAP_LEFT',
+      'SIDE_FLAP_RIGHT',
+      'FRONT_TRAPEZOID',
+      'BACK_TRAPEZOID',
+    ]);
+    expect(area('GLUE_FLAP')).toBeCloseTo(10 * 90 - (10 * 10) / 2); // strip on the back crease, 45° chamfer at x = E
+    expect(area('SIDE_FLAP_LEFT')).toBeCloseTo(90 * 150 - area('GLUE_FLAP'));
+    expect(area('SIDE_FLAP_RIGHT')).toBeCloseTo(90 * 150);
+    expect(area('FRONT_TRAPEZOID')).toBeCloseTo(20 * 90); // strip, y ∈ [D − E, D]
+    expect(area('BACK_TRAPEZOID')).toBeCloseTo(20 * 60); // strip, y ∈ [0, D − E): the rest lies under the FRONT one
+    for (const ear of ['FRONT_EAR_LEFT', 'FRONT_EAR_RIGHT', 'BACK_EAR_LEFT', 'BACK_EAR_RIGHT']) expect(area(ear)).toBe(0);
+  });
+
+  it.each([
+    { width: 200, depth: 150 },
+    { width: 400, depth: 150 },
+    { width: 250, depth: 200 }, // client example, E = 115
+    { width: 180, depth: 150 }, // W = 2E: no strip
+    { width: 160, depth: 150 }, // W < 2E: the side flaps overlap, the trapezoids degenerate
+    { width: 150, depth: 150 },
+  ])('tiles W × D exactly with the innermost layer at every point ($width × $depth)', (dd) => {
+    for (const glue of [GLUE, 0]) {
+      const pieces = getInnerVisibleBottomPieces(dd, glue);
+      const parts = pieces.flatMap((p) => p.visibleParts.map((part) => ({ id: p.id, part })));
+      parts.forEach(({ part }) => {
+        expect(polygonArea(part)).toBeGreaterThan(0);
+        part.forEach((p) => {
+          expect(p.x).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.x).toBeLessThanOrEqual(dd.width + 1e-9);
+          expect(p.y).toBeGreaterThanOrEqual(-1e-9);
+          expect(p.y).toBeLessThanOrEqual(dd.depth + 1e-9);
+        });
+      });
+      expect(parts.reduce((sum, { part }) => sum + polygonArea(part), 0)).toBeCloseTo(dd.width * dd.depth, 6);
+      expect(pieces.map((p) => INNER_BOTTOM_STACK.indexOf(p.id))).toEqual(pieces.map((p) => p.depthFromInside));
+      // Layer order: every sample point shows the first piece of INNER_BOTTOM_STACK that contains it.
+      for (let x = 0.9; x < dd.width; x += 4.7) {
+        for (let y = 0.8; y < dd.depth; y += 4.3) {
+          const p = { x, y };
+          const strictly = parts.filter(({ part }) => pointInConvexPolygon(p, part, -1e-6));
+          expect(strictly.length).toBeLessThanOrEqual(1);
+          expect(parts.some(({ part }) => pointInConvexPolygon(p, part, 1e-6))).toBe(true);
+          const innermost = pieces.find((piece) => pointInConvexPolygon(p, piece.polygon, -1e-6));
+          if (innermost && strictly.length === 1) expect(strictly[0].id).toBe(innermost.id);
+        }
+      }
+    }
+  });
+
+  it('draws the paper edges seen from inside: flap edges, the FRONT trapezoid end and the glue flap strip', () => {
+    const round = (v: number) => Math.round(v * 1000) / 1000;
+    const keys = getInnerBottomEdges(d, GLUE).map(({ piece, segment }) => {
+      const ends = [segment.from, segment.to].map((p) => `${round(p.x)},${round(p.y)}`).sort();
+      return `${piece}:${ends.join('–')}`;
+    });
+    expect(keys.sort()).toEqual(
+      [
+        'GLUE_FLAP:80,10–90,0',
+        'GLUE_FLAP:0,10–80,10',
+        'SIDE_FLAP_LEFT:90,0–90,150',
+        'SIDE_FLAP_RIGHT:110,0–110,150',
+        'FRONT_TRAPEZOID:110,60–90,60',
+      ].sort(),
+    );
+  });
+
+  it('never draws a covered edge (ears, diagonals, BACK trapezoid end) or an outline edge', () => {
+    for (const dd of [d, { width: 400, depth: 150 }, { width: 160, depth: 150 }]) {
+      const pieces = getInnerVisibleBottomPieces(dd, GLUE);
+      const edges = getInnerBottomEdges(dd, GLUE);
+      expect(edges.length).toBeGreaterThan(0);
+      for (const { piece, segment } of edges) {
+        const k = pieces.findIndex((p) => p.id === piece);
+        const mid = { x: (segment.from.x + segment.to.x) / 2, y: (segment.from.y + segment.to.y) / 2 };
+        pieces.slice(0, k).forEach((inner) => expect(pointInConvexPolygon(mid, inner.polygon, 1e-6)).toBe(false));
+        expect(piece.includes('EAR')).toBe(false);
+        const onOutline =
+          (segment.from.y === segment.to.y && [0, dd.depth].includes(segment.from.y)) ||
+          (segment.from.x === segment.to.x && [0, dd.width].includes(segment.from.x));
+        expect(onOutline).toBe(false);
+      }
+    }
   });
 });

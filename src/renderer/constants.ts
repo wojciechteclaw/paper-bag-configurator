@@ -1,5 +1,5 @@
 import { PAPER_PREVIEW_COLORS } from '../domain/config/productCatalog';
-import type { BottomPieceId } from '../domain/geometry/blockBottom';
+import type { BottomPieceId, InnerBottomPieceId } from '../domain/geometry/blockBottom';
 import type { PaperColor } from '../domain/types';
 
 /** The only mm → scene-unit conversion factor (1 scene unit = 100 mm). */
@@ -34,6 +34,9 @@ export const BOTTOM_LAYER_OFFSET_MM = 0.1;
  */
 const BOTTOM_LAYER_STEPS: Readonly<Record<BottomPieceId, number>> = {
   SIDE_FLAP_LEFT: 0,
+  // Same plane as LEFT's flap. When W < 2E the two flaps overlap in the middle; both inner faces are plain paper, so
+  // sharing the plane is invisible, while any smaller-than-a-step offset let the FRONT ears' creases show through
+  // (tried: 0.025 mm). The fold model draws only LEFT's edge there (INNER_BOTTOM_STACK tie-break, domain).
   SIDE_FLAP_RIGHT: 0,
   FRONT_EAR_LEFT: 0.5,
   FRONT_EAR_RIGHT: 0.5,
@@ -54,6 +57,27 @@ export function getBottomLayerOffsetMm(id: BottomPieceId): number {
  * when looking into the bag through the open top. Render-only, mm.
  */
 export const BOTTOM_LINE_LIFT_MM = 0.3;
+
+/**
+ * Depth of the ContactShadows plane below the floor (y = 0), mm: under every bottom layer (≤ 0.2 mm) and the underside
+ * lines (0.3 mm), so the shadow never draws over the bottom seen through the open top. Render-only.
+ */
+export const CONTACT_SHADOW_DEPTH_MM = 0.5;
+
+/**
+ * Outward offset (mm) of any piece of the bottom stack seen from inside (`INNER_BOTTOM_STACK`): the bottom pieces as
+ * `getBottomLayerOffsetMm`, the glue flap's zone part half a step INSIDE LEFT's side flap (−0.05 mm, as in the assembly).
+ */
+export function getInnerBottomLayerOffsetMm(id: InnerBottomPieceId): number {
+  return id === 'GLUE_FLAP' ? -BOTTOM_LAYER_OFFSET_MM / 2 : getBottomLayerOffsetMm(id);
+}
+
+/**
+ * Lines on the INSIDE of the bottom (paper edges of the innermost layers: side flaps, glue flap, trapezoid end) float
+ * this far inside the face they are drawn on, so they are visible through the open top but hidden from below by the
+ * outer layers (≥ 0.1 mm further out). Render-only, mm; half a layer step (client limit ≤ 0.1 mm per step).
+ */
+export const BOTTOM_INNER_LINE_LIFT_MM = BOTTOM_LAYER_OFFSET_MM / 2;
 
 export type PaperPalette = {
   /** Base colour of panels without artwork (and of all inner surfaces). */

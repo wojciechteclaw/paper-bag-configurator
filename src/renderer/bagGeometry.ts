@@ -9,27 +9,39 @@
 //
 // Regions and kinematics come from the domain (docs/PRODUCTION.md §10): FRONT; BACK = BACK_UPPER + BACK_LOWER (Z-fold
 // on the pleat y = D/2); each side = SIDE_FRONT, SIDE_BACK_UPPER, SIDE_BACK_LOWER, SIDE_T; BOTTOM = one rigid W × D
-// region hinged on the front bottom crease (the glued bottom laminate), drawn as its visible pieces seen from below. Geometries are built once per dimension set; the fold animation only
-// rewrites their position attributes.
+// region hinged on the front bottom crease (the glued bottom laminate). The bottom is drawn as two tilings of W × D in
+// that one rigid region: its OUTER face = the pieces visible from below (`getVisibleBottomPieces`, artwork), its INNER
+// face = the pieces visible from inside through the open top (`getInnerVisibleBottomPieces`, plain paper: side flaps,
+// glue flap strip, the trapezoids between the flaps), each at its layer offset. Geometries are built once per
+// dimension set; the fold animation only rewrites their position attributes.
 
 import { BufferAttribute, BufferGeometry } from 'three';
+import { DIELINE_RULES } from '../domain/config/productionRules';
 import {
   findRegion,
   getBottomCreases,
+  getInnerBottomEdges,
+  getInnerVisibleBottomPieces,
   getPanelCreases,
   getPanelRegions,
   getVisibleBottomPieces,
-  type BottomPieceId,
   type Crease,
   type FoldPanelId,
   type FoldRegionId,
+  type InnerBottomPieceId,
   type PanelRegion,
 } from '../domain/geometry/blockBottom';
 import { foldPoint, getFoldPose, type FoldPose, type Vec3 } from '../domain/geometry/foldKinematics';
 import type { Point2 } from '../domain/geometry/sideGusset';
 import { getPanelSize } from '../domain/panels';
 import type { Dimensions, PanelPosition } from '../domain/types';
-import { BOTTOM_LINE_LIFT_MM, getBottomLayerOffsetMm, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
+import {
+  BOTTOM_INNER_LINE_LIFT_MM,
+  BOTTOM_LINE_LIFT_MM,
+  getInnerBottomLayerOffsetMm,
+  MM_TO_SCENE,
+  PAPER_LAYER_GAP_MM,
+} from './constants';
 
 export type BagPanelId = FoldPanelId;
 export const BAG_PANEL_IDS: readonly BagPanelId[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT', 'BOTTOM'];
@@ -131,9 +143,14 @@ export type PanelMesh = {
    * the wall's placement is extended to the bottom (docs/SPEC.md §4f).
    */
   artworkPanel: PanelPosition;
-  /** Bottom piece id (BOTTOM meshes only). */
-  piece?: BottomPieceId;
-  /** Outward offset from the bottom plane, mm (bottom pieces: client layer rule, `getBottomLayerOffsetMm`). */
+  /** Bottom piece id (BOTTOM meshes only; the inner face also has the glue flap's zone part). */
+  piece?: InnerBottomPieceId;
+  /**
+   * Faces the mesh renders: walls 'both' (outer = artwork, inner = plain paper). The bottom is split into the pieces
+   * seen from below ('outer' only) and the pieces seen from inside ('inner' only) — two different tilings of W × D.
+   */
+  face: MeshFace;
+  /** Outward offset from the bottom plane, mm (bottom pieces: client layer rule, `getInnerBottomLayerOffsetMm`). */
   lift: number;
   geometry: BufferGeometry;
   /** Panel-local (u, v) in mm per vertex (BOTTOM: bottom-local, used for posing). */
@@ -142,13 +159,21 @@ export type PanelMesh = {
   regions: Uint8Array;
 };
 
+export type MeshFace = 'both' | 'outer' | 'inner';
+
 type MeshPart = { region: FoldRegionId; polygon: readonly Point2[]; uvOf: (p: Point2) => [number, number] };
 
 /**
  * Non-indexed geometry (flat normals per region, so creases read as sharp folds). One geometry group per part
  * (all material index 0); every vertex gets its UV from its part.
  */
-function buildMesh(id: BagPanelId, artworkPanel: PanelPosition, parts: readonly MeshPart[], piece?: BottomPieceId): PanelMesh {
+function buildMesh(
+  id: BagPanelId,
+  artworkPanel: PanelPosition,
+  parts: readonly MeshPart[],
+  piece?: InnerBottomPieceId,
+  face: MeshFace = 'both',
+): PanelMesh {
   const local: number[] = [];
   const uv: number[] = [];
   const regions: number[] = [];
@@ -172,7 +197,8 @@ function buildMesh(id: BagPanelId, artworkPanel: PanelPosition, parts: readonly 
     id,
     artworkPanel,
     ...(piece ? { piece } : {}),
-    lift: piece ? getBottomLayerOffsetMm(piece) : 0,
+    face,
+    lift: piece ? getInnerBottomLayerOffsetMm(piece) : 0,
     geometry,
     local: new Float32Array(local),
     regions: Uint8Array.from(regions),
@@ -216,16 +242,35 @@ export function createPanelMesh(id: BagPanelId, dimensions: Dimensions): PanelMe
  * trapezoid (outermost), the part of the FRONT trapezoid it leaves free and the two side triangles of the LEFT / RIGHT
  * side flaps between the trapezoid diagonals. They tile the W × D bottom exactly — no overlapping layers, no
  * z-fighting. The corner triangles (ears) are hidden between the side flaps and the trapezoids (`getVisibleBottomPieces`).
+ * Outer face only: the inside of the bottom is `createInnerBottomMeshes`.
  */
 export function createBottomPieceMeshes(dimensions: Dimensions): PanelMesh[] {
-  return bottomParts(dimensions).map(({ piece, parts }) => buildMesh('BOTTOM', piece.panel, parts, piece.id));
+  return bottomParts(dimensions).map(({ piece, parts }) => buildMesh('BOTTOM', piece.panel, parts, piece.id, 'outer'));
 }
 
-/** Walls + bottom pieces: everything BagModel renders for the bag body. */
+const NO_UV = (): [number, number] => [0, 0];
+
+/**
+ * The inside of the bottom as seen through the open top (client stack [K], `getInnerVisibleBottomPieces`): one mesh
+ * per stack piece with a visible part — the glue flap strip on LEFT's side flap, the two side flaps and, between them
+ * (W > 2E), the FRONT and BACK trapezoids —, each at its own layer offset so the real overlaps read as layers, exactly
+ * like the sheet pieces at the end of the assembly. Inner face only, plain paper (the print is on the outside).
+ */
+export function createInnerBottomMeshes(dimensions: Dimensions): PanelMesh[] {
+  return getInnerVisibleBottomPieces(dimensions, DIELINE_RULES.glueFlapWidth)
+    .filter((piece) => piece.visibleParts.length > 0)
+    .map((piece) => {
+      const parts: MeshPart[] = piece.visibleParts.map((polygon) => ({ region: 'BOTTOM', polygon, uvOf: NO_UV }));
+      return buildMesh('BOTTOM', piece.panel ?? 'LEFT', parts, piece.id, 'inner');
+    });
+}
+
+/** Walls + the bottom's outer pieces (seen from below) and inner pieces (seen from inside): everything BagModel renders. */
 export function createBagMeshes(dimensions: Dimensions): PanelMesh[] {
   return [
     ...(['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).map((id) => createPanelMesh(id, dimensions)),
     ...createBottomPieceMeshes(dimensions),
+    ...createInnerBottomMeshes(dimensions),
   ];
 }
 
@@ -246,7 +291,10 @@ export type LineSpec = {
   region: FoldRegionId;
   from: [number, number];
   to: [number, number];
-  /** mm off the outer surface (bottom underside lines only, so they don't show through from inside). */
+  /**
+   * Bottom lines only: mm along the bottom's outward normal — > 0 underside lines (hidden from inside), < 0 lines on
+   * the inside (hidden from below).
+   */
   lift?: number;
 };
 
@@ -312,6 +360,21 @@ export function getCreaseSpecs(d: Dimensions): LineSpec[] {
   const bottom = getPanelRegions('BOTTOM', d);
   for (const c of getBottomCreases(d)) specs.push(onRegion('BOTTOM', bottom, ...toPts(c), BOTTOM_LINE_LIFT_MM));
   return specs;
+}
+
+/**
+ * Paper edges on the INSIDE of the bottom (`getInnerBottomEdges`: the side flaps' inner edges, the FRONT trapezoid's
+ * end between them, the glue flap strip), each BOTTOM_INNER_LINE_LIFT_MM inside the face of its piece: visible through
+ * the open top, hidden from below behind the outer layers. Drawn with the panel edges (same visual language).
+ */
+export function getInnerBottomEdgeSpecs(d: Dimensions): LineSpec[] {
+  return getInnerBottomEdges(d, DIELINE_RULES.glueFlapWidth).map(({ piece, segment }) => ({
+    panel: 'BOTTOM',
+    region: 'BOTTOM',
+    from: [segment.from.x, segment.from.y],
+    to: [segment.to.x, segment.to.y],
+    lift: getInnerBottomLayerOffsetMm(piece) - BOTTOM_INNER_LINE_LIFT_MM,
+  }));
 }
 
 /** Writes line segments as [x1,y1,z1,x2,y2,z2, …] in scene units into `out` (length = specs.length · 6). */

@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { BufferAttribute, Vector3 } from 'three';
-import { BOTTOM_LINE_LIFT_MM, getBottomLayerOffsetMm, MM_TO_SCENE, PAPER_LAYER_GAP_MM } from './constants';
+import { getVisibleBottomPieces, pointInConvexPolygon } from '../domain/geometry/blockBottom';
+import {
+  BOTTOM_INNER_LINE_LIFT_MM,
+  BOTTOM_LAYER_OFFSET_MM,
+  BOTTOM_LINE_LIFT_MM,
+  getBottomLayerOffsetMm,
+  MM_TO_SCENE,
+  PAPER_LAYER_GAP_MM,
+} from './constants';
 import {
   BAG_PANEL_IDS,
   createBagMeshes,
   createBottomPieceMeshes,
+  createInnerBottomMeshes,
   createPanelMesh,
   getBagFrame,
   getCreaseSpecs,
   getEdgeSpecs,
+  getInnerBottomEdgeSpecs,
   updatePanelMesh,
   writeLineSegments,
   type BagPanelId,
@@ -157,17 +167,22 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
       ['BOTTOM', 'SIDE_FLAP_LEFT', 'LEFT'],
       ['BOTTOM', 'SIDE_FLAP_RIGHT', 'RIGHT'],
     ]);
-    expect(createBagMeshes(dims).map((m) => m.piece ?? m.id)).toEqual([
-      'FRONT',
-      'BACK',
-      'LEFT',
-      'RIGHT',
-      'BACK_TRAPEZOID',
-      'FRONT_TRAPEZOID',
-      'SIDE_FLAP_LEFT',
-      'SIDE_FLAP_RIGHT',
+    expect(createBagMeshes(dims).map((m) => `${m.face}:${m.piece ?? m.id}`)).toEqual([
+      'both:FRONT',
+      'both:BACK',
+      'both:LEFT',
+      'both:RIGHT',
+      'outer:BACK_TRAPEZOID',
+      'outer:FRONT_TRAPEZOID',
+      'outer:SIDE_FLAP_LEFT',
+      'outer:SIDE_FLAP_RIGHT',
+      'inner:GLUE_FLAP',
+      'inner:SIDE_FLAP_LEFT',
+      'inner:SIDE_FLAP_RIGHT',
+      'inner:FRONT_TRAPEZOID',
+      'inner:BACK_TRAPEZOID',
     ]);
-    // Client layer rule [K]: side flaps 0, FRONT trapezoid 0.1 mm, BACK trapezoid 0.2 mm outwards.
+    // Client layer rule [K]: side flaps 0, FRONT trapezoid 0.1 mm, BACK 0.2 mm outwards.
     expect(pieces.map((m) => m.lift)).toEqual([0.2, 0.1, 0, 0].map((x) => expect.closeTo(x, 12)));
     // Seen from below at p = 0 the pieces sit 0.2 / 0.1 / 0 mm under the bottom plane.
     const frame = getBagFrame(dims, 0);
@@ -221,7 +236,7 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
       }
       return null;
     };
-    const byPiece = Object.fromEntries(meshes.map((m) => [m.piece ?? m.id, m]));
+    const byPiece = Object.fromEntries(meshes.filter((m) => m.face !== 'inner').map((m) => [m.piece ?? m.id, m]));
     // FRONT bottom-left corner (u = 0, v = 0) is also a corner of the FRONT trapezoid; BACK likewise.
     for (const [wall, flap] of [
       ['FRONT', 'FRONT_TRAPEZOID'],
@@ -234,6 +249,61 @@ describe('bottom pieces continue the wall UV space (SPEC §4f)', () => {
         expect(onFlap).not.toBeNull();
         const lift = byPiece[flap].lift * s; // client layer offset of the trapezoid (render-only)
         expect(onFlap!.distanceTo(onWall!)).toBeLessThan(1e-6 + lift + (p === 1 ? 7 * PAPER_LAYER_GAP_MM * s : 0));
+      }
+    }
+  });
+});
+
+describe('bottom seen from inside (open top)', () => {
+  const triangleArea = (pos: BufferAttribute, i: number) => {
+    const [a, b, c] = [0, 1, 2].map((k) => new Vector3().fromBufferAttribute(pos, i + k));
+    return b.sub(a).cross(c.sub(a)).length() / 2;
+  };
+
+  it('tiles the inside of the bottom with the stack layers, inner face only, at their layer offsets', () => {
+    const inner = createInnerBottomMeshes(dims);
+    expect(inner.map((m) => m.piece)).toEqual(['GLUE_FLAP', 'SIDE_FLAP_LEFT', 'SIDE_FLAP_RIGHT', 'FRONT_TRAPEZOID', 'BACK_TRAPEZOID']);
+    inner.forEach((m) => expect(m.face).toBe('inner'));
+    expect(inner.map((m) => m.lift)).toEqual([-0.05, 0, 0, 0.1, 0.2].map((x) => expect.closeTo(x, 12)));
+    const frame = getBagFrame(dims, 0);
+    let area = 0;
+    for (const mesh of inner) {
+      updatePanelMesh(mesh, frame);
+      const pos = mesh.geometry.getAttribute('position') as BufferAttribute;
+      const nrm = mesh.geometry.getAttribute('normal') as BufferAttribute;
+      for (let i = 0; i < pos.count; i++) {
+        expect(pos.getY(i) / MM_TO_SCENE).toBeCloseTo(-mesh.lift, 4);
+        expect(nrm.getY(i)).toBeCloseTo(-1); // front face points out of the bag → rendered BackSide from inside
+      }
+      for (let i = 0; i < pos.count; i += 3) area += triangleArea(pos, i);
+    }
+    expect(area / (s * s)).toBeCloseTo(dims.width * dims.depth, 1);
+  });
+
+  it('draws the inner paper edges just inside their face and behind the outer layers from below', () => {
+    const specs = getInnerBottomEdgeSpecs(dims);
+    expect(specs).toHaveLength(5); // two side flap edges, the FRONT trapezoid end, the glue flap edge + chamfer
+    const outer = getVisibleBottomPieces(dims);
+    for (const spec of specs) {
+      expect(spec.panel).toBe('BOTTOM');
+      expect(spec.lift).toBeLessThan(0.1);
+      // From below the line is covered by the outer-visible piece there, which sits further out.
+      const mid = { x: (spec.from[0] + spec.to[0]) / 2, y: (spec.from[1] + spec.to[1]) / 2 };
+      const cover = outer.find((piece) => piece.visibleParts.some((part) => pointInConvexPolygon(mid, part, 1e-6)))!;
+      expect(getBottomLayerOffsetMm(cover.id) - (spec.lift ?? 0)).toBeGreaterThanOrEqual(BOTTOM_LAYER_OFFSET_MM - 1e-9);
+    }
+    for (const p of [0, 0.25, 1]) {
+      const frame = getBagFrame(dims, p);
+      const inward = new Vector3(0, Math.cos(frame.pose.phi), Math.sin(frame.pose.phi));
+      const onFace = specs.map((spec) => ({ ...spec, lift: spec.lift! + BOTTOM_INNER_LINE_LIFT_MM }));
+      const [line, face] = [specs, onFace].map((list) => {
+        const out = new Float32Array(list.length * 6);
+        writeLineSegments(list, frame, out);
+        return out;
+      });
+      for (let i = 0; i < specs.length * 2; i++) {
+        const d = new Vector3(line[i * 3] - face[i * 3], line[i * 3 + 1] - face[i * 3 + 1], line[i * 3 + 2] - face[i * 3 + 2]);
+        expect(d.dot(inward) / s).toBeCloseTo(BOTTOM_INNER_LINE_LIFT_MM, 4); // on the inner side of its face (float32)
       }
     }
   });

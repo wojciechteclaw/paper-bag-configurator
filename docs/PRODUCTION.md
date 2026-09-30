@@ -260,6 +260,15 @@ trójkąty przy przekątnych tyłu) i dwa trójkąty boków `(0,0),(D/2,D/2),(0,
 (`getVisibleBottomPieces`); uszy zawsze schowane. Linie od spodu: przekątne trapezu tyłu, widoczne połówki przekątnych
 trapezu przodu i krawędź trapezu tyłu `y = E` (szew).
 
+**Widok od środka, przez otwartą górę (zaimplementowany, `getInnerVisibleBottomPieces`, `getInnerBottomEdges`):**
+w każdym punkcie dna widać najbardziej wewnętrzną warstwę wg [K]: pasek zakładki klejowej na klapie LEFT
+(`y ∈ [0, s]` przy bigu tylnym, `x ∈ [0, E]`, koniec ścięty 45°), klapy boków `[0, E]` i `[W − E, W]` na całej
+głębokości, a między nimi (gdy `W > 2E`) trapez przodu (`y ≥ D − E`) i trapez tyłu (`y < D − E`). Uszy i przekątne
+C9 są niewidoczne z obu stron. Linie od środka: wewnętrzne krawędzie klap boków `x = E`, `x = W − E`, koniec trapezu
+przodu `y = D − E` między nimi oraz krawędź i ścięcie paska zakładki. Przy `W < 2E` klapy boków zachodzą na siebie;
+podgląd kładzie klapę LEFT do środka (umowne, do potwierdzenia). Render: linie wewnętrzne 0,05 mm do środka od swojej
+powierzchni, cień kontaktowy 0,5 mm pod podłogą (pod wszystkimi warstwami dna).
+
 #### 3.4.2a Poprzedni model (prostokątne klapy, uszy z boków) — usunięty z kodu 29.09.2026, tylko dla historii
 
 ```text

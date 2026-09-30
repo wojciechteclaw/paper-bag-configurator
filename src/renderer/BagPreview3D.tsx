@@ -7,7 +7,7 @@ import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
 import { getSheetViewExtent } from './assemblyGeometry';
 import { BagModel } from './BagModel';
-import { MM_TO_SCENE } from './constants';
+import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
 
@@ -133,8 +133,8 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
         debugLines={DEBUG_LINES}
       />
 
-      {/* Slightly below the bag bottom so the shadow plane never z-fights with it (visible through the open top). */}
-      <ContactShadows position={[0, -0.002, 0]} opacity={0.45} scale={Math.max(w, d, assembling ? 2 * sheet.radius * MM_TO_SCENE : 0) * 4} blur={2.4} far={h} />
+      {/* Below every bottom layer so the shadow plane never draws over the bottom seen through the open top. */}
+      <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d, assembling ? 2 * sheet.radius * MM_TO_SCENE : 0) * 4} blur={2.4} far={h} />
       <OrbitControls makeDefault />
       <CameraFit targetY={targetY} radius={radius} />
     </Canvas>

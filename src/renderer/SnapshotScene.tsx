@@ -4,7 +4,7 @@ import { resolvePanelArtworks } from '../domain/artworkLayout';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { BACKGROUND_COLOR } from './camera';
-import { MM_TO_SCENE } from './constants';
+import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { StudioLighting } from './lighting';
 
 export type SnapshotSceneProps = {
@@ -35,7 +35,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
         handle={configuration.handle}
         foldProgress={foldProgress}
       />
-      <ContactShadows position={[0, -0.002, 0]} opacity={0.45} scale={Math.max(w, d) * 4} blur={2.4} far={h} />
+      <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d) * 4} blur={2.4} far={h} />
     </>
   );
 }
