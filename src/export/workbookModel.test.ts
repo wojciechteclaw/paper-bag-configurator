@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createWrapLayer } from '../domain/factories';
 import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline, samplePalette } from './testFixtures';
 import { buildWorkbookModel, cellValue, type WorkbookModel } from './workbookModel';
 
@@ -51,6 +52,23 @@ describe('buildWorkbookModel', () => {
     expect(rows[0].slice(7, 11)).toEqual([null, null, null, null]);
     expect(rows[1].slice(3, 13)).toEqual(['tył.png', 2000, 4000, 'własne położenie', 12.35, -8, 0.75, 90, 'tak', 490]);
     expect(rows[2].slice(0, 4)).toEqual(['Lewa', 150, 400, 'brak']);
+  });
+
+  it('lists every whole-bag layer (bottom → top) with the wrap size and its own placement in the wrap layout', () => {
+    const wrap = structuredClone(configuration);
+    wrap.artworkLayout = 'WRAP';
+    const base = wrap.panels.FRONT.artwork!;
+    wrap.wrapLayers = [
+      createWrapLayer({ ...base, id: 'bg', fileName: 'tło.png' }, { mode: 'FILL', extendToBottom: true }),
+      createWrapLayer(
+        { ...base, id: 'logo', fileName: 'logo.png' },
+        { mode: 'CUSTOM', offsetX: -250, offsetY: 10, scale: 0.5, rotation: 0, extendToBottom: false },
+      ),
+    ];
+    const rows = block(buildWorkbookModel(wrap, null, dieline, exportContext('pl')), 'panels', 'panels').rows.map(values);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual(['Cała torba — warstwa 1', 700, 400, 'tło.png', 2000, 4000, 'wypełnij ściankę', null, null, null, null, 'tak', 490]);
+    expect(rows[1]).toEqual(['Cała torba — warstwa 2', 700, 400, 'logo.png', 2000, 4000, 'własne położenie', -250, 10, 0.5, 0, 'nie', 400]);
   });
 
   it('omits the extend-to-bottom columns when placements do not carry the flag', () => {

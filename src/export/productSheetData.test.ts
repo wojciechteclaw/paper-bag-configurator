@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getHandlePatchSize } from '../domain/dieline';
+import { createWrapLayer } from '../domain/factories';
 import { fitToBox, formatScaleNote, buildProductSheetData } from './productSheetData';
 import { exportContext, sampleConfiguration, sampleCoverage, sampleDieline, samplePalette } from './testFixtures';
 
@@ -48,14 +49,32 @@ describe('buildProductSheetData (PL)', () => {
     expect(rowValue(data, 'artworkWRAP')).toBeUndefined();
   });
 
-  it('lists only the whole-bag artwork in the wrap layout (per-wall artwork kept but not printed)', () => {
+  it('lists the whole-bag layers bottom → top with their placement in the wrap layout (per-wall artwork not printed)', () => {
     const wrap = sampleConfiguration();
     wrap.artworkLayout = 'WRAP';
-    wrap.wrapArtwork = { ...wrap.wrapArtwork, artwork: { ...wrap.panels.FRONT.artwork!, id: 'w', fileName: 'cała.png' } };
+    const base = wrap.panels.FRONT.artwork!;
+    wrap.wrapLayers = [
+      createWrapLayer({ ...base, id: 'w', fileName: 'tło.png' }, { mode: 'FILL', extendToBottom: true }),
+      createWrapLayer(
+        { ...base, id: 'l', fileName: 'logo.png' },
+        { mode: 'CUSTOM', offsetX: -250.4, offsetY: 12, scale: 0.456, rotation: 90, extendToBottom: false },
+      ),
+    ];
     const wrapData = buildProductSheetData(wrap, null, dieline, exportContext('pl'), null);
-    expect(rowValue(wrapData, 'artworkLayout')?.value).toBe('Jedna grafika na całą torbę');
-    expect(rowValue(wrapData, 'artworkWRAP')).toMatchObject({ label: 'Cała torba', value: 'cała.png' });
+    expect(rowValue(wrapData, 'artworkLayout')?.value).toBe('Grafika na całą torbę (warstwy)');
+    expect(rowValue(wrapData, 'artworkWrapLayer1')).toMatchObject({
+      label: 'Cała torba — warstwa 1',
+      value: 'tło.png — rozciągnięta na całą torbę, z dnem',
+    });
+    expect(rowValue(wrapData, 'artworkWrapLayer2')).toMatchObject({
+      label: 'Cała torba — warstwa 2',
+      value: 'logo.png — x -250 mm, y 12 mm od środka, skala 46 %, obrót 90°',
+    });
     expect(rowValue(wrapData, 'artworkFRONT')).toBeUndefined();
+
+    wrap.wrapLayers = [];
+    const empty = buildProductSheetData(wrap, null, dieline, exportContext('pl'), null);
+    expect(rowValue(empty, 'artworkWrapLayers')?.value).toBe('brak');
   });
 
   it('has no quantity anywhere', () => {

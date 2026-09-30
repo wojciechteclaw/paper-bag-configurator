@@ -58,7 +58,9 @@
       "sheetArea": "Bogenfläche",
       "colorMergeTolerance": "Zusammenfassen ähnlicher Motivfarben (ΔE00)",
       "colorMinAreaShare": "Minimale Farbfläche im Motiv (Anteil am Farbauftrag)",
-      "artworkLayout": "Anordnung der Druckmotive"
+      "artworkLayout": "Anordnung der Druckmotive",
+      "wrapLayer": "Ganze Tasche — Ebene {{index}}",
+      "wrapLayers": "Ganze Tasche — Motivebenen"
     },
     "handleMaterial": {
       "KRAFT": "festes Kraftpapier"
@@ -206,6 +208,11 @@
       "percent": "% des Bogens",
       "none": "Die Motivfarben konnten nicht erkannt werden.",
       "empty": "Keine Farbe in den Druckmotiven."
+    },
+    "placementSummary": {
+      "FILL": "über die ganze Tasche gestreckt",
+      "CUSTOM": "x {{x}} mm, y {{y}} mm von der Mitte, Skalierung {{scale}} %, Drehung {{rotation}}°",
+      "extended": "mit Boden"
     }
   }
 }

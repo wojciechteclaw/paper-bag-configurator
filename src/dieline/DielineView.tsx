@@ -4,6 +4,8 @@ import {
   getActiveArtworkTargets,
   getArtworkSlot,
   getArtworkTargetArea,
+  getWrapLayerId,
+  getWrapLayers,
   resolvePanelArtworks,
 } from '../domain/artworkLayout';
 import {
@@ -19,7 +21,8 @@ import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
 import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
-import { buildDielineScene, DIELINE_STYLE, matrixAttr, type SceneImage } from './scene';
+import { useConfiguratorUiStore } from '../state/configuratorUiStore';
+import { buildDielineScene, DIELINE_STYLE, isPointOnSceneImage, matrixAttr, type SceneImage } from './scene';
 import './dieline.css';
 
 type LayerKey = 'artwork' | 'creases' | 'zones' | 'annotations' | 'labels';
@@ -102,7 +105,9 @@ export function DielineView() {
     annotations: true,
     labels: true,
   });
-  const [selected, setSelected] = useState<ArtworkTarget | null>(null);
+  // Selection is view state shared with the layer list of the Graphics step (whole-bag layers, docs/SPEC.md §3b).
+  const selected = useConfiguratorUiStore((s) => s.selectedArtwork);
+  const setSelected = useConfiguratorUiStore((s) => s.selectArtwork);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState<'svg' | 'pdf' | null>(null);
@@ -203,11 +208,18 @@ export function DielineView() {
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
-  const onArtworkPointerDown = (event: ReactPointerEvent<SVGGElement>, panel: ArtworkTarget) => {
+  const onArtworkPointerDown = (event: ReactPointerEvent<SVGGElement>, hit: ArtworkTarget) => {
     if (event.button !== 0) return;
     event.stopPropagation();
-    setSelected(panel);
     const start = toSvgPoint(svgRef.current, event.clientX, event.clientY);
+    // The selected layer keeps the drag where it is visible under the pointer, even below other layers (a background
+    // selected in the layer list can be moved through the logo on top of it).
+    const panel =
+      start && activeSelection && activeSelection !== hit &&
+      scene.images.some((image) => image.target === activeSelection && isPointOnSceneImage(image, start))
+        ? activeSelection
+        : hit;
+    setSelected(panel);
     if (!start) return;
     dragRef.current = { kind: 'move', pointerId: event.pointerId, panel, start, placement: placementOf(panel) };
     svgRef.current?.setPointerCapture?.(event.pointerId);
@@ -317,7 +329,13 @@ export function DielineView() {
     }
   };
 
-  const panelName = (target: ArtworkTarget) => t(`dieline.panel.${target}`);
+  const wrapLayers = getWrapLayers(configuration);
+  const panelName = (target: ArtworkTarget) => {
+    const layerId = getWrapLayerId(target);
+    if (layerId === null) return t(`dieline.panel.${target}`);
+    const index = wrapLayers.findIndex((layer) => layer.id === layerId);
+    return t('dieline.panel.wrapLayer', { index: index + 1, name: wrapLayers[index]?.artwork.fileName ?? '' });
+  };
   const hasArtwork = scene.images.length > 0;
   const firstImageOfPanel = new Set<string>();
   const s = DIELINE_STYLE;

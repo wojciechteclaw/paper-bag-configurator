@@ -58,7 +58,9 @@
       "sheetArea": "Sheet area",
       "colorMergeTolerance": "Merging of similar artwork colours (ΔE00)",
       "colorMinAreaShare": "Minimum artwork colour spot (share of ink)",
-      "artworkLayout": "Artwork layout"
+      "artworkLayout": "Artwork layout",
+      "wrapLayer": "Whole bag — layer {{index}}",
+      "wrapLayers": "Whole bag — artwork layers"
     },
     "handleMaterial": {
       "KRAFT": "strong kraft paper"
@@ -206,6 +208,11 @@
       "percent": "% of sheet",
       "none": "Artwork colours could not be detected.",
       "empty": "No ink in the artwork."
+    },
+    "placementSummary": {
+      "FILL": "stretched over the whole bag",
+      "CUSTOM": "x {{x}} mm, y {{y}} mm from the centre, scale {{scale}} %, rotation {{rotation}}°",
+      "extended": "incl. bottom"
     }
   }
 }

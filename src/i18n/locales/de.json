@@ -113,17 +113,35 @@
       "FILE_TOO_LARGE": "Die Datei ist zu groß (max. {{maxMb}} MB).",
       "DECODE_FAILED": "Die Datei konnte nicht als Bild gelesen werden."
     },
-    "WRAP": "Ganze Tasche",
-    "dropZoneLabelWrap": "Ganze Tasche: Druckmotiv hinzufügen",
-    "fileInputLabelWrap": "Ganze Tasche: Druckmotiv-Datei",
-    "aspectMismatchWrap": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem der abgewickelten Taschenwände ({{panelRatio}}) ab — das Motiv wird verzerrt.",
+    "aspectMismatchWrap": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem der Wände rund um die Tasche ({{panelRatio}}) ab — mit „Strecken“ wird das Motiv verzerrt.",
     "layout": {
       "label": "Anordnung der Druckmotive",
       "PER_PANEL": "Eigenes Motiv für jede Wand",
-      "WRAP": "Ein Motiv für die ganze Tasche",
-      "wrapNote": "Das Motiv wird über alle Wände in der Reihenfolge des Bogens gelegt: {{order}} (ab der Naht; die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ stellen Sie in der Ansicht Stanzkontur ein.",
+      "WRAP": "Motiv für die ganze Tasche (Ebenen)",
+      "wrapNote": "Das Motiv läuft rund um die Tasche: {{order}} — ab der linken Kante der Vorderseite (die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ jeder Ebene stellen Sie in der Ansicht Stanzkontur ein.",
       "keptPanels": "Die Motive der einzelnen Wände bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt.",
-      "keptWrap": "Das Motiv der ganzen Tasche bleibt erhalten und kehrt beim Umschalten zurück; in dieser Anordnung wird es nicht gedruckt."
+      "keptWrap": "Die Ebenen des Motivs für die ganze Tasche bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt."
+    },
+    "layers": {
+      "title": "Motivebenen",
+      "count": "{{count}} von {{max}}",
+      "orderNote": "Eine weiter oben stehende Ebene wird obenauf gedruckt. Die erste Ebene (z. B. ein Hintergrund) füllt die ganze Tasche, weitere (Logo, Barcode…) beginnen an die Vorderseite angepasst.",
+      "empty": "Noch keine Ebenen — fügen Sie das erste Motiv hinzu, z. B. einen Hintergrund.",
+      "listLabel": "Motivebenen, oberste zuerst",
+      "layerName": "Ebene {{index}}",
+      "select": "{{layer}}: {{name}} — zum Bearbeiten auf der Stanzkontur auswählen",
+      "moveUp": "{{layer}}: nach oben verschieben",
+      "moveDown": "{{layer}}: nach unten verschieben",
+      "placementFill": "Über die ganze Tasche gestreckt",
+      "placementCustom": "Eigene Position, Skalierung {{scale}} %",
+      "extended": "mit Boden",
+      "editOnDieline": "Auf der Stanzkontur bearbeiten",
+      "add": "Ebene hinzufügen — Datei hierher ziehen",
+      "addFirst": "Erste Ebene hinzufügen — Datei hierher ziehen",
+      "addDropLabel": "Ebene des Motivs für die ganze Tasche hinzufügen",
+      "addFileInputLabel": "Datei der neuen Motivebene",
+      "replaceFileInputLabel": "Datei, die das Motiv der Ebene ersetzt",
+      "maxReached": "Das Limit von {{max}} Ebenen ist erreicht — entfernen Sie eine Ebene, um eine neue hinzuzufügen."
     }
   },
   "paper": {

@@ -203,6 +203,12 @@ export const ARTWORK_RULES: ArtworkRules = {
 export const ARTWORK_LAYOUTS: readonly ArtworkLayout[] = ['PER_PANEL', 'WRAP'];
 export const DEFAULT_ARTWORK_LAYOUT: ArtworkLayout = 'PER_PANEL';
 
+/**
+ * Max number of whole-bag artwork layers (docs/SPEC.md §3b), e.g. background + logo + barcode + texts. Bounds the 3D
+ * compositing work (every wall's canvas is redrawn from all layers) and the size of the SVG / PDF exports.
+ */
+export const MAX_WRAP_ARTWORK_LAYERS = 8;
+
 /** Max length of a single Pantone colour entry, e.g. "PMS 186 C". */
 export const PANTONE_CODE_MAX_LENGTH = 32;
 

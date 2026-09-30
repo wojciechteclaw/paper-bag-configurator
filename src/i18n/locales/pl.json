@@ -113,17 +113,35 @@
       "FILE_TOO_LARGE": "Plik jest za duży (maks. {{maxMb}} MB).",
       "DECODE_FAILED": "Nie udało się odczytać obrazu z pliku."
     },
-    "WRAP": "Cała torba",
-    "dropZoneLabelWrap": "Cała torba: dodaj grafikę",
-    "fileInputLabelWrap": "Cała torba: plik grafiki",
-    "aspectMismatchWrap": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji rozłożonych ścianek torby ({{panelRatio}}) — grafika zostanie zdeformowana.",
+    "aspectMismatchWrap": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji ścianek dookoła torby ({{panelRatio}}) — przy „Rozciągnij” grafika zostanie zdeformowana.",
     "layout": {
       "label": "Układ grafik",
       "PER_PANEL": "Osobna grafika na każdą ściankę",
-      "WRAP": "Jedna grafika na całą torbę",
-      "wrapNote": "Grafika jest rozciągana na wszystkie ścianki w kolejności z arkusza: {{order}} (od szwu; zakładka klejowa bez nadruku). Położenie, skalę i „Rozciągnij na dno” ustawisz w widoku Wykrój.",
+      "WRAP": "Grafika na całą torbę (warstwy)",
+      "wrapNote": "Grafiki biegną dookoła torby: {{order}} — od lewej krawędzi przodu (zakładka klejowa bez nadruku). Położenie, skalę i „Rozciągnij na dno” każdej warstwy ustawisz w widoku Wykrój.",
       "keptPanels": "Grafiki poszczególnych ścianek są zachowane i wrócą po przełączeniu układu; w tym układzie nie są drukowane.",
-      "keptWrap": "Grafika całej torby jest zachowana i wróci po przełączeniu układu; w tym układzie nie jest drukowana."
+      "keptWrap": "Warstwy grafiki całej torby są zachowane i wrócą po przełączeniu układu; w tym układzie nie są drukowane."
+    },
+    "layers": {
+      "title": "Warstwy grafiki",
+      "count": "{{count}} z {{max}}",
+      "orderNote": "Warstwa wyżej na liście jest drukowana na wierzchu. Pierwsza warstwa (np. tło) wypełnia całą torbę, kolejne (logo, kod kreskowy…) startują dopasowane do przodu.",
+      "empty": "Brak warstw — dodaj pierwszą grafikę, np. tło.",
+      "listLabel": "Warstwy grafiki, od wierzchniej",
+      "layerName": "Warstwa {{index}}",
+      "select": "{{layer}}: {{name}} — zaznacz do edycji na wykroju",
+      "moveUp": "{{layer}}: przesuń wyżej (bliżej wierzchu)",
+      "moveDown": "{{layer}}: przesuń niżej",
+      "placementFill": "Rozciągnięta na całą torbę",
+      "placementCustom": "Własne położenie, skala {{scale}} %",
+      "extended": "z dnem",
+      "editOnDieline": "Edytuj na wykroju",
+      "add": "Dodaj warstwę — przeciągnij plik tutaj",
+      "addFirst": "Dodaj pierwszą warstwę — przeciągnij plik tutaj",
+      "addDropLabel": "Dodaj warstwę grafiki całej torby",
+      "addFileInputLabel": "Plik nowej warstwy grafiki",
+      "replaceFileInputLabel": "Plik zamieniający grafikę warstwy",
+      "maxReached": "Osiągnięto limit {{max}} warstw — usuń warstwę, aby dodać nową."
     }
   },
   "paper": {

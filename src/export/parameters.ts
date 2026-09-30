@@ -6,10 +6,27 @@ import { BAG_TYPES } from '../domain/config/productCatalog';
 import { getHandlePatchSize, type Dieline } from '../domain/dieline';
 import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../domain/geometry/handles';
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
-import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot } from '../domain/artworkLayout';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
-import type { BagConfiguration } from '../domain/types';
+import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
 import type { Translate } from './format';
+
+/**
+ * Short placement description for listings (whole-bag layers): "fills the area" or offsets (mm from the area centre,
+ * rounded), scale (% of contain) and rotation; plus "extended to the bottom" when set.
+ */
+export function describePlacement(placement: ArtworkPlacement, t: Translate): string {
+  const text =
+    placement.mode === 'FILL'
+      ? t('export.placementSummary.FILL')
+      : t('export.placementSummary.CUSTOM', {
+          x: Math.round(placement.offsetX) + 0,
+          y: Math.round(placement.offsetY) + 0,
+          scale: Math.round(placement.scale * 100),
+          rotation: placement.rotation,
+        });
+  return placement.extendToBottom ? `${text}, ${t('export.placementSummary.extended')}` : text;
+}
 
 export type ParameterValue = string | number;
 
@@ -98,15 +115,25 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     row('sheetArea', (dieline.sheet.width * dieline.sheet.height) / 100, t('export.unit.cm2')),
   ];
 
-  // Layout first, then the artwork of the active layout only (kept artwork of the other layout is not printed).
+  // Layout first, then the artwork of the active layout only (kept artwork of the other layout is not printed). Whole-bag
+  // layers are listed bottom → top, each with its placement (docs/SPEC.md §3b).
   const layout = getArtworkLayout(configuration);
+  const wrapLayers = getWrapLayers(configuration);
   const artwork: ParameterRow[] = [
     { id: 'artworkLayout', label: t('export.param.artworkLayout'), value: t(`artwork.layout.${layout}`) },
-    ...getActiveArtworkTargets(configuration).map((target) => ({
-      id: `artwork${target}`,
-      label: t(`artwork.${target}`),
-      value: getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork'),
-    })),
+    ...(layout === 'WRAP'
+      ? wrapLayers.length === 0
+        ? [{ id: 'artworkWrapLayers', label: t('export.param.wrapLayers'), value: t('summary.noArtwork') }]
+        : wrapLayers.map((layer, index) => ({
+            id: `artworkWrapLayer${index + 1}`,
+            label: t('export.param.wrapLayer', { index: index + 1 }),
+            value: `${layer.artwork.fileName} — ${describePlacement(layer.placement, t)}`,
+          }))
+      : getActiveArtworkTargets(configuration).map((target) => ({
+          id: `artwork${target}`,
+          label: t(`artwork.${target}`),
+          value: getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork'),
+        }))),
   ];
 
   const section = (id: ParameterSectionId, rows: ParameterRow[]): ParameterSection => ({

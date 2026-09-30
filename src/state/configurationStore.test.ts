@@ -3,7 +3,8 @@ import { DEFAULT_PLACEMENT } from '../domain/artworkPlacement';
 import { ARTWORK_EXTEND_TO_BOTTOM_DEFAULT } from '../domain/config/productionRules';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import { validateDimensions } from '../domain/validation/dimensions';
-import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, COLOR_ANALYSIS_LIMITS } from '../domain/config/productCatalog';
+import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, COLOR_ANALYSIS_LIMITS, MAX_WRAP_ARTWORK_LAYERS } from '../domain/config/productCatalog';
+import { wrapLayerTarget } from '../domain/artworkLayout';
 import type { PrintSpec } from '../domain/types';
 import { useConfigurationStore } from './configurationStore';
 import { CONFIGURATOR_STEPS, useConfiguratorUiStore } from './configuratorUiStore';
@@ -385,55 +386,129 @@ describe('fold preview state (docs/SPEC.md §4a/§4c)', () => {
   });
 });
 
-describe('whole-bag (wrap) artwork', () => {
+describe('whole-bag artwork layers', () => {
   beforeEach(() => {
     URL.revokeObjectURL = vi.fn();
   });
 
+  const layers = () => config().wrapLayers;
+  const target = (index: number) => wrapLayerTarget(layers()[index].id);
+
   it('starts per wall and switches layouts without dropping the other layout\'s artwork', () => {
     expect(config().artworkLayout).toBe('PER_PANEL');
+    expect(layers()).toEqual([]);
     store().setPanelArtwork('FRONT', artwork('blob:front'));
     store().setArtworkLayout('WRAP');
     expect(config().artworkLayout).toBe('WRAP');
-    store().setPanelArtwork('WRAP', artwork('blob:wrap'));
+    store().addWrapLayer(artwork('blob:wrap'));
     store().setArtworkLayout('PER_PANEL');
     expect(config().panels.FRONT.artwork?.fileUrl).toBe('blob:front');
-    expect(config().wrapArtwork.artwork?.fileUrl).toBe('blob:wrap');
+    expect(layers().map((layer) => layer.artwork.fileUrl)).toEqual(['blob:wrap']);
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
     store().setArtworkLayout('SIDEWAYS' as never);
     expect(config().artworkLayout).toBe('PER_PANEL');
   });
 
-  it('stores the wrap artwork in its own slot and revokes its URL on replace / remove', () => {
-    store().setPanelArtwork('WRAP', artwork('blob:one'));
-    expect(config().wrapArtwork).toEqual({ artwork: expect.objectContaining({ fileUrl: 'blob:one' }), placement: DEFAULT_PLACEMENT });
+  it('adds layers on top: the first fills the wrap, later ones start fitted on the FRONT wall', () => {
+    const first = store().addWrapLayer(artwork('blob:bg'));
+    const second = store().addWrapLayer(artwork('blob:logo')); // 100 × 200 px
+    expect(layers().map((layer) => layer.id)).toEqual([first, second]);
+    expect(layers()[0].placement).toEqual(DEFAULT_PLACEMENT);
+    // 200 × 400 × 150: FRONT is wrap x ∈ [0, 200] → centre 100 mm = offset −250 from the 700 mm wrap centre; a 1:2
+    // image contained in the 200 × 400 wall is 200 × 400 mm = the same as contain in the wrap (scale 1).
+    expect(layers()[1].placement).toMatchObject({ mode: 'CUSTOM', offsetX: -250, offsetY: 0, scale: 1, rotation: 0 });
     expect(config().panels.FRONT.artwork).toBeNull();
-    store().setPanelArtwork('WRAP', artwork('blob:two'));
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:one');
-    store().setPanelArtwork('WRAP', null);
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:two');
-    expect(config().wrapArtwork.artwork).toBeNull();
   });
 
-  it('normalises wrap placements against the whole wall row (2W + 2D wide), not a single wall', () => {
-    store().setPanelArtwork('WRAP', artwork('blob:wrap'));
-    // 200 × 400 × 150: wall row 700 mm → the centre may move up to ±350 mm.
-    store().setPanelPlacement('WRAP', { mode: 'CUSTOM', offsetX: 300, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
-    expect(config().wrapArtwork.placement).toMatchObject({ offsetX: 300 });
-    store().setPanelPlacement('WRAP', { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
-    expect(config().wrapArtwork.placement).toMatchObject({ offsetX: 350 });
-    expect(config().panels.LEFT.placement).toEqual(DEFAULT_PLACEMENT);
+  it(`refuses more than ${MAX_WRAP_ARTWORK_LAYERS} layers and revokes the refused artwork's URL`, () => {
+    for (let i = 0; i < MAX_WRAP_ARTWORK_LAYERS; i++) expect(store().addWrapLayer(artwork(`blob:${i}`))).not.toBeNull();
+    expect(store().addWrapLayer(artwork('blob:extra'))).toBeNull();
+    expect(layers()).toHaveLength(MAX_WRAP_ARTWORK_LAYERS);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:extra');
   });
 
-  it('aligns, fills, extends to the bottom and resets the wrap placement', () => {
-    store().setPanelArtwork('WRAP', artwork('blob:wrap')); // 100 × 200 px → contain in 700 × 400: 200 × 400 mm
-    store().alignPanelArtwork('WRAP', { horizontal: 'LEFT' });
-    expect(config().wrapArtwork.placement).toMatchObject({ mode: 'CUSTOM', offsetX: -250, offsetY: 0 });
-    store().setPanelExtendToBottom('WRAP', true);
-    expect(config().wrapArtwork.placement.extendToBottom).toBe(true);
-    store().fillPanelPlacement('WRAP');
-    expect(config().wrapArtwork.placement).toEqual({ mode: 'FILL', extendToBottom: true });
-    store().resetPanelPlacement('WRAP');
-    expect(config().wrapArtwork.placement).toEqual(DEFAULT_PLACEMENT);
+  it('reorders layers one step at a time, ignoring moves past either end', () => {
+    const [a, b, c] = ['blob:a', 'blob:b', 'blob:c'].map((url) => store().addWrapLayer(artwork(url))!);
+    store().moveWrapLayer(a, 1);
+    expect(layers().map((layer) => layer.id)).toEqual([b, a, c]);
+    store().moveWrapLayer(c, -1);
+    expect(layers().map((layer) => layer.id)).toEqual([b, c, a]);
+    const before = config();
+    store().moveWrapLayer(a, 1);
+    store().moveWrapLayer(b, -1);
+    store().moveWrapLayer('missing', 1);
+    expect(config().wrapLayers).toBe(before.wrapLayers);
+  });
+
+  it('replaces a layer\'s image in place (same id, position and placement) and revokes the old URL', () => {
+    store().addWrapLayer(artwork('blob:bg'));
+    const logo = store().addWrapLayer(artwork('blob:logo'))!;
+    store().setPanelPlacement(target(1), { mode: 'CUSTOM', offsetX: 120, offsetY: 30, scale: 0.5, rotation: 90, extendToBottom: false });
+    store().setPanelArtwork(target(1), artwork('blob:logo-2'));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:logo');
+    expect(layers()[1]).toMatchObject({
+      id: logo,
+      artwork: expect.objectContaining({ fileUrl: 'blob:logo-2' }),
+      placement: { mode: 'CUSTOM', offsetX: 120, offsetY: 30, scale: 0.5, rotation: 90, extendToBottom: false },
+    });
+  });
+
+  it('removes a layer (also via setPanelArtwork(target, null)) and revokes its URL', () => {
+    const bg = store().addWrapLayer(artwork('blob:bg'))!;
+    store().addWrapLayer(artwork('blob:logo'));
+    store().removeWrapLayer(bg);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:bg');
+    expect(layers().map((layer) => layer.artwork.fileUrl)).toEqual(['blob:logo']);
+    store().setPanelArtwork(target(0), null);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:logo');
+    expect(layers()).toEqual([]);
+    store().removeWrapLayer('missing');
+    expect(layers()).toEqual([]);
+  });
+
+  it('edits only the addressed layer; unknown layers are ignored', () => {
+    store().addWrapLayer(artwork('blob:bg'));
+    store().addWrapLayer(artwork('blob:logo'));
+    const before = layers()[0];
+    // 200 × 400 × 150: wrap 700 mm → the centre may move up to ±350 mm.
+    store().setPanelPlacement(target(1), { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    expect(layers()[1].placement).toMatchObject({ offsetX: 350 });
+    expect(layers()[0]).toBe(before);
+    const snapshot = config();
+    store().setPanelPlacement(wrapLayerTarget('missing'), DEFAULT_PLACEMENT);
+    store().setPanelArtwork(wrapLayerTarget('missing'), artwork('blob:x'));
+    expect(config().wrapLayers).toBe(snapshot.wrapLayers);
+  });
+
+  it('aligns, fills, extends to the bottom and resets a layer placement over the whole wrap', () => {
+    store().addWrapLayer(artwork('blob:wrap')); // 100 × 200 px → contain in 700 × 400: 200 × 400 mm
+    store().alignPanelArtwork(target(0), { horizontal: 'LEFT' });
+    expect(layers()[0].placement).toMatchObject({ mode: 'CUSTOM', offsetX: -250, offsetY: 0 });
+    store().setPanelExtendToBottom(target(0), true);
+    expect(layers()[0].placement.extendToBottom).toBe(true);
+    store().fillPanelPlacement(target(0));
+    expect(layers()[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().resetPanelPlacement(target(0));
+    expect(layers()[0].placement).toEqual(DEFAULT_PLACEMENT);
+  });
+
+  it('revokes every layer URL when the product type resets the configuration', () => {
+    store().addWrapLayer(artwork('blob:a'));
+    store().addWrapLayer(artwork('blob:b'));
+    useConfigurationStore.setState({ configuration: { ...config(), productType: 'FOLDED' } });
+    store().setProductType('BLOCK');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:a');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:b');
+    expect(layers()).toEqual([]);
+  });
+});
+
+describe('artwork selection (view state)', () => {
+  it('is shared view state, outside the configuration', () => {
+    useConfiguratorUiStore.getState().selectArtwork(wrapLayerTarget('x'));
+    expect(useConfiguratorUiStore.getState().selectedArtwork).toBe('WRAP:x');
+    expect(JSON.stringify(config())).not.toMatch(/selected/);
+    useConfiguratorUiStore.getState().selectArtwork(null);
+    expect(useConfiguratorUiStore.getState().selectedArtwork).toBeNull();
   });
 });

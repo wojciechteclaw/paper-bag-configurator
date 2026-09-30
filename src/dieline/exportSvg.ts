@@ -32,17 +32,34 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
   const [vx, vy, vw, vh] = scene.viewBox;
   const s = DIELINE_STYLE;
 
-  const defs = scene.images.map(
-    (image) =>
-      `<clipPath id="${image.clip.id}"><rect x="${image.clip.x}" y="${image.clip.y}" width="${image.clip.width}" height="${image.clip.height}"/></clipPath>`,
-  );
+  // A file drawn more than once (a whole-bag layer split at the LEFT | FRONT column boundary) is embedded once, as an
+  // <image> in <defs>, and placed with <use>.
+  const hrefCounts = new Map<string, number>();
+  for (const image of scene.images) hrefCounts.set(image.href, (hrefCounts.get(image.href) ?? 0) + 1);
+  const shared = includeArtwork ? [...hrefCounts].filter(([, count]) => count > 1).map(([href]) => href) : [];
+  const sharedId = (href: string) => `artwork-source-${shared.indexOf(href) + 1}`;
+  const imageHref = (href: string) => esc(hrefs[href] ?? href);
+
+  const defs = [
+    ...scene.images.map(
+      (image) =>
+        `<clipPath id="${image.clip.id}"><rect x="${image.clip.x}" y="${image.clip.y}" width="${image.clip.width}" height="${image.clip.height}"/></clipPath>`,
+    ),
+    ...shared.map(
+      (href) =>
+        `<image id="${sharedId(href)}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" href="${imageHref(href)}" xlink:href="${imageHref(href)}"/>`,
+    ),
+  ];
 
   const artwork = includeArtwork
-    ? scene.images.map(
-        (image) =>
-          `<g clip-path="url(#${image.clip.id})"><image id="${image.id}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" transform="${matrixAttr(
-            image.matrix,
-          )}" href="${esc(hrefs[image.href] ?? image.href)}" xlink:href="${esc(hrefs[image.href] ?? image.href)}"/></g>`,
+    ? scene.images.map((image) =>
+        shared.includes(image.href)
+          ? `<g clip-path="url(#${image.clip.id})"><use id="${image.id}" href="#${sharedId(image.href)}" xlink:href="#${sharedId(
+              image.href,
+            )}" transform="${matrixAttr(image.matrix)}"/></g>`
+          : `<g clip-path="url(#${image.clip.id})"><image id="${image.id}" x="0" y="0" width="1" height="1" preserveAspectRatio="none" transform="${matrixAttr(
+              image.matrix,
+            )}" href="${imageHref(image.href)}" xlink:href="${imageHref(image.href)}"/></g>`,
       )
     : [];
 

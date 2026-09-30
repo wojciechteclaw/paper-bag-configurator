@@ -6,6 +6,13 @@ import type { PaperColor } from '../domain/types';
 export const MM_TO_SCENE = 0.01;
 
 /**
+ * Longer side of a wall's layer composite canvas, px (docs/SPEC.md §3b; also capped by the GPU's max texture size).
+ * 2048 px over a ~500 mm wall + bottom allowance ≈ 4 px/mm (~100 dpi) — plenty for a preview — at ≤ 16 MB RGBA per
+ * wall, so four walls stay well within texture memory.
+ */
+export const COMPOSITE_MAX_SIDE_PX = 2048;
+
+/**
  * Render-only separation between paper layers when the bag is folded flat, in mm per layer. Paper thickness is not
  * part of the domain; without it every region would be coplanar at 100 % and z-fight (and the faces' polygon offset
  * would let lines of hidden layers show through FRONT, so it must clearly exceed that offset). It fades in over

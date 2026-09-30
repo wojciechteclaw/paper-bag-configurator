@@ -1,14 +1,14 @@
 // Excel export (docs/SPEC.md §4e) as a pure, localized table model; the exceljs adapter only writes it.
 // Sheets: Parameters / Panels & artwork / Pantone & coverage / Artwork colours / Dieline. Units live in the column headers.
 
-import { resolvePanelArtworks } from '../domain/artworkLayout';
+import { getArtworkLayout, getWrapLayers, getWrapSize } from '../domain/artworkLayout';
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
 import { getBottomAllowance } from '../domain/geometry/tube';
 import { getPanelSize } from '../domain/panels';
 import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
-import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
+import type { Artwork, ArtworkPlacement, BagConfiguration } from '../domain/types';
 import { exportFileBaseName, round, type ExportContext } from './format';
 import { buildParameterSections } from './parameters';
 import { artworkPaletteNotes } from './productSheetData';
@@ -48,6 +48,15 @@ const extendToBottomOf = (placement: ArtworkPlacement): boolean | undefined => {
 
 const length = (a: Point2, b: Point2) => Math.hypot(b.x - a.x, b.y - a.y);
 
+/** One row of the "Panels & artwork" sheet: a wall (per-wall layout) or a whole-bag layer. */
+type ArtworkRow = {
+  label: string;
+  /** Size of what the artwork is printed on: the wall, or the four walls around the bag. */
+  size: { width: number; height: number };
+  artwork: Artwork | null;
+  placement: ArtworkPlacement;
+};
+
 export function buildWorkbookModel(
   configuration: BagConfiguration,
   coverage: InkCoverageResult | null,
@@ -57,9 +66,22 @@ export function buildWorkbookModel(
 ): WorkbookModel {
   const { t } = context;
   const { dimensions, print } = configuration;
-  // What every wall prints (per wall, or the whole-bag wrap on all four — then the placement is the wrap's, relative
-  // to the whole wall row; the layout is listed on the Parameters sheet).
-  const panels = resolvePanelArtworks(configuration);
+  // What is printed: per wall, or the whole-bag layers (bottom → top; placements relative to the whole wrap area,
+  // docs/SPEC.md §3b). The layout is listed on the Parameters sheet.
+  const artworkRows: ArtworkRow[] =
+    getArtworkLayout(configuration) === 'WRAP'
+      ? getWrapLayers(configuration).map((layer, index) => ({
+          label: t('export.param.wrapLayer', { index: index + 1 }),
+          size: getWrapSize(dimensions),
+          artwork: layer.artwork,
+          placement: layer.placement,
+        }))
+      : PANEL_POSITIONS.map((position) => ({
+          label: t(`artwork.${position}`),
+          size: getPanelSize(position, dimensions),
+          artwork: configuration.panels[position].artwork,
+          placement: configuration.panels[position].placement,
+        }));
   const h = (key: string, unit?: string) => (unit ? `${t(`export.xlsx.col.${key}`)} [${unit}]` : t(`export.xlsx.col.${key}`));
   const mm = t('dimensions.unit');
   const mm2 = t('export.unit.mm2');
@@ -86,7 +108,7 @@ export function buildWorkbookModel(
   };
 
   // ——— Panels & artwork ———
-  const hasExtend = PANEL_POSITIONS.some((p) => extendToBottomOf(panels[p].placement) !== undefined);
+  const hasExtend = artworkRows.some((row) => extendToBottomOf(row.placement) !== undefined);
   const panelColumns: WorkbookColumn[] = [
     { header: h('panel'), width: 14 },
     { header: h('panelWidth', mm), width: 14, numFmt: MM },
@@ -101,13 +123,11 @@ export function buildWorkbookModel(
     { header: h('rotation', '°'), width: 10 },
     ...(hasExtend ? [{ header: h('extendToBottom'), width: 16 }, { header: h('artworkAreaHeight', mm), width: 16, numFmt: MM }] : []),
   ];
-  const panelRows = PANEL_POSITIONS.map((position): Cell[] => {
-    const { artwork, placement } = panels[position];
-    const size = getPanelSize(position, dimensions);
+  const panelRows = artworkRows.map(({ label, size, artwork, placement }): Cell[] => {
     const custom = placement.mode === 'CUSTOM' ? placement : null;
     const extend = extendToBottomOf(placement);
     return [
-      t(`artwork.${position}`),
+      label,
       size.width,
       size.height,
       artwork?.fileName ?? t('summary.noArtwork'),
