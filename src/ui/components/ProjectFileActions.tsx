@@ -4,6 +4,7 @@ import { PROJECT_FILE_RULES } from '../../domain/config/productCatalog';
 import { isProjectFileError, type ParsedProject, type ProjectFileErrorCode } from '../../domain/project';
 import { applyProject, exportProject, hasUnsavedChanges, readProjectFile } from '../../state/projectFile';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useHeaderMenu } from './headerMenuContext';
 
 // "Zapisz projekt" / "Wczytaj projekt" (docs/SPEC.md §4h): the whole project (configuration + artwork files) to and
 // from one `.bagproj` file.
@@ -118,6 +119,7 @@ export function ProjectFileActions() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(false);
+  const menu = useHeaderMenu();
   const [pending, setPending] = useState<{ project: ParsedProject; fileName: string } | null>(null);
   const { save, saving } = useSaveProject(setMessage);
   const busy = saving || loading;
@@ -148,13 +150,27 @@ export function ProjectFileActions() {
   return (
     <div className="project-actions">
       <div className="project-actions__buttons">
-        <button type="button" className="header-button" onClick={() => void save()} disabled={busy} aria-busy={saving} title={t('project.saveHint')}>
+        {/* In the mobile header menu both actions close it: the result shows as a toast, the confirmation as a dialog. */}
+        <button
+          type="button"
+          className="header-button"
+          onClick={() => {
+            menu.close();
+            void save();
+          }}
+          disabled={busy}
+          aria-busy={saving}
+          title={t('project.saveHint')}
+        >
           {saving ? t('project.saving') : t('project.save')}
         </button>
         <button
           type="button"
           className="header-button"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => {
+            menu.close();
+            inputRef.current?.click();
+          }}
           disabled={busy}
           aria-busy={loading}
           title={t('project.loadHint')}
