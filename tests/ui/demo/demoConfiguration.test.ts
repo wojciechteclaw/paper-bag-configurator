@@ -66,13 +66,15 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo2/image-1.webp']);
   });
 
-  it('Demo 3: gusseted bag with a panoramic window and a whole-bag layer', async () => {
+  it('Demo 3: gusseted bag 250 + 100 × 320, greaseproof 50 g/m², panoramic window 140 mm from 105 mm, whole-bag layer', async () => {
     await loadDemoConfiguration(3, '/');
     const c = config();
     expect(c.productType).toBe('FOLDED');
     expect(getArtworkLayout(c)).toBe('WRAP');
     expect(getWrapLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo3/image-1.webp']);
-    expect(c.window).toMatchObject({ type: 'PANORAMIC', material: 'PP_PERFORATED', width: 50, bottomOffset: 60 });
+    expect(c.dimensions).toEqual({ width: 250, height: 320, depth: 100 });
+    expect(c.paper).toMatchObject({ type: 'GREASEPROOF', grammage: 50 });
+    expect(c.window).toMatchObject({ type: 'PANORAMIC', material: 'PP_PERFORATED', width: 140, bottomOffset: 105 });
   });
 
   it('still loads the configuration when an image is missing, and lists it', async () => {

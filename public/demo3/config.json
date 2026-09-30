@@ -2,14 +2,14 @@
   "id": "demo-3",
   "productType": "FOLDED",
   "dimensions": {
-    "width": 150,
-    "height": 250,
-    "depth": 60
+    "width": 250,
+    "height": 320,
+    "depth": 100
   },
   "paper": {
-    "type": "KRAFT",
+    "type": "GREASEPROOF",
     "color": "BROWN",
-    "grammage": 40,
+    "grammage": 50,
     "fscCertified": true,
     "moistureBarrier": false
   },
@@ -60,9 +60,9 @@
         "id": "demo3-artwork-1",
         "fileName": "image-1.webp",
         "fileUrl": "image-1.webp",
-        "width": 5040,
-        "height": 3000,
-        "sizeBytes": 0,
+        "width": 7700,
+        "height": 3520,
+        "sizeBytes": 221372,
         "mimeType": "image/webp"
       },
       "placement": {
@@ -86,8 +86,8 @@
   "window": {
     "type": "PANORAMIC",
     "material": "PP_PERFORATED",
-    "width": 50,
-    "bottomOffset": 60,
+    "width": 140,
+    "bottomOffset": 105,
     "filmOverlap": 10
   }
 }
