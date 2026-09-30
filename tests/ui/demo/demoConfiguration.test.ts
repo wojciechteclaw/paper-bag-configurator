@@ -97,6 +97,10 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(c.handle?.type).toBe('TWISTED_PAPER');
     expect(getArtworkLayout(c)).toBe('SHEET');
     expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo1/image-1.webp']);
+    // Client placement against the sheet area without the glue flap: centred horizontally, 36.4 mm up (kept as written).
+    const placement = getSheetLayers(c)[0].placement;
+    expect(placement).toMatchObject({ mode: 'CUSTOM', offsetX: 0, scale: 1, rotation: 0, extendToBottom: true });
+    expect(placement.mode === 'CUSTOM' && placement.offsetY).toBeCloseTo(36.375, 3);
   });
 
   it('still loads the configuration when an image is missing, and lists it', async () => {

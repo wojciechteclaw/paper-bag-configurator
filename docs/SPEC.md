@@ -623,8 +623,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - **Grafika na cały arkusz bez zakładki (§3c, 30.09.2026):** położenia „własne” (CUSTOM) warstw arkusza są liczone
   względem obszaru; projekty `.bagproj` zapisane przed zmianą (obszar z zakładką) wczytują się z grafiką przesuniętą
   o ≤ połowę zakładki i przeskalowaną o ~1–2 %. Czy potrzebna migracja starszych plików, czy wystarczy ponowne
-  „Rozciągnij” / dopasowanie? Demo 1 zachowuje położenie klienta (przesunięcie X 1,83 mm, skala 1 = obraz dokładnie na
-  ściankach, 1080 mm) — czy przesunięcie X ma zostać, czy wyzerować?
+  „Rozciągnij” / dopasowanie? ~~Demo 1: przesunięcie X 1,83 mm zostaje czy zero?~~ — rozstrzygnięte [K] (30.09.2026):
+  Demo 1 ustawione przez klienta na nowym obszarze — X 0, Y 36,37 mm, skala 1 (obraz dokładnie na ściankach, 1080 mm).
 
 - **Telefon (§4j):** czy podgląd na 48 % wysokości ekranu jest dobrym kompromisem, czy dodać przycisk zwijania /
   powiększania podglądu? Czy „Demo 1–4” mają być w wersji produkcyjnej na telefonie widoczne w górnym pasku?
