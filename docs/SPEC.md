@@ -237,6 +237,42 @@ Na wykroju (edycja grafiki), per ścianka:
 - Eksport z kroku Podsumowanie; generowany z `BagConfiguration` + funkcji domenowych (`buildDieline`, pokrycie), zrzuty 3D renderowane offscreen z tego samego modelu. Biblioteki ładowane leniwie.
 - **Nakład usunięty z konfiguracji** (decyzja klienta) — nie występuje w eksporcie.
 
+### 4g. Import wzornika kolorów `.ase` (prośba klienta 30.09.2026)
+
+„Zrób import wzornika .ase” — użytkownik wczytuje **własną, licencjonowaną** bibliotekę kolorów w formacie Adobe Swatch
+Exchange (np. eksport z Pantone Connect), a aplikacja używa jej do przybliżania kolorów Pantone.
+
+- **Licencja:** wartości Pantone są własnością Pantone LLC — aplikacja **nie zawiera i nie dołącza** żadnej biblioteki
+  Pantone (poza dotychczasowymi ~19 orientacyjnymi kolorami podglądu w `PANTONE_PREVIEW_SUGGESTIONS`). Plik dostarcza
+  użytkownik; zostaje **tylko w jego przeglądarce** (localStorage), nie jest nigdzie wysyłany i **nie trafia** do
+  `BagConfiguration`, wyceny, JSON ani eksportów PDF / Excel (tam jest tylko kod + wybrany HEX podglądu, jak dotąd).
+- **Parser (domena, `src/domain/swatches/ase.ts`):** big-endian: `ASEF`, wersja 1.x, liczba bloków; bloki `0xC001`
+  (początek grupy, nazwa), `0xC002` (koniec grupy), `0x0001` (kolor: nazwa UTF-16BE z długością wliczającą terminator,
+  model `RGB ` / `CMYK` / `LAB ` / `Gray`, wartości float32, typ global / spot / normal); nieznane bloki pomijane
+  po długości. Konwersja do CIELAB (D65 — ta sama przestrzeń co piksele grafik): **LAB** — L zapisane 0..1 (× 100),
+  a / b bez zmian, **względem D50** (konwencja Adobe / Pantone) → adaptacja Bradforda do D65; **RGB** 0..1 → sRGB → Lab;
+  **CMYK** — naiwne `255·(1−C)·(1−K)` bez profilu ICC, oznaczone jako przybliżone (≈); **Gray** 0..1 (0 = czerń) → szarość.
+  Każdy wpis: nazwa (np. „PANTONE 186 C”), grupa, model źródłowy, typ, Lab, HEX podglądu.
+- **Odporność:** błędy typowane (`EMPTY_FILE`, `TOO_LARGE`, `NOT_ASE`, `UNSUPPORTED_VERSION`, `TRUNCATED`,
+  `NO_COLORS`); limit rozmiaru pliku i liczby kolorów w `SWATCH_LIBRARY_RULES` (5 MB, 20 000). Wpisy nieużyteczne są
+  pomijane i liczone: nieobsługiwany model (np. HKS), błędne wartości, bez nazwy, **duplikat kodu** (ten sam
+  `pantoneLookupKey`, wygrywa pierwszy), ponad limit. Nieudany import nie zmienia wczytanego wzornika.
+- **Dopasowanie (`src/domain/swatches/matching.ts`):** wyszukiwanie po kodzie znormalizowanym jak `pantoneLookupKey`
+  („PANTONE 186 C” = „PMS 186 C” = „186 C”); najbliższe kolory wzornika do koloru wg **CIEDE2000** (top N).
+- **Stan:** osobny store `swatchLibraryStore` (poza konfiguracją): wzornik, indeks kodów, akcje zamień / usuń; zapis
+  w localStorage (`paper-bag-configurator.swatchLibrary`) w try/catch, z limitem rozmiaru (`maxStoredChars`) — za duży
+  lub przy niedostępnej pamięci działa do zamknięcia karty (UI o tym informuje). Aplikacja działa bez wzornika.
+- **UI — „Nadruk i produkcja”:** „Importuj wzornik (.ase)” (wybór pliku), status (nazwa, plik, liczba kolorów,
+  pominięte, przybliżone CMYK, błąd), „Usuń wzornik”, notka o licencji / prywatności. Przy dodawaniu kodu, który jest
+  we wzorniku, **kolor podglądu pochodzi ze wzornika** (przed wbudowanymi podpowiedziami; podpowiedź „We wzorniku: …”
+  pod polem); przy kolorze na liście znacznik „z wzornika”, a gdy podgląd zmieniono — przycisk „kolor z wzornika”.
+- **UI — „Kolory w grafikach (HEX)”:** z wczytanym wzornikiem dodatkowa kolumna „Wzornik (najbliższy)”: dla każdego
+  wykrytego koloru `SWATCH_LIBRARY_RULES.suggestionsPerColor` (2) najbliższe kolory wzornika z ΔE00 i przyciskiem
+  „Dodaj” (do kolorów nadruku: kod = nazwa ze wzornika, HEX = kolor wzornika; obowiązują limit kolorów, długość kodu
+  i brak duplikatów — kod już obecny, także z innym prefiksem, pokazany jako „na liście”). Bez wzornika — bez zmian.
+- **Duplikaty kodów nadruku** (zmiana przy okazji): `validatePantoneColorToAdd` porównuje kody przez `pantoneLookupKey`,
+  więc „PANTONE 186 C” jest duplikatem „PMS 186 C”; duplikat jest zgłaszany przed limitem kolorów.
+
 ## 5. Architektura
 
 ```text
@@ -264,7 +300,7 @@ App
 │   ├── PaperConfigurator
 │   ├── HandleConfigurator
 │   ├── ArtworkConfigurator → układ grafik + PanelArtworkUploader × 4 (lub × 1 dla całej torby)
-│   └── ProductionOptions (nadruk z kolorami podglądu Pantone, pakowanie)
+│   └── ProductionOptions (nadruk z kolorami podglądu Pantone, import wzornika .ase, pakowanie)
 └── BagPreview3D
     ├── BagModel → BagPanel × N
     ├── HandleModel
@@ -309,7 +345,7 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Czy 200/400/150 to na pewno wartości domyślne (a nie np. inne zakresy)?
 - Czy nadruk / pakowanie mają być edytowalne w UI MVP, czy tylko obecne w modelu danych?
 - Gramatury: czy dostępne są wszystkie wartości co 10 g/m² w zakresach wariantów (50–120 / 70–110 / 70–120; przyjęte w katalogu jako `grammage.step`), czy tylko wybrane?
-- Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów).
+- Kody Pantone: czy walidować format (np. „PMS 186 C”) lub wybierać z listy? Obecnie dowolny tekst (maks. 32 znaki, bez duplikatów — porównanie bez prefiksu PMS / PANTONE); z wczytanym wzornikiem `.ase` (§4g) kolor podglądu i podpowiedzi pochodzą z wzornika.
 - „Rozciągnij na dno” na bokach (LEFT/RIGHT): uszy i trójkąty są w gotowym dnie przykryte klapami, więc ten nadruk nie jest widoczny (a liczy się do pokrycia farbą). Czy blokować / ostrzegać przy bokach?
 - Pokrycie farbą: ~~czy grafika w zapasie na dno ma być wliczana?~~ — rozstrzygnięte w §4f (liczona przy „Rozciągnij na dno”). Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
 - ~~Wykrój: rozmiar łatki uchwytu i rozstaw końców~~ — rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod
@@ -326,3 +362,11 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Przełączanie układu grafik: czy grafiki nieaktywnego układu mają być zachowywane (obecnie tak, także w JSON), czy
   usuwane po przełączeniu?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.
+- Wzornik `.ase` (§4g): czy wzornik ma być współdzielony w firmie (serwer, licencja firmowa Pantone), czy zostaje
+  lokalny w przeglądarce użytkownika (obecnie lokalny)? Czy trzymać kilka wzorników naraz (np. Coated + Uncoated) —
+  obecnie jeden, import zastępuje poprzedni?
+- Wzornik `.ase`: kolumna „Pantone (najbliższy)” w tabeli kolorów grafik nadal porównuje z listą nadruku (ΔE76), a
+  kolumna wzornika z biblioteką (ΔE00) — czy ujednolicić na ΔE00? Czy przyciemniać / ukrywać podpowiedzi wzornika
+  powyżej jakiegoś ΔE (obecnie zawsze 2 najbliższe)?
+- Wzornik `.ase`: kolory CMYK przeliczane naiwnie (bez profilu ICC), a Gray traktowane jako jasność (0 = czerń) —
+  wystarczy, czy potrzebny profil (np. FOGRA39) do podglądu? Pliki Pantone Connect zwykle zawierają LAB lub RGB.

@@ -355,3 +355,18 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .pantone-list__picker {
   width: 22px; height: 22px; padding: 0; border: 1px solid var(--border-strong); border-radius: 3px; background: none; cursor: pointer;
 }
+
+/* Imported swatch library (docs/SPEC.md §4g) */
+.swatch-library { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--border); }
+.swatch-library__actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.swatch-library__status { margin: 4px 0; font-weight: 600; }
+.swatch-library small { display: block; }
+.pantone-form__library { display: inline-flex; align-items: center; gap: 4px; }
+.pantone-form__library .swatch { display: inline-block; flex: none; }
+.pantone-list .pantone-list__library { font-size: 12px; text-decoration: underline; color: var(--accent); }
+.pantone-list .pantone-list__library:hover:not(:disabled) { color: var(--heading); }
+.swatch-suggestions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.swatch-suggestions li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.swatch-suggestions .swatch { display: inline-block; flex: none; }
+.swatch-suggestions__delta { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.swatch-suggestions__add { padding: 1px 8px; font-size: 12px; }
