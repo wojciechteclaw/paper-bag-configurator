@@ -1,0 +1,93 @@
+{
+  "id": "demo-3",
+  "productType": "FOLDED",
+  "dimensions": {
+    "width": 150,
+    "height": 250,
+    "depth": 60
+  },
+  "paper": {
+    "type": "KRAFT",
+    "color": "BROWN",
+    "grammage": 40,
+    "fscCertified": true,
+    "moistureBarrier": false
+  },
+  "handle": null,
+  "panels": {
+    "FRONT": {
+      "id": "f86e4ad2-a27a-4944-bd76-128f5722892b",
+      "position": "FRONT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    },
+    "BACK": {
+      "id": "208ab54f-59e2-47ea-9de1-13a5ff27bee0",
+      "position": "BACK",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    },
+    "LEFT": {
+      "id": "9e443691-0fb1-436e-bf9a-a62c9180208a",
+      "position": "LEFT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    },
+    "RIGHT": {
+      "id": "e977683f-81be-470d-8d93-fa8ff39b85b6",
+      "position": "RIGHT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    }
+  },
+  "artworkLayout": "WRAP",
+  "wrapLayers": [
+    {
+      "id": "demo3-layer-1",
+      "artwork": {
+        "id": "demo3-artwork-1",
+        "fileName": "image-1.webp",
+        "fileUrl": "image-1.webp",
+        "width": 5040,
+        "height": 3000,
+        "sizeBytes": 0,
+        "mimeType": "image/webp"
+      },
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    }
+  ],
+  "sheetLayers": [],
+  "print": {
+    "technology": "FLEXO",
+    "pantoneColors": [],
+    "colorAnalysis": {
+      "mergeTolerance": 10,
+      "minAreaShare": 0.005
+    }
+  },
+  "packaging": "CARTON",
+  "glueFlapWidth": 15,
+  "bottomFoldDepth": 25,
+  "window": {
+    "type": "PANORAMIC",
+    "material": "PP_PERFORATED",
+    "width": 50,
+    "bottomOffset": 60,
+    "filmOverlap": 10
+  }
+}

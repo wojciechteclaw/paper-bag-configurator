@@ -6,15 +6,16 @@
     "title": "Beutel-Konfigurator",
     "configuration": "Konfiguration",
     "preview": "3D-Vorschau",
-    "demo": "Demo",
     "demoNumbered": "Demo {{index}}",
     "demoBusy": "Wird geladen…",
-    "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
-    "demoError": "Die Demo-Grafiken konnten nicht geladen werden.",
-    "demoHintByType": {
-      "FOLDED": "Beispiel laden: Seitenfaltenbeutel 150 + 60 × 250 mm, braunes Papier 40 g/m² FSC, Motiv für den ganzen Bogen wie eine Druckdatei (public/gusseted-bag)"
+    "demoError": "Die Demo konnte nicht geladen werden: {{folder}}/config.json fehlt oder ist ungültig.",
+    "demoMissing": "Demo-Konfiguration geladen, aber diese Bilder fehlen: {{files}}",
+    "demoHints": {
+      "1": "Demo 1 (public/demo1): Blockbodentasche 250 × 200 × 400 mm, weißes Papier 100 g/m² FSC, Kordelgriff, „Wave“-Motive auf den Wänden, bis auf den Boden",
+      "2": "Demo 2 (public/demo2): Seitenfaltenbeutel 150 + 60 × 250 mm, braunes Papier 40 g/m² FSC, Motiv auf dem ganzen Bogen",
+      "3": "Demo 3 (public/demo3): Seitenfaltenbeutel 150 + 60 × 250 mm mit Panoramafenster (perforierte PP-Folie), Motiv rund um die Tüte"
     },
-    "demoMissing": "Demo-Konfiguration geladen, aber diese Bilder fehlen: {{files}}"
+    "demoHintGeneric": "Beispiel aus {{folder}} laden (config.json + Bilder)"
   },
   "project": {
     "save": "Projekt speichern",

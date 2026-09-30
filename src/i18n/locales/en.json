@@ -6,15 +6,16 @@
     "title": "Bag configurator",
     "configuration": "Configuration",
     "preview": "3D preview",
-    "demo": "Demo",
     "demoNumbered": "Demo {{index}}",
     "demoBusy": "Loading…",
-    "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
-    "demoError": "The demo artwork could not be loaded.",
-    "demoHintByType": {
-      "FOLDED": "Load an example: gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, artwork for the whole dieline sheet like a print file (public/gusseted-bag)"
+    "demoError": "The demo could not be loaded: {{folder}}/config.json is missing or invalid.",
+    "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}",
+    "demoHints": {
+      "1": "Demo 1 (public/demo1): block-bottom bag 250 × 200 × 400 mm, white paper 100 g/m² FSC, twisted handle, “wave” artwork on the walls, extended to the bottom",
+      "2": "Demo 2 (public/demo2): gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, whole-sheet artwork",
+      "3": "Demo 3 (public/demo3): gusseted bag 150 + 60 × 250 mm with a panoramic window (perforated PP film), whole-bag artwork"
     },
-    "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}"
+    "demoHintGeneric": "Load the example from {{folder}} (config.json + images)"
   },
   "project": {
     "save": "Save project",

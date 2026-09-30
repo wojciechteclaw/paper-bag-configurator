@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { BagConfigurator } from './ui/components/BagConfigurator';
 import { DemoButton } from './ui/components/DemoButton';
+import { DEMO_COUNT } from './ui/demo/demoConfiguration';
 import { LanguageSwitcher } from './ui/components/LanguageSwitcher';
 import { PreviewPanel } from './ui/components/PreviewPanel';
 import { ProjectFileActions } from './ui/components/ProjectFileActions';
@@ -14,8 +15,9 @@ export default function App() {
         <h1>{t('app.title')}</h1>
         <div className="app-header__actions">
           <ProjectFileActions />
-          <DemoButton productType="BLOCK" index={1} />
-          <DemoButton productType="FOLDED" index={2} />
+          {Array.from({ length: DEMO_COUNT }, (_, i) => (
+            <DemoButton key={i + 1} index={i + 1} />
+          ))}
           <LanguageSwitcher />
         </div>
       </header>

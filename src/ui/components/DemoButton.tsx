@@ -1,22 +1,18 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { keyForType } from '../../i18n/keyForType';
-import type { BagType } from '../../domain/types';
-import { loadDemoConfiguration } from '../demo/demoConfiguration';
+import { demoFolder, loadDemoConfiguration } from '../demo/demoConfiguration';
 
 type DemoButtonProps = {
-  /** Bag type whose demo (`DEMO_CONFIGURATIONS`) the button loads — whatever type is currently selected. */
-  productType: BagType;
-  /** Number shown on the button: "Demo 1", "Demo 2" (client, 30.09.2026). */
+  /** Demo number: loads `public/demo<index>/config.json` and its images (client, 30.09.2026). */
   index: number;
 };
 
 /**
- * Loads the demo configuration of one bag type. Missing demo images are skipped; the button's hint then names them
- * (all missing: error).
+ * Loads one demo folder. Missing demo images are skipped; the button's hint then names them (config missing or
+ * invalid: error).
  */
-export function DemoButton({ productType, index }: DemoButtonProps) {
-  const { t } = useTranslation();
+export function DemoButton({ index }: DemoButtonProps) {
+  const { t, i18n } = useTranslation();
   const [state, setState] = useState<{ status: 'idle' | 'busy' | 'error' | 'partial'; missing?: string[] }>({
     status: 'idle',
   });
@@ -24,20 +20,22 @@ export function DemoButton({ productType, index }: DemoButtonProps) {
   const load = async () => {
     setState({ status: 'busy' });
     try {
-      const { missing, total } = await loadDemoConfiguration(undefined, productType);
-      if (missing.length === 0) setState({ status: 'idle' });
-      else setState({ status: missing.length === total ? 'error' : 'partial', missing });
+      const { missing } = await loadDemoConfiguration(index);
+      setState(missing.length === 0 ? { status: 'idle' } : { status: 'partial', missing });
     } catch {
       setState({ status: 'error' });
     }
   };
 
+  const hintKey = `app.demoHints.${index}`;
   const title =
-    state.status === 'error' || state.status === 'partial'
-      ? state.missing?.length
-        ? t('app.demoMissing', { files: state.missing.join(', ') })
-        : t('app.demoError')
-      : t(keyForType('app.demoHint', productType));
+    state.status === 'partial' && state.missing?.length
+      ? t('app.demoMissing', { files: state.missing.join(', ') })
+      : state.status === 'error'
+        ? t('app.demoError', { folder: `public/${demoFolder(index)}` })
+        : i18n.exists(hintKey)
+          ? t(hintKey)
+          : t('app.demoHintGeneric', { folder: `public/${demoFolder(index)}` });
 
   return (
     <button type="button" className="demo-button" onClick={load} disabled={state.status === 'busy'} title={title}>

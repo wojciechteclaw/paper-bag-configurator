@@ -1,76 +1,24 @@
-import { createArtwork } from '../../domain/factories';
-import { getPrintFilePlacement, layerTarget, wrapLayerTarget } from '../../domain/artworkLayout';
-import type { ArtworkPlacement, BagType, Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
+import { mapArtworks, sanitizeConfiguration } from '../../domain/project';
+import type { Artwork } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
 
-// Demo configurations, one per bag type — the DEMO button loads the one of the currently selected type. Image paths are
-// relative to `public/` (the single list of demo files):
-// - BLOCK (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC, internal
-//   twisted paper rope handle, the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched onto
-//   the bottom (SPEC §4f).
-// - FOLDED (client configuration 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, glue flap
-//   15 mm, the client's print file public/gusseted-bag/gussted.webp as the one whole-SHEET layer (docs/SPEC.md §3c),
-//   laid 1:1 on the dieline (`getPrintFilePlacement`: FILL for a whole-sheet file 435 × 275 mm; the current
-//   5040 × 3000 px file covers the wall row 420 × 250 mm, so it is placed over the walls without distortion).
-// Missing images are skipped: the configuration still loads.
+// Demos are data, not code (client, 30.09.2026): every demo is a folder `public/demo<N>/` with
+// - `config.json` — a bag configuration exactly as the app writes it (Podsumowanie → "Kopiuj JSON", or a project's
+//   configuration), whose artwork `fileUrl`s are file names in the same folder, and
+// - the images it references: `image-1.webp`, `image-2.webp`, … .
+// Loading resolves the file names, reads each image's real pixel size, validates the configuration like a project
+// file (`sanitizeConfiguration`: invalid values are clamped) and replaces the current configuration. Images that
+// cannot be loaded are left out (the slot stays empty / the layer is dropped) and listed in the result.
 
-export type DemoConfiguration = {
-  productType: BagType;
-  dimensions: Dimensions;
-  handle: HandleType | null;
-  fscCertified: boolean;
-  paperColor: PaperColor;
-  grammage: number;
-  /** Artwork per wall, path relative to `public/`. */
-  artwork: Partial<Record<PanelPosition, string>>;
-  /** Whole-bag (WRAP) artwork layers, bottom → top, paths relative to `public/`; non-empty = the WRAP layout. */
-  wrapLayers?: { path: string; placement?: ArtworkPlacement }[];
-  /**
-   * Whole-sheet (SHEET) artwork layers, bottom → top, paths relative to `public/`; non-empty = the SHEET layout. Placed
-   * as print files (`getPrintFilePlacement`).
-   */
-  sheetLayers?: { path: string }[];
-  /** Glue flap width s, mm (default: the bag type's). */
-  glueFlapWidth?: number;
-  /** "Extend to bottom" on every wall with artwork (only where the bag type offers it). */
-  extendToBottom: boolean;
-};
+/** Demo folders `public/demo1` … `public/demo<DEMO_COUNT>` — one header button each. */
+export const DEMO_COUNT = 3;
 
-export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> = {
-  BLOCK: {
-    productType: 'BLOCK',
-    dimensions: { width: 250, height: 400, depth: 200 },
-    handle: 'TWISTED_PAPER',
-    fscCertified: true,
-    paperColor: 'WHITE',
-    grammage: 100,
-    artwork: {
-      FRONT: 'carrier-bag/wave_front.webp',
-      BACK: 'carrier-bag/wave_back.webp',
-      LEFT: 'carrier-bag/wave_left.webp',
-      RIGHT: 'carrier-bag/wave_right.webp',
-    },
-    extendToBottom: true,
-  },
-  FOLDED: {
-    productType: 'FOLDED',
-    dimensions: { width: 150, height: 250, depth: 60 },
-    handle: null,
-    fscCertified: true,
-    paperColor: 'BROWN',
-    grammage: 40,
-    artwork: {},
-    glueFlapWidth: 15,
-    // The client's print file on the whole dieline sheet (LEFT | FRONT | RIGHT | BACK | glue flap, strip d included).
-    sheetLayers: [{ path: 'gusseted-bag/gussted.webp' }],
-    extendToBottom: false,
-  },
-};
-
-/** The block-bottom demo (kept for existing callers). */
-export const DEMO_CONFIGURATION = DEMO_CONFIGURATIONS.BLOCK;
+/** Folder of demo `index`, relative to `public/`. */
+export const demoFolder = (index: number) => `demo${index}`;
 
 type ImageInfo = { width: number; height: number; sizeBytes: number; mimeType: string };
+
+const MIME_BY_EXTENSION: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
 
 /** Pixel size (and byte size, when the server reports it) of a public image; rejects when it cannot be loaded. */
 async function probeImage(url: string): Promise<ImageInfo> {
@@ -87,74 +35,56 @@ async function probeImage(url: string): Promise<ImageInfo> {
   } catch {
     // Size is informational only.
   }
-  return { ...size, sizeBytes, mimeType: url.endsWith('.webp') ? 'image/webp' : 'image/png' };
+  const extension = url.split('.').pop()?.toLowerCase() ?? '';
+  return { ...size, sizeBytes, mimeType: MIME_BY_EXTENSION[extension] ?? 'image/png' };
 }
+
+/** A file name in the demo folder (not an absolute URL / path). */
+const isLocalFile = (fileUrl: string) => !/^([a-z]+:|\/)/i.test(fileUrl);
 
 /** What a demo load could not apply: image paths (relative to `public/`) that failed to load. */
 export type DemoLoadResult = { missing: string[]; total: number };
 
+/** Why a demo could not be loaded at all. */
+export class DemoLoadError extends Error {}
+
 /**
- * Loads the demo of `productType` into the configuration store: a fresh configuration of that type, the demo
- * dimensions (width first so the depth ≤ width rule holds), handle (before the paper: the handle variant constrains
- * the grammage), paper, FSC and the wall artwork. Images that cannot be loaded are skipped and listed in the result.
+ * Loads demo `index` (`public/demo<index>/config.json` + its images) into the configuration store. Throws
+ * `DemoLoadError` when the config is missing or invalid; missing images are skipped and listed in the result.
  */
-export async function loadDemoConfiguration(
-  base: string = import.meta.env.BASE_URL,
-  productType: BagType = 'BLOCK',
-): Promise<DemoLoadResult> {
-  const demo = DEMO_CONFIGURATIONS[productType];
-  const store = () => useConfigurationStore.getState();
-  store().resetConfiguration(demo.productType); // no leftover artwork / layout / colours
-  const { width, height, depth } = demo.dimensions;
-  store().setDimension('width', width);
-  store().setDimension('height', height);
-  store().setDimension('depth', depth);
-  store().setHandle(demo.handle);
-  store().setPaperColor(demo.paperColor);
-  store().setGrammage(demo.grammage);
-  store().setFscCertified(demo.fscCertified);
-  if (demo.glueFlapWidth !== undefined) store().setGlueFlapWidth(demo.glueFlapWidth);
-  const entries = Object.entries(demo.artwork) as [PanelPosition, string][];
-  const layers = demo.wrapLayers ?? [];
-  const sheetLayers = demo.sheetLayers ?? [];
-  const prefix = base.endsWith('/') ? base : `${base}/`;
-  const artworkOf = (path: string, info: ImageInfo) =>
-    createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...info });
-  const [results, layerResults, sheetResults] = await Promise.all([
-    Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`))),
-    Promise.allSettled(layers.map(({ path }) => probeImage(`${prefix}${path}`))),
-    Promise.allSettled(sheetLayers.map(({ path }) => probeImage(`${prefix}${path}`))),
-  ]);
-  const missing: string[] = [];
-  if (layers.length > 0) store().setArtworkLayout('WRAP');
-  layers.forEach(({ path, placement }, i) => {
-    const result = layerResults[i];
-    if (result.status === 'rejected') {
-      missing.push(path);
-      return;
-    }
-    const id = store().addWrapLayer(artworkOf(path, result.value));
-    if (id && placement) store().setPanelPlacement(wrapLayerTarget(id), placement);
+export async function loadDemoConfiguration(index: number, base: string = import.meta.env.BASE_URL): Promise<DemoLoadResult> {
+  const publicBase = base.endsWith('/') ? base : `${base}/`;
+  const prefix = `${publicBase}${demoFolder(index)}/`;
+  let raw: unknown;
+  try {
+    const response = await fetch(`${prefix}config.json`);
+    if (!response.ok) throw new Error(String(response.status));
+    raw = await response.json();
+  } catch (error) {
+    throw new DemoLoadError(`Demo ${index}: config.json could not be read (${String(error)})`);
+  }
+
+  // Resolve every referenced file once, then write the real URL and pixel size into each artwork slot.
+  const urlOf = (artwork: Artwork) => (isLocalFile(artwork.fileUrl) ? `${prefix}${artwork.fileUrl}` : artwork.fileUrl);
+  const files = new Map<string, Promise<ImageInfo | null>>();
+  mapArtworks(raw, (artwork) => {
+    const url = urlOf(artwork);
+    if (!files.has(url)) files.set(url, probeImage(url).catch(() => null));
+    return artwork;
   });
-  if (sheetLayers.length > 0) store().setArtworkLayout('SHEET');
-  sheetLayers.forEach(({ path }, i) => {
-    const result = sheetResults[i];
-    if (result.status === 'rejected') {
-      missing.push(path);
-      return;
-    }
-    const artwork = artworkOf(path, result.value);
-    const id = store().addArtworkLayer('SHEET', artwork);
-    if (id) store().setPanelPlacement(layerTarget('SHEET', id), getPrintFilePlacement(store().configuration, artwork));
+  const infos = new Map<string, ImageInfo | null>();
+  await Promise.all([...files].map(async ([url, info]) => infos.set(url, await info)));
+  const missing = [...infos]
+    .filter(([, info]) => info === null)
+    .map(([url]) => (url.startsWith(publicBase) ? url.slice(publicBase.length) : url));
+  const resolved = mapArtworks(raw, (artwork) => {
+    const url = urlOf(artwork);
+    const info = infos.get(url);
+    return info ? { ...artwork, fileUrl: url, ...info } : null;
   });
-  entries.forEach(([position, path], i) => {
-    const result = results[i];
-    if (result.status === 'rejected') {
-      missing.push(path);
-      return;
-    }
-    store().setPanelArtwork(position, artworkOf(path, result.value));
-    if (demo.extendToBottom) store().setPanelExtendToBottom(position, true);
-  });
-  return { missing, total: entries.length + layers.length + sheetLayers.length };
+
+  const result = sanitizeConfiguration(resolved);
+  if (!result.ok) throw new DemoLoadError(`Demo ${index}: invalid configuration (${result.error})`);
+  useConfigurationStore.getState().replaceConfiguration(result.configuration);
+  return { missing, total: files.size };
 }
