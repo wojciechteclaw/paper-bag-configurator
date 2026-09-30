@@ -11,7 +11,7 @@
     "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
     "demoError": "The demo artwork could not be loaded.",
     "demoHintByType": {
-      "FOLDED": "Load an example: gusseted bag 140 + 90 × 370 mm (client example), brown paper 40 g/m² FSC, demo artwork on the walls (public/gusseted-bag)"
+      "FOLDED": "Load an example: gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, one whole-bag artwork (public/gusseted-bag)"
     },
     "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}"
   },

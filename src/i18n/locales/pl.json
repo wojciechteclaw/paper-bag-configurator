@@ -11,7 +11,7 @@
     "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt skręcany (sznurek), grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
     "demoError": "Nie udało się wczytać grafik demo.",
     "demoHintByType": {
-      "FOLDED": "Wczytaj przykład: torba fałdowa 140 + 90 × 370 mm (przykład klienta), papier brązowy 40 g/m² FSC, grafiki demo na ściankach (public/gusseted-bag)"
+      "FOLDED": "Wczytaj przykład: torba fałdowa 150 + 60 × 250 mm, papier brązowy 40 g/m² FSC, jedna grafika na całą torbę (public/gusseted-bag)"
     },
     "demoMissing": "Konfiguracja demo wczytana, ale brakuje grafik: {{files}}"
   },

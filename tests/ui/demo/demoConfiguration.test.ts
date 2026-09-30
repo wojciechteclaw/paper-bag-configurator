@@ -37,19 +37,20 @@ describe('demo configuration', () => {
     }
   });
 
-  it('loads the gusseted-bag demo: client example 140 + 90 × 370, brown 40 g/m² FSC, no handle, public/gusseted-bag images', async () => {
+  it('loads the gusseted-bag demo: 150 + 60 × 250, brown 40 g/m² FSC, no handle, one whole-bag layer gussted.webp', async () => {
     const result = await loadDemoConfiguration('/', 'FOLDED');
-    expect(result).toEqual({ missing: [], total: 4 });
+    expect(result).toEqual({ missing: [], total: 1 });
     const c = useConfigurationStore.getState().configuration;
     expect(c.productType).toBe('FOLDED');
     expect(c.dimensions).toEqual(DEMO_CONFIGURATIONS.FOLDED.dimensions);
-    expect(c.dimensions).toEqual({ width: 140, height: 370, depth: 90 });
+    expect(c.dimensions).toEqual({ width: 150, height: 250, depth: 60 });
     expect(c.paper).toMatchObject({ color: 'BROWN', grammage: 40, fscCertified: true });
     expect(c.handle).toBeNull();
-    for (const position of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) {
-      expect(c.panels[position].artwork?.fileUrl).toBe(`/gusseted-bag/${position.toLowerCase()}.webp`);
-      expect(c.panels[position].placement).toEqual({ mode: 'FILL', extendToBottom: false });
-    }
+    expect(c.artworkLayout).toBe('WRAP');
+    expect(c.wrapLayers).toHaveLength(1);
+    expect(c.wrapLayers[0].artwork.fileUrl).toBe('/gusseted-bag/gussted.webp');
+    expect(c.wrapLayers[0].placement).toMatchObject({ mode: 'FILL', extendToBottom: false });
+    for (const position of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) expect(c.panels[position].artwork).toBeNull();
   });
 
   it('still loads the configuration when demo images are missing, and lists them', async () => {
@@ -60,11 +61,11 @@ describe('demo configuration', () => {
     }
     vi.stubGlobal('Image', FailingImage);
     const result = await loadDemoConfiguration('/', 'FOLDED');
-    expect(result.total).toBe(4);
-    expect(result.missing).toEqual(Object.values(DEMO_CONFIGURATIONS.FOLDED.artwork));
+    expect(result.total).toBe(1);
+    expect(result.missing).toEqual(DEMO_CONFIGURATIONS.FOLDED.wrapLayers);
     const c = useConfigurationStore.getState().configuration;
     expect(c.productType).toBe('FOLDED');
-    expect(c.dimensions).toEqual({ width: 140, height: 370, depth: 90 });
-    expect(c.panels.FRONT.artwork).toBeNull();
+    expect(c.dimensions).toEqual({ width: 150, height: 250, depth: 60 });
+    expect(c.wrapLayers).toEqual([]);
   });
 });

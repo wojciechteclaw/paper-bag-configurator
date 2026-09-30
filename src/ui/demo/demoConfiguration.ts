@@ -7,8 +7,9 @@ import { useConfigurationStore } from '../../state/configurationStore';
 // - BLOCK (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC, internal
 //   twisted paper rope handle, the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched onto
 //   the bottom (SPEC §4f).
-// - FOLDED: the client's example gusseted bag 140 + 90 × 370 mm [K], brown kraft 40 g/m², FSC, per-wall artwork from
-//   public/gusseted-bag (supplied by the client). Missing images are skipped: the configuration still loads.
+// - FOLDED (client request 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, one whole-bag
+//   (WRAP) artwork layer public/gusseted-bag/gussted.webp around the full width (supplied by the client).
+// Missing images are skipped: the configuration still loads.
 
 export type DemoConfiguration = {
   productType: BagType;
@@ -19,6 +20,8 @@ export type DemoConfiguration = {
   grammage: number;
   /** Artwork per wall, path relative to `public/`. */
   artwork: Partial<Record<PanelPosition, string>>;
+  /** Whole-bag (WRAP) artwork layers, bottom → top, paths relative to `public/`; non-empty = the WRAP layout. */
+  wrapLayers?: string[];
   /** "Extend to bottom" on every wall with artwork (only where the bag type offers it). */
   extendToBottom: boolean;
 };
@@ -41,18 +44,14 @@ export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> =
   },
   FOLDED: {
     productType: 'FOLDED',
-    dimensions: { width: 140, height: 370, depth: 90 },
+    dimensions: { width: 150, height: 250, depth: 60 },
     handle: null,
     fscCertified: true,
     paperColor: 'BROWN',
     grammage: 40,
-    // Walls seen from outside, FILL-stretched: FRONT / BACK are W × H = 140 × 370 mm, the gussets F × H = 90 × 370 mm.
-    artwork: {
-      FRONT: 'gusseted-bag/front.webp',
-      BACK: 'gusseted-bag/back.webp',
-      LEFT: 'gusseted-bag/left.webp',
-      RIGHT: 'gusseted-bag/right.webp',
-    },
+    artwork: {},
+    // FILL over the whole wrap 2W + 2F = 420 mm × H 250 mm, starting at FRONT's left edge.
+    wrapLayers: ['gusseted-bag/gussted.webp'],
     extendToBottom: false,
   },
 };
@@ -104,20 +103,29 @@ export async function loadDemoConfiguration(
   store().setGrammage(demo.grammage);
   store().setFscCertified(demo.fscCertified);
   const entries = Object.entries(demo.artwork) as [PanelPosition, string][];
+  const layers = demo.wrapLayers ?? [];
   const prefix = base.endsWith('/') ? base : `${base}/`;
-  const results = await Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`)));
+  const artworkOf = (path: string, info: ImageInfo) =>
+    createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...info });
+  const [results, layerResults] = await Promise.all([
+    Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`))),
+    Promise.allSettled(layers.map((path) => probeImage(`${prefix}${path}`))),
+  ]);
   const missing: string[] = [];
+  if (layers.length > 0) store().setArtworkLayout('WRAP');
+  layers.forEach((path, i) => {
+    const result = layerResults[i];
+    if (result.status === 'rejected') missing.push(path);
+    else store().addWrapLayer(artworkOf(path, result.value));
+  });
   entries.forEach(([position, path], i) => {
     const result = results[i];
     if (result.status === 'rejected') {
       missing.push(path);
       return;
     }
-    store().setPanelArtwork(
-      position,
-      createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...result.value }),
-    );
+    store().setPanelArtwork(position, artworkOf(path, result.value));
     if (demo.extendToBottom) store().setPanelExtendToBottom(position, true);
   });
-  return { missing, total: entries.length };
+  return { missing, total: entries.length + layers.length };
 }
