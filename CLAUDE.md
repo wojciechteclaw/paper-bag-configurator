@@ -35,7 +35,7 @@ Before declaring work done: `npm run typecheck && npm test && npm run lint`.
 
 - Code, identifiers and comments in English. All user-facing text via `t()` with keys in every language of each locale family (`src/i18n/locales/{,dieline.,coverage.,export.}{pl,en,de}.json`; parity is tested). Numbers via `createNumberFormatter` (`src/i18n/numberFormat.ts`).
 - Units: millimetres in the domain; convert to scene units only inside `src/renderer`.
-- Tests colocated as `*.test.ts(x)`.
+- Tests live in `tests/`, mirroring `src/` (e.g. `src/domain/bagWeight.ts` → `tests/domain/bagWeight.test.ts`); test-only helpers in `tests/support/` or next to the tests that use them. Never put tests under `src/`.
 
 ## Agents (`.claude/agents/`)
 

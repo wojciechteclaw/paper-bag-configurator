@@ -11,7 +11,9 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '0.0.0') },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    // Tests live in tests/, mirroring src/ (client decision 30.09.2026).
+    include: ['tests/**/*.test.{ts,tsx}'],
+    setupFiles: ['./tests/support/setup.ts'],
     // Agent worktrees live under .claude/worktrees (full repo copies); never collect their tests.
     exclude: [...configDefaults.exclude, '.claude/**'],
   },
