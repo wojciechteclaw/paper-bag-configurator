@@ -105,8 +105,14 @@ export type BagPanels = Record<PanelPosition, BagPanel>;
  * - `WRAP` — whole-bag artwork (`BagConfiguration.wrapLayers`): an ordered list of layers, each laid over the wall
  *   row of the sheet in sheet order LEFT | FRONT | RIGHT | BACK (the glue flap stays unprinted). Panel artwork is
  *   kept but not used.
+ * - `SHEET` — artwork for the whole dieline sheet (`BagConfiguration.sheetLayers`), placed 1:1 on the flat sheet the
+ *   way print files are made (docs/SPEC.md §3c): every wall shows the part of the sheet in its column, including its
+ *   bottom allowance / strip; the glue flap stays unprinted.
  */
-export type ArtworkLayout = 'PER_PANEL' | 'WRAP';
+export type ArtworkLayout = 'PER_PANEL' | 'WRAP' | 'SHEET';
+
+/** Layouts made of ordered layers (same layer model, actions and UI list). */
+export type LayeredArtworkLayout = Extract<ArtworkLayout, 'WRAP' | 'SHEET'>;
 
 /**
  * One layer of the whole-bag artwork (docs/SPEC.md §3b). `placement` refers to the WRAP artwork area
@@ -120,6 +126,12 @@ export type WrapArtworkLayer = {
 };
 
 /**
+ * One artwork layer of a layered layout (WRAP or SHEET). For SHEET the placement refers to the whole sheet rectangle
+ * (`getSheetArtworkArea`, sheet coordinates); its `extendToBottom` is always true (the allowance is part of the file).
+ */
+export type ArtworkLayer = WrapArtworkLayer;
+
+/**
  * The single whole-bag artwork slot of data saved before layers existed (30.09.2026). Read through `getWrapLayers`,
  * which migrates it to a one-element layer list (or to none when it held no artwork).
  */
@@ -131,8 +143,11 @@ export type LegacyWrapArtwork = {
 /** Artwork target of one whole-bag layer: `WRAP:<layer id>` (`wrapLayerTarget`, `getWrapLayerId`). */
 export type WrapLayerTarget = `WRAP:${string}`;
 
-/** What an artwork (upload, placement edit, dieline selection) belongs to: one wall, or one whole-bag layer. */
-export type ArtworkTarget = PanelPosition | WrapLayerTarget;
+/** Artwork target of one whole-sheet layer: `SHEET:<layer id>` (`layerTarget('SHEET', id)`). */
+export type SheetLayerTarget = `SHEET:${string}`;
+
+/** What an artwork (upload, placement edit, dieline selection) belongs to: one wall, or one layer of a layered layout. */
+export type ArtworkTarget = PanelPosition | WrapLayerTarget | SheetLayerTarget;
 
 export type PaperColor = 'WHITE' | 'BROWN';
 
@@ -231,6 +246,11 @@ export type BagConfiguration = {
    * `WRAP`. Missing in older data (which may carry a single `wrapArtwork` instead) — read it through `getWrapLayers`.
    */
   wrapLayers: WrapArtworkLayer[];
+  /**
+   * Whole-sheet artwork layers, bottom → top, used when `artworkLayout` is `SHEET` (docs/SPEC.md §3c). Missing in data
+   * saved before 30.09.2026 — read it through `getSheetLayers`.
+   */
+  sheetLayers: ArtworkLayer[];
   print: PrintSpec;
   packaging: PackagingType;
   /**

@@ -287,17 +287,24 @@ export const ARTWORK_RULES: ArtworkRules = {
 };
 
 /**
- * Artwork layouts offered in the Graphics step (docs/SPEC.md §3a): one artwork per wall, or one wrap-around artwork
- * for the whole bag. The first entry is the default of new configurations.
+ * Artwork layouts offered in the Graphics step (docs/SPEC.md §3a–§3c): one artwork per wall, whole-bag wrap-around layers,
+ * or layers on the whole dieline sheet. The first entry is the default of new configurations.
  */
-export const ARTWORK_LAYOUTS: readonly ArtworkLayout[] = ['PER_PANEL', 'WRAP'];
+export const ARTWORK_LAYOUTS: readonly ArtworkLayout[] = ['PER_PANEL', 'WRAP', 'SHEET'];
 export const DEFAULT_ARTWORK_LAYOUT: ArtworkLayout = 'PER_PANEL';
 
 /**
- * Max number of whole-bag artwork layers (docs/SPEC.md §3b), e.g. background + logo + barcode + texts. Bounds the 3D
- * compositing work (every wall's canvas is redrawn from all layers) and the size of the SVG / PDF exports.
+ * Max number of artwork layers of a layered layout (whole bag or whole sheet, docs/SPEC.md §3b, §3c), e.g. background +
+ * logo + barcode + texts. Bounds the 3D compositing work (every wall's canvas is redrawn from all layers) and the size
+ * of the SVG / PDF exports.
  */
 export const MAX_WRAP_ARTWORK_LAYERS = 8;
+
+/**
+ * Resolution a whole-sheet print file should have (docs/SPEC.md §3c): the UI shows the sheet size in px at this density.
+ * Offset / flexo prepress works at 300 dpi.
+ */
+export const ARTWORK_PRINT_DPI = 300;
 
 /** Max length of a single Pantone colour entry, e.g. "PMS 186 C". */
 export const PANTONE_CODE_MAX_LENGTH = 32;

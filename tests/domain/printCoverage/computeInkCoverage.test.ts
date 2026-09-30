@@ -308,4 +308,31 @@ describe('computeInkCoverage', () => {
       expect(result.inkArea).toBeCloseTo(100 * 100, -2);
     });
   });
+
+  describe('whole-sheet layers (SPEC §3c)', () => {
+    it('counts a sheet-filling file on every wall and bottom allowance, never on the glue flap', () => {
+      const configuration = createConfiguration('BLOCK'); // sheet 710 × 490, glue flap 700…710
+      configuration.artworkLayout = 'SHEET';
+      configuration.sheetLayers = [
+        createWrapLayer(
+          createArtwork({ fileName: 's.png', fileUrl: 'blob:s', mimeType: 'image/png', width: 1, height: 1, sizeBytes: 1 }),
+          { mode: 'FILL', extendToBottom: true },
+        ),
+      ];
+      const s = sample([[RED]]);
+      const resolved = resolvePanelArtworks(configuration);
+      const panels = Object.fromEntries(
+        WRAP_PANEL_ORDER.map((position) => [
+          position,
+          resolved[position].layers.map(
+            (layer): CoveragePanelInput => ({ imageSize: { width: 1, height: 1 }, placement: layer.placement, area: layer.area, clipX: layer.clipX, sample: s }),
+          ),
+        ]),
+      ) as Record<PanelPosition, CoveragePanelInput[]>;
+      const result = computeInkCoverage({ dieline, panels, paperColor: 'WHITE', pantoneColors: palette });
+      expect(result.inkArea).toBeCloseTo(700 * 490, 3);
+      expect(result.panels.FRONT?.printArea).toBeCloseTo(200 * 490, 6);
+      expect(result.inkArea).toBeLessThan(SHEET);
+    });
+  });
 });

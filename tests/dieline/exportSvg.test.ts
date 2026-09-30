@@ -328,6 +328,33 @@ describe('whole-bag artwork layers on the dieline (SPEC §3a, §3b)', () => {
 });
 
 
+describe('whole-sheet layers on the dieline (SPEC §3c)', () => {
+  const sheetImage = createArtwork({ fileName: 'sheet.png', fileUrl: 'blob:sheet', mimeType: 'image/png', width: 1420, height: 980, sizeBytes: 1 });
+
+  it('draws a sheet layer once, 1:1 on the sheet, clipped to the wall columns (glue flap unprinted), allowances printed', () => {
+    const configuration = createConfiguration('BLOCK'); // sheet 710 × 490
+    configuration.artworkLayout = 'SHEET';
+    configuration.sheetLayers = [createWrapLayer(sheetImage, fillPlacement(true))];
+    const scene = buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), {
+      label: (k) => k,
+      dimension: (k) => k,
+    });
+    expect(scene.images).toHaveLength(1);
+    const [image] = scene.images;
+    const id = configuration.sheetLayers[0].id;
+    expect(image).toMatchObject({ id: `artwork-SHEET-${id}`, target: `SHEET:${id}`, segment: 'SHEET', href: 'blob:sheet' });
+    const xs = image.corners.map(([x]) => x);
+    const ys = image.corners.map(([, y]) => y);
+    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([0, 710, 0, 490]);
+    // Left bleed −3 (column clip) … BACK's end + 2 mm overprint: the glue flap (700…710) stays unprinted.
+    expect(image.clip).toMatchObject({ x: -3, width: 705, y: -3, height: 496 });
+    expect(image.area).toMatchObject({ x: 0, y: 0, width: 710, height: 490 });
+    expect(scene.allowances.every((a) => a.printed)).toBe(true);
+    const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');
+    expect(doc.querySelectorAll('image')).toHaveLength(1);
+  });
+});
+
 describe('isPointOnSceneImage', () => {
   const image = {
     clip: { id: 'c', x: 0, y: 0, width: 100, height: 100 },

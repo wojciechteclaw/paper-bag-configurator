@@ -147,6 +147,22 @@ describe('project file: round trip', () => {
 });
 
 describe('project file: older data', () => {
+  it('round-trips the whole-sheet layout (SHEET layers with their placements and files)', () => {
+    const { configuration, files } = fixtureProject();
+    const sheetFile = fixtureArtwork('sheet.webp', 'image/webp', 5220, 3300);
+    configuration.artworkLayout = 'SHEET';
+    configuration.sheetLayers = [
+      createWrapLayer(sheetFile, { mode: 'FILL', extendToBottom: true }),
+      createWrapLayer(configuration.wrapLayers[1].artwork, { mode: 'CUSTOM', offsetX: -40, offsetY: 30, scale: 0.2, rotation: 90, extendToBottom: true }),
+    ];
+    files.set(sheetFile.id, WEBP_BYTES);
+    const project = parseProject(serializeProject({ configuration, files, exportedAt: EXPORTED_AT, appVersion: '1.2.3' }));
+    expect(project.adjustments).toEqual([]);
+    expect(withoutFileUrls(project.configuration)).toEqual(withoutFileUrls(configuration));
+    expect(project.configuration.artworkLayout).toBe('SHEET');
+    expect(project.files.get(sheetFile.id)).toEqual({ bytes: WEBP_BYTES, mimeType: 'image/webp' });
+  });
+
   it('migrates a legacy single wrapArtwork to one layer', () => {
     const { bytes, configuration } = exportFixture();
     const wrap = configuration.wrapLayers[0];

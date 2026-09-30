@@ -580,6 +580,58 @@ describe('whole-bag artwork layers', () => {
   });
 });
 
+describe('whole-sheet artwork layers (SHEET)', () => {
+  beforeEach(() => {
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it('keeps its own layer list next to the whole-bag one, with the same actions', () => {
+    store().setArtworkLayout('SHEET');
+    expect(config().artworkLayout).toBe('SHEET');
+    const wrap = store().addArtworkLayer('WRAP', artwork('blob:wrap'))!;
+    const a = store().addArtworkLayer('SHEET', artwork('blob:a'))!;
+    const b = store().addArtworkLayer('SHEET', artwork('blob:b'))!;
+    expect(config().wrapLayers.map((l) => l.id)).toEqual([wrap]);
+    expect(config().sheetLayers.map((l) => l.id)).toEqual([a, b]);
+    // The first sheet layer fills the whole sheet and always prints the bottom allowance.
+    expect(config().sheetLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    expect(config().sheetLayers[1].placement).toMatchObject({ mode: 'CUSTOM', extendToBottom: true });
+    store().moveArtworkLayer('SHEET', a, 1);
+    expect(config().sheetLayers.map((l) => l.id)).toEqual([b, a]);
+    store().removeArtworkLayer('SHEET', b);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:b');
+    expect(config().sheetLayers.map((l) => l.id)).toEqual([a]);
+    expect(config().wrapLayers.map((l) => l.id)).toEqual([wrap]);
+  });
+
+  it('edits a sheet layer in sheet coordinates and never drops its bottom allowance', () => {
+    const id = store().addArtworkLayer('SHEET', artwork('blob:a'))!; // 100 × 200 px on the 710 × 490 sheet
+    const target = `SHEET:${id}` as const;
+    store().setPanelPlacement(target, { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    // No cyclic wrap: the centre is clamped inside the sheet (half width 355 mm); the allowance stays printed.
+    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: 355, extendToBottom: true });
+    store().alignPanelArtwork(target, { horizontal: 'LEFT' });
+    // Contain in 710 × 490 for 1:2: 245 × 490 mm → touching the left edge: offset −(710 − 245) / 2.
+    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: -232.5 });
+    store().setPanelExtendToBottom(target, false);
+    expect(config().sheetLayers[0].placement.extendToBottom).toBe(true);
+    store().resetPanelPlacement(target);
+    expect(config().sheetLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().setPanelArtwork(target, artwork('blob:a2'));
+    expect(config().sheetLayers[0]).toMatchObject({ id, artwork: expect.objectContaining({ fileUrl: 'blob:a2' }) });
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:a');
+    store().setPanelArtwork(target, null);
+    expect(config().sheetLayers).toEqual([]);
+  });
+
+  it('revokes sheet layer URLs when the configuration is reset', () => {
+    store().addArtworkLayer('SHEET', artwork('blob:s'));
+    store().resetConfiguration('BLOCK');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:s');
+    expect(config().sheetLayers).toEqual([]);
+  });
+});
+
 describe('artwork selection (view state)', () => {
   it('is shared view state, outside the configuration', () => {
     useConfiguratorUiStore.getState().selectArtwork(wrapLayerTarget('x'));

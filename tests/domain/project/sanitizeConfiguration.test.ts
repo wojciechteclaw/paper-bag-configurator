@@ -108,6 +108,33 @@ describe('sanitizeConfiguration', () => {
     expect(adjustments.map((a) => a.field)).toEqual(['wrapLayers.1.id', 'wrapLayers']);
   });
 
+  it('keeps whole-sheet layers, repairs them like wrap layers and makes them print the bottom allowance', () => {
+    const configuration = createConfiguration('FOLDED');
+    const sheet = createWrapLayer(fixtureArtwork('sheet.webp', 'image/webp', 5220, 3300), { mode: 'FILL', extendToBottom: true });
+    const logo = createWrapLayer(fixtureArtwork('logo.png', 'image/png'), {
+      mode: 'CUSTOM',
+      offsetX: 9999,
+      offsetY: 0,
+      scale: 0.3,
+      rotation: 0,
+      extendToBottom: false,
+    });
+    const valid = { ...configuration, artworkLayout: 'SHEET', sheetLayers: [sheet] };
+    expect(sanitize(structuredClone(valid)).adjustments).toEqual([]);
+    expect(sanitize(structuredClone(valid)).configuration.sheetLayers).toEqual([sheet]);
+
+    const { configuration: sanitized, adjustments } = sanitize({ ...valid, sheetLayers: [sheet, logo, { id: 'x', artwork: 'nope' }] });
+    expect(sanitized.artworkLayout).toBe('SHEET');
+    expect(sanitized.sheetLayers).toHaveLength(2);
+    // Offsets are clamped into the sheet (no cyclic wrap) and the allowance / strip always prints.
+    expect(sanitized.sheetLayers[1].placement).toMatchObject({ extendToBottom: true });
+    expect(Math.abs((sanitized.sheetLayers[1].placement as { offsetX: number }).offsetX)).toBeLessThan(9999);
+    expect(adjustments.map((a) => a.field)).toEqual(['sheetLayers.1.placement', 'sheetLayers.2.artwork']);
+    // Older data without the field: no sheet layers.
+    const { sheetLayers: _omit, ...older } = createConfiguration('BLOCK');
+    expect(sanitize(older).configuration.sheetLayers).toEqual([]);
+  });
+
   it('keeps valid print colours, drops duplicates / invalid codes and repairs preview colours', () => {
     const raw = {
       ...createConfiguration('BLOCK'),

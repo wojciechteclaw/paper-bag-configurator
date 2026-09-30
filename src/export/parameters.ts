@@ -6,27 +6,28 @@ import { BAG_TYPES } from '../domain/config/productCatalog';
 import { getHandlePatchSize, type Dieline } from '../domain/dieline';
 import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../domain/geometry/handles';
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
-import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../domain/artworkLayout';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getLayers, isLayeredLayout } from '../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import { getWindow, getWindowDimensions, getWindowFilm, getWindowOpening } from '../domain/window';
-import type { ArtworkPlacement, BagConfiguration, BagType } from '../domain/types';
+import type { ArtworkPlacement, BagConfiguration, BagType, LayeredArtworkLayout } from '../domain/types';
 import type { Translate } from './format';
 
 /**
  * Short placement description for listings (whole-bag layers): "fills the area" or offsets (mm from the area centre,
  * rounded), scale (% of contain) and rotation; plus "extended to the bottom" when set.
  */
-export function describePlacement(placement: ArtworkPlacement, t: Translate): string {
+export function describePlacement(placement: ArtworkPlacement, t: Translate, layout: LayeredArtworkLayout = 'WRAP'): string {
   const text =
     placement.mode === 'FILL'
-      ? t('export.placementSummary.FILL')
+      ? t(layout === 'SHEET' ? 'export.placementSummary.FILL_SHEET' : 'export.placementSummary.FILL')
       : t('export.placementSummary.CUSTOM', {
           x: Math.round(placement.offsetX) + 0,
           y: Math.round(placement.offsetY) + 0,
           scale: Math.round(placement.scale * 100),
           rotation: placement.rotation,
         });
-  return placement.extendToBottom ? `${text}, ${t('export.placementSummary.extended')}` : text;
+  // A whole-sheet layer always includes the bottom allowance (part of the sheet).
+  return placement.extendToBottom && layout !== 'SHEET' ? `${text}, ${t('export.placementSummary.extended')}` : text;
 }
 
 /**
@@ -163,18 +164,19 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
   }
 
   // Layout first, then the artwork of the active layout only (kept artwork of the other layout is not printed). Whole-bag
-  // layers are listed bottom → top, each with its placement (docs/SPEC.md §3b).
+  // and whole-sheet layers are listed bottom → top, each with its placement (docs/SPEC.md §3b, §3c).
   const layout = getArtworkLayout(configuration);
-  const wrapLayers = getWrapLayers(configuration);
+  const kind = layout === 'SHEET' ? 'Sheet' : 'Wrap';
+  const key = layout === 'SHEET' ? 'sheet' : 'wrap';
   const artwork: ParameterRow[] = [
     { id: 'artworkLayout', label: t('export.param.artworkLayout'), value: t(`artwork.layout.${layout}`) },
-    ...(layout === 'WRAP'
-      ? wrapLayers.length === 0
-        ? [{ id: 'artworkWrapLayers', label: t('export.param.wrapLayers'), value: t('summary.noArtwork') }]
-        : wrapLayers.map((layer, index) => ({
-            id: `artworkWrapLayer${index + 1}`,
-            label: t('export.param.wrapLayer', { index: index + 1 }),
-            value: `${layer.artwork.fileName} — ${describePlacement(layer.placement, t)}`,
+    ...(isLayeredLayout(layout)
+      ? getLayers(configuration, layout).length === 0
+        ? [{ id: `artwork${kind}Layers`, label: t(`export.param.${key}Layers`), value: t('summary.noArtwork') }]
+        : getLayers(configuration, layout).map((layer, index) => ({
+            id: `artwork${kind}Layer${index + 1}`,
+            label: t(`export.param.${key}Layer`, { index: index + 1 }),
+            value: `${layer.artwork.fileName} — ${describePlacement(layer.placement, t, layout)}`,
           }))
       : getActiveArtworkTargets(configuration).map((target) => ({
           id: `artwork${target}`,

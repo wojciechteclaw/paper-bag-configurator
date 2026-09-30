@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   getActiveArtworkTargets,
+  getLayerTargetInfo,
+  getLayers,
+  getNewLayerPlacement,
+  getPrintFilePlacement,
+  getSheetArtworkArea,
+  getSheetLayers,
+  layerTarget,
   getArtworkLayout,
   getArtworkSlot,
   getArtworkTargetArea,
@@ -333,5 +340,101 @@ describe('cyclic wrap (period 2W + 2D = 700 mm)', () => {
     expect(movePlacement(moved, 20, 0, area)).toMatchObject({ offsetX: -340 });
     expect(normalizePlacement({ ...start, offsetX: 350 }, area)).toMatchObject({ offsetX: -350 });
     expect(wrapIntoPeriod(-1050, 700)).toBe(-350);
+  });
+});
+
+describe('whole-sheet layout (SHEET, print file on the dieline)', () => {
+  /** 200 × 400 × 150 block bag, glue flap 10: sheet 710 × 490, columns LEFT 0–150 | FRONT | RIGHT | BACK 500–700, a = 90. */
+  function sheetConfiguration(placement = fillPlacement(true)): BagConfiguration {
+    const configuration = createConfiguration('BLOCK');
+    configuration.artworkLayout = 'SHEET';
+    configuration.sheetLayers = [createWrapLayer(artwork('sheet', 1420, 980), placement)];
+    return configuration;
+  }
+
+  it('is a layout of its own with its own layer list and `SHEET:<id>` targets', () => {
+    const configuration = sheetConfiguration();
+    const id = configuration.sheetLayers[0].id;
+    expect(getArtworkLayout(configuration)).toBe('SHEET');
+    expect(getLayers(configuration, 'SHEET')).toBe(configuration.sheetLayers);
+    expect(getLayers(configuration, 'WRAP')).toEqual([]);
+    expect(getSheetLayers({})).toEqual([]);
+    expect(layerTarget('SHEET', id)).toBe(`SHEET:${id}`);
+    expect(getLayerTargetInfo(`SHEET:${id}`)).toEqual({ layout: 'SHEET', layerId: id });
+    expect(getLayerTargetInfo('WRAP:x')).toEqual({ layout: 'WRAP', layerId: 'x' });
+    expect(getLayerTargetInfo('FRONT')).toBeNull();
+    expect(getWrapLayerId(`SHEET:${id}`)).toBeNull();
+    expect(getActiveArtworkTargets(configuration)).toEqual([`SHEET:${id}`]);
+    expect(getArtworkSlot(configuration, `SHEET:${id}`).artwork).toBe(configuration.sheetLayers[0].artwork);
+    expect(hasActiveArtwork(configuration)).toBe(true);
+  });
+
+  it('refers placements to the whole cut sheet (sheet coordinates) of the bag type', () => {
+    const block = createConfiguration('BLOCK');
+    expect(getSheetArtworkArea(block)).toEqual({ x: 0, y: 0, width: 710, height: 490 });
+    expect(getArtworkTargetArea('SHEET:a', block, { extendToBottom: false })).toEqual({ x: 0, y: 0, width: 710, height: 490 });
+    expect(getArtworkTargetSize('SHEET:a', block)).toEqual({ width: 710, height: 490 });
+    // Gusseted bag 150 + 60 × 250, glue flap 15, strip d 25 (Demo 2): 2·150 + 2·60 + 15 = 435 by 250 + 25 = 275.
+    const folded = { ...createConfiguration('FOLDED'), dimensions: { width: 150, height: 250, depth: 60 }, glueFlapWidth: 15 };
+    expect(getSheetArtworkArea(folded)).toEqual({ x: 0, y: 0, width: 435, height: 275 });
+  });
+
+  it('shows every wall the part of the sheet in its column, bottom allowance included, never the glue flap', () => {
+    const configuration = sheetConfiguration();
+    const resolved = resolvePanelArtworks(configuration);
+    const expected = { LEFT: [0, 150], FRONT: [150, 200], RIGHT: [350, 150], BACK: [500, 200] } as const;
+    for (const [position, [x0, width]] of Object.entries(expected) as [PanelPosition, readonly [number, number]][]) {
+      const { layers, extendsToBottom } = resolved[position];
+      expect(layers).toHaveLength(1);
+      expect(extendsToBottom).toBe(true);
+      // Panel-local: the sheet shifted by the column and the bottom line (a = 90).
+      expect(layers[0].area).toEqual({ x: -x0 + 0, y: -90, width: 710, height: 490 });
+      expect(layers[0].clipX).toBeUndefined(); // the wall (column) clips horizontally
+      expect(width).toBe(getPanelSize(position, configuration.dimensions).width);
+      expect(layers[0].placement.extendToBottom).toBe(true);
+      // The column's bottom-left corner (tube end) samples the image at sheet x = x0, y = 0.
+      expect(textureAt(configuration, position, 0, -90)[0]).toBeCloseTo(x0 / 710);
+      expect(textureAt(configuration, position, 0, -90)[1]).toBeCloseTo(0);
+    }
+    // BACK ends at sheet x 700: the glue-flap column (700…710) is shown by no wall.
+    expect(500 + getPanelSize('BACK', configuration.dimensions).width).toBe(700);
+  });
+
+  it('lists a layer only on the walls its image reaches', () => {
+    // 100 mm logo: contain in 710 × 490 = 490 mm, × 100/490; centred on FRONT (sheet x 250, y 290).
+    const configuration = sheetConfiguration({
+      mode: 'CUSTOM',
+      offsetX: 250 - 355,
+      offsetY: 290 - 245,
+      scale: 100 / 490,
+      rotation: 0,
+      extendToBottom: true,
+    });
+    configuration.sheetLayers[0].artwork = artwork('logo', 100, 100);
+    const counts = Object.fromEntries(
+      Object.entries(resolvePanelArtworks(configuration)).map(([position, panel]) => [position, panel.layers.length]),
+    );
+    expect(counts).toEqual({ FRONT: 1, BACK: 0, LEFT: 0, RIGHT: 0 });
+  });
+
+  it('places a print file: FILL for a whole-sheet file, 1:1 over the wall row for a wall-row file', () => {
+    const configuration = createConfiguration('BLOCK');
+    expect(getPrintFilePlacement(configuration, { width: 7100, height: 4900 })).toEqual(fillPlacement(true));
+    const wallRow = getPrintFilePlacement(configuration, { width: 7000, height: 4000 }); // 700 × 400 mm
+    const area = getSheetArtworkArea(configuration);
+    const rect = getArtworkRect(area, { width: 7000, height: 4000 }, wallRow, area);
+    expect([rect.center.x, rect.center.y, rect.width, rect.height].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([350, 290, 700, 400]);
+    expect(getPrintFilePlacement(configuration, { width: 100, height: 100 })).toEqual(fillPlacement(true));
+  });
+
+  it('starts the first layer as FILL of the sheet and later ones fitted on FRONT', () => {
+    const configuration = createConfiguration('BLOCK');
+    expect(getNewLayerPlacement('SHEET', configuration, { width: 10, height: 10 }, 0, false)).toEqual(fillPlacement(true));
+    const placement = getNewLayerPlacement('SHEET', configuration, { width: 100, height: 100 }, 1, false);
+    const area = getSheetArtworkArea(configuration);
+    const rect = getArtworkRect(area, { width: 100, height: 100 }, placement, area);
+    // FRONT wall on the sheet: x 150…350, y 90…490 → a 200 mm square centred at (250, 290).
+    expect([rect.center.x, rect.center.y, rect.width].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([250, 290, 200]);
+    expect(placement.extendToBottom).toBe(true);
   });
 });

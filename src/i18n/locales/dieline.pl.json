@@ -62,7 +62,8 @@
       "BACK": "Tył",
       "LEFT": "Bok lewy",
       "RIGHT": "Bok prawy",
-      "wrapLayer": "Cała torba, warstwa {{index}}: {{name}}"
+      "wrapLayer": "Cała torba, warstwa {{index}}: {{name}}",
+      "sheetLayer": "Cały arkusz, warstwa {{index}}: {{name}}"
     },
     "edit": {
       "artworkLabel": "Grafika: {{panel}}. Kliknij, aby edytować; strzałki przesuwają, + i − skalują, R obraca, 0 resetuje.",

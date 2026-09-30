@@ -80,7 +80,9 @@
       "windowFilmOverlap": "Film overlap under the paper",
       "windowFilmSize": "Film size",
       "windowFilmSizeValue": "{{width}} × {{height}}",
-      "windowFilmArea": "Film area"
+      "windowFilmArea": "Film area",
+      "sheetLayer": "Whole sheet — layer {{index}}",
+      "sheetLayers": "Whole sheet — artwork layers"
     },
     "handleMaterial": {
       "KRAFT": "strong kraft paper"
@@ -236,7 +238,8 @@
     "placementSummary": {
       "FILL": "stretched over the whole bag",
       "CUSTOM": "x {{x}} mm, y {{y}} mm from the centre, scale {{scale}} %, rotation {{rotation}}°",
-      "extended": "incl. bottom"
+      "extended": "incl. bottom",
+      "FILL_SHEET": "stretched over the whole sheet"
     }
   }
 }

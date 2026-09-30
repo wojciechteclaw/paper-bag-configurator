@@ -71,6 +71,20 @@ describe('buildWorkbookModel', () => {
     expect(rows[1]).toEqual(['Cała torba — warstwa 2', 700, 400, 'logo.png', 2000, 4000, 'własne położenie', -250, 10, 0.5, 0, 'nie', 400]);
   });
 
+  it('lists whole-sheet layers with the sheet size and the layout "cały arkusz" (parameters and panels sheets)', () => {
+    const sheet = structuredClone(configuration);
+    sheet.artworkLayout = 'SHEET';
+    sheet.sheetLayers = [createWrapLayer({ ...sheet.panels.FRONT.artwork!, id: 'sheet', fileName: 'arkusz.png' }, { mode: 'FILL', extendToBottom: true })];
+    const model = buildWorkbookModel(sheet, null, dieline, exportContext('pl'));
+    const params = block(model, 'parameters', 'parameters').rows.map(values);
+    expect(params).toContainEqual(['Grafiki', 'Układ grafik', 'Grafika na cały arkusz (wykrój)', null]);
+    expect(params).toContainEqual(['Grafiki', 'Cały arkusz — warstwa 1', 'arkusz.png — rozciągnięta na cały arkusz', null]);
+    const rows = block(model, 'panels', 'panels').rows.map(values);
+    expect(rows).toHaveLength(1);
+    // 200 × 400 × 150 block bag: sheet 710 × 490 mm (allowance included — not added twice).
+    expect(rows[0]).toEqual(['Cały arkusz — warstwa 1', 710, 490, 'arkusz.png', 2000, 4000, 'wypełnij ściankę', null, null, null, null, 'tak', 490]);
+  });
+
   it('omits the extend-to-bottom columns when placements do not carry the flag', () => {
     const legacy = structuredClone(configuration);
     for (const panel of Object.values(legacy.panels)) {

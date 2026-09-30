@@ -12,7 +12,7 @@
     "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
     "demoError": "Die Demo-Grafiken konnten nicht geladen werden.",
     "demoHintByType": {
-      "FOLDED": "Beispiel laden: Seitenfaltenbeutel 150 + 60 × 250 mm, braunes Papier 40 g/m² FSC, ein Motiv rund um die Tüte (public/gusseted-bag)"
+      "FOLDED": "Beispiel laden: Seitenfaltenbeutel 150 + 60 × 250 mm, braunes Papier 40 g/m² FSC, Motiv für den ganzen Bogen wie eine Druckdatei (public/gusseted-bag)"
     },
     "demoMissing": "Demo-Konfiguration geladen, aber diese Bilder fehlen: {{files}}"
   },
@@ -223,8 +223,9 @@
       "PER_PANEL": "Eigenes Motiv für jede Wand",
       "WRAP": "Motiv für die ganze Tasche (Ebenen)",
       "wrapNote": "Das Motiv läuft rund um die Tasche: {{order}} — in der Reihenfolge der Stanzkontur, ab der linken Kante der linken Seite (Naht; die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ jeder Ebene stellen Sie in der Ansicht Stanzkontur ein.",
-      "keptPanels": "Die Motive der einzelnen Wände bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt.",
-      "keptWrap": "Die Ebenen des Motivs für die ganze Tasche bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt."
+      "kept": "Die Motive der anderen Anordnungen ({{layouts}}) bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt.",
+      "SHEET": "Motiv für den ganzen Bogen (Stanzkontur)",
+      "sheetNote": "Eine druckfertige Datei: das Motiv liegt 1:1 auf dem ganzen Bogen der Stanzkontur (Spalten Links | Vorne | Rechts | Hinten | Klebelasche, mit Bodenzugabe). Jede Wand zeigt ihren Teil des Bogens; die Klebelasche wird nicht bedruckt."
     },
     "layers": {
       "title": "Motivebenen",
@@ -245,8 +246,13 @@
       "addDropLabel": "Ebene des Motivs für die ganze Tasche hinzufügen",
       "addFileInputLabel": "Datei der neuen Motivebene",
       "replaceFileInputLabel": "Datei, die das Motiv der Ebene ersetzt",
-      "maxReached": "Das Limit von {{max}} Ebenen ist erreicht — entfernen Sie eine Ebene, um eine neue hinzuzufügen."
-    }
+      "maxReached": "Das Limit von {{max}} Ebenen ist erreicht — entfernen Sie eine Ebene, um eine neue hinzuzufügen.",
+      "sheetSize": "Bogen {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px bei {{dpi}} dpi",
+      "orderNoteSheet": "Eine weiter oben stehende Ebene wird obenauf gedruckt. Die erste Ebene (die Datei des ganzen Bogens) füllt den ganzen Bogen, weitere beginnen an die Vorderseite angepasst.",
+      "placementFillSheet": "Über den ganzen Bogen gestreckt",
+      "addDropLabelSheet": "Ebene des Motivs für den ganzen Bogen hinzufügen"
+    },
+    "aspectMismatchSheet": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem des Bogens ({{panelRatio}}) ab — mit „Strecken“ wird das Motiv verzerrt und passt nicht zu den Wänden."
   },
   "paper": {
     "label": "Papier",
