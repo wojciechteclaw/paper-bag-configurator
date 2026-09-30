@@ -9,6 +9,7 @@
 
 import { getArtworkLayout, getSheetArtworkArea, getWrapArtworkArea, getWrapLayerId, getWrapLayers } from '../artworkLayout';
 import { constrainPlacements } from '../productType';
+import type { AllowanceGeometry } from '../artworkAllowance';
 import { getPanelArtworkArea, normalizePlacement, DEFAULT_PLACEMENT, type Size2 } from '../artworkPlacement';
 import { ARTWORK_RULES, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, type BagTypeDefinition } from '../config/productCatalog';
 import { constrainDimensions } from '../constraints';
@@ -167,7 +168,7 @@ function sanitizePaper(raw: unknown, definition: BagTypeDefinition, handle: Hand
   return constrained;
 }
 
-function sanitizePanels(raw: unknown, dimensions: Dimensions, note: (field: string) => void): BagPanels {
+function sanitizePanels(raw: unknown, geometry: AllowanceGeometry, note: (field: string) => void): BagPanels {
   const stored = asRecord(raw);
   const entries = PANEL_POSITIONS.map((position): [string, BagPanel] => {
     const source = stored[position];
@@ -178,7 +179,7 @@ function sanitizePanels(raw: unknown, dimensions: Dimensions, note: (field: stri
     let artwork: Artwork | null = null;
     if (isUsableArtwork(source.artwork)) artwork = sanitizeArtwork(source.artwork);
     else if (source.artwork !== null && source.artwork !== undefined) note(`panels.${position}.artwork`);
-    const { placement, changed } = sanitizePlacement(source.placement, (p) => getPanelArtworkArea(position, dimensions, p));
+    const { placement, changed } = sanitizePlacement(source.placement, (p) => getPanelArtworkArea(position, geometry, p));
     if (changed) note(`panels.${position}.placement`);
     const panel = {
       ...source,
@@ -312,12 +313,20 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
   const dimensions = sanitizeDimensions(raw.dimensions, definition, defaults.dimensions, noter('dimensions'));
   const handle = sanitizeHandle(raw.handle, definition, noter('handle'));
   const paper = sanitizePaper(raw.paper, definition, handle, defaults.paper, noter('paper'));
-  const storedPanels = sanitizePanels(raw.panels, dimensions, noter('artwork'));
+  // The bottom strip d first: the artwork areas with "extend to bottom" depend on it (gusseted bag).
+  const bottomFoldDepth = constrainBottomFold(
+    raw.bottomFoldDepth === undefined ? Number.NaN : Number(raw.bottomFoldDepth),
+    productType,
+    defaults.bottomFoldDepth,
+  );
+  if (raw.bottomFoldDepth !== undefined && bottomFoldDepth !== raw.bottomFoldDepth) noter('dimensions')('bottomFoldDepth');
+  const geometry = { dimensions, productType, bottomFoldDepth };
+  const storedPanels = sanitizePanels(raw.panels, geometry, noter('artwork'));
   if (raw.artworkLayout !== undefined && getArtworkLayout(raw) !== raw.artworkLayout) noter('artwork')('artworkLayout');
-  const storedLayers = sanitizeLayers(raw, 'wrapLayers', (p) => getWrapArtworkArea(dimensions, p), noter('artwork'));
-  // Types without a printed bottom allowance (gusseted bag) never keep "extend to bottom" (on walls and on every layer).
+  const storedLayers = sanitizeLayers(raw, 'wrapLayers', (p) => getWrapArtworkArea(geometry, p), noter('artwork'));
+  // Types without a printed bottom allowance never keep "extend to bottom" (on walls and on every layer).
   const { panels, wrapLayers, targets } = constrainPlacements(
-    { dimensions, panels: storedPanels, wrapLayers: storedLayers },
+    { ...geometry, panels: storedPanels, wrapLayers: storedLayers },
     definition,
   );
   targets.forEach((target) => {
@@ -334,12 +343,6 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
       ? defaults.glueFlapWidth
       : constrainGlueFlapWidth(Number(raw.glueFlapWidth), productType, defaults.glueFlapWidth);
   if (raw.glueFlapWidth !== undefined && glueFlapWidth !== raw.glueFlapWidth) noter('dimensions')('glueFlapWidth');
-  const bottomFoldDepth = constrainBottomFold(
-    raw.bottomFoldDepth === undefined ? Number.NaN : Number(raw.bottomFoldDepth),
-    productType,
-    defaults.bottomFoldDepth,
-  );
-  if (raw.bottomFoldDepth !== undefined && bottomFoldDepth !== raw.bottomFoldDepth) noter('dimensions')('bottomFoldDepth');
   const window = sanitizeWindow(
     raw.window,
     definition,

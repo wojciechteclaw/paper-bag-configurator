@@ -358,7 +358,7 @@ describe('project file: gusseted bag (FOLDED)', () => {
     expect(project.configuration.dimensions).toEqual({ width: 140, height: 370, depth: 90 });
   });
 
-  it('constrains an invalid gusseted bag on load: F ≤ W, no handle, its papers, no "extend to bottom"', () => {
+  it('constrains an invalid gusseted bag on load: F ≤ W, no handle, its papers; keeps "extend to bottom" (strip d [K])', () => {
     const { configuration, files } = foldedProject();
     const exported = serializeProject({ configuration, files, exportedAt: EXPORTED_AT, appVersion: 'x' });
     const bytes = repack(exported, (_entries, manifest) => {
@@ -378,19 +378,12 @@ describe('project file: gusseted bag (FOLDED)', () => {
     expect(loaded.handle).toBeNull();
     expect(loaded.paper).toMatchObject({ type: 'KRAFT', grammage: 60, moistureBarrier: false });
     expect(loaded.glueFlapWidth).toBe(20);
-    expect(loaded.panels.FRONT.placement.extendToBottom).toBe(false);
-    expect(loaded.wrapLayers.map((layer) => layer.placement.extendToBottom)).toEqual([false, false]);
+    expect(loaded.panels.FRONT.placement.extendToBottom).toBe(true);
+    expect(loaded.wrapLayers[0].placement.extendToBottom).toBe(true);
     expect(loaded.wrapLayers).toHaveLength(2);
     const fields = adjustments.map((a) => `${a.section}:${a.field}`);
-    expect(fields).toEqual(
-      expect.arrayContaining([
-        'dimensions:height',
-        'dimensions:depth',
-        'dimensions:glueFlapWidth',
-        'artwork:panels.FRONT.placement.extendToBottom',
-        `artwork:wrapLayers.${loaded.wrapLayers[0].id}.placement.extendToBottom`,
-      ]),
-    );
+    expect(fields).toEqual(expect.arrayContaining(['dimensions:height', 'dimensions:depth', 'dimensions:glueFlapWidth']));
+    expect(fields.some((field) => field.endsWith('extendToBottom'))).toBe(false);
     expect(adjustments.some((a) => a.section === 'handle')).toBe(true);
     expect(adjustments.some((a) => a.section === 'paper')).toBe(true);
   });

@@ -66,8 +66,8 @@ export type BagTypeDefinition = {
   /** Bottom strip d of a fold-over bottom (gusseted bag), mm — configurable (client [K], 30.09.2026); absent = none. */
   bottomFold?: { min: number; max: number; default: number };
   /**
-   * Whether artwork may be extended over the bottom allowance ("rozciągnij na dno", docs/SPEC.md §4f). The gusseted-bag
-   * bag's fold-over strip stays unprinted in the MVP (docs/PRODUCTION.md §13), so its placements never extend.
+   * Whether artwork may be extended over the bottom allowance ("rozciągnij na dno", docs/SPEC.md §4f): block bottom
+   * a = (D + 30) / 2, gusseted bag the bottom strip d (client [K] 30.09.2026; `getArtworkBottomAllowance`).
    */
   extendToBottomAvailable: boolean;
   /** Whether a film window can be cut into the FRONT wall (docs/PRODUCTION.md §13.6): gusseted bag only [K]. */
@@ -207,7 +207,8 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     paperColors: ['BROWN', 'WHITE'],
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
-    extendToBottomAvailable: false,
+    // The bottom strip d can carry the wall's print (client [K] 30.09.2026, despite the guideline's W × (H − d)).
+    extendToBottomAvailable: true,
     windowAvailable: true,
   },
 };

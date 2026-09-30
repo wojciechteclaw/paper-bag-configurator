@@ -76,12 +76,12 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
 | DEMO | przycisk DEMO wczytuje demo wybranego typu: przykład klienta 140 + 90 × 370, papier brązowy 40 g/m² FSC, grafiki `public/gusseted-bag/{front,back,left,right}.webp` (brakujące są pomijane) |
 | Nadruk / pakowanie | flekso do 8 Pantone, **pole nadruku `W × (H − d)` na stronę**; karton / folia [K] |
 | Szew | zakładka `s` 10–20 mm, domyślnie 15, **na krawędzi tył | fałda lewa, jak w torbie klockowej** [K] (decyzja 30.09.2026; wariant „szew na środku tylnej ścianki” nie jest używany); pole „zakładka klejowa” jak w torbie klockowej (`glueFlapWidth`); przy zmianie typu wartość domyślna przechodzi na domyślną nowego typu, wybrana przez użytkownika jest tylko przycinana do zakresu |
-| Dno | pasek `d = 25 mm` (15–30) z klejem, zagięty **na tył**, pojedyncze [K]; bez nadruku („Rozciągnij na dno” niedostępne) |
+| Dno | pasek `d = 25 mm` (15–30) z klejem, zagięty **na tył**, pojedyncze [K]; **„Rozciągnij na dno” dostępne [K]** (30.09.2026): grafika ścianki / warstwy obejmuje wtedy jej część paska `d` (wykrój, 3D, pokrycie farbą, eksport) |
 
 - **Zmiana typu** (`changeProductType`, akcja `setProductType`) nie zeruje konfiguracji: zachowuje grafiki (ścianki
   i wszystkie warstwy całej torby), kolory nadruku, kolor papieru, FSC; usuwa niedostępny uchwyt, przycina wymiary do
-  zakresu nowego typu (z regułą `F ≤ W`), dopasowuje papier do wariantu i wyłącza „Rozciągnij na dno” (na ściankach i
-  na każdej warstwie). UI wypisuje, co zmieniono. Przycisk DEMO zaczyna od nowej konfiguracji (`resetConfiguration`).
+  zakresu nowego typu (z regułą `F ≤ W`) i dopasowuje papier do wariantu; „Rozciągnij na dno” zostaje (zapasem na dno
+  jest wtedy pasek `d` zamiast strefy dna klockowego `(D + 30) / 2`). UI wypisuje, co zmieniono. Przycisk DEMO zaczyna od nowej konfiguracji (`resetConfiguration`).
 - **Wykrój:** arkusz `B × L = (2W + 2F + s) × (H + d)`, **kolumny od lewej jak w torbie klockowej [K]** (30.09.2026):
   LEFT | FRONT | RIGHT | BACK | zakładka `s` (bigi po `F/2, F/2, W, F/2, F/2, W, s`; BACK w całości); krawędzie
   rękawa na zewnątrz (V), osie fałd do środka (M), linia dna V / M zależnie od warstwy; klej na zakładce i na pasku
@@ -320,16 +320,25 @@ Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `de
 ### 4i. Podgląd 3D torby fałdowej (MVP 30.09.2026)
 
 - Osobny model (`src/renderer/GussetedBagModel.tsx`, geometria `gussetedBagGeometry.ts` z kinematyki domenowej
-  `src/domain/geometry/gussetedBag.ts`), niezależny od modelu torby klockowej; tekstury ścianek (jedna grafika albo
-  kompozyt warstw) ze wspólnego `wallTextures.ts`. Ścianki: przód, tył i dwie fałdy, bigi osi fałd, krawędzie (szew na
-  krawędzi tył | fałda lewa, jak w torbie klockowej [K]), pasek dna zagięty na tył (goły papier) [K].
+  `src/domain/geometry/gussetedAssembly.ts` — formowanie z arkusza — i `gussetedBag.ts` — otwarta torba i jej
+  złożenie), niezależny od modelu torby klockowej; tekstury ścianek (jedna grafika albo kompozyt warstw) ze wspólnego
+  `wallTextures.ts`. Ścianki: przód, tył i dwie fałdy, bigi osi fałd, krawędzie (szew na krawędzi tył | fałda lewa, jak
+  w torbie klockowej [K]), zakładka szwu (goły papier, wewnątrz fałdy lewej), pasek dna zagięty na tył (z nadrukiem
+  tylko przy „Rozciągnij na dno”) [K].
 - **Otwarta torba:** wylot `W × F`, zwężenie do linii dna — fałdy otwierają się od 0 przy przyklejonym dnie do 90°
   na wysokości `d + min(F, H/2)`. **Złożona:** płasko (warstwy rozsunięte tylko o grubość renderu).
-- **Oś czasu (decyzja MVP):** składanie z arkusza pominięte. Przedział 0–40 % pokazuje otwartą torbę, więc suwak
-  zaczyna się od 40 %, odtwarzanie startuje od 40 %, a preset „Arkusz” jest ukryty. 40 % („3D pełne”) = otwarta,
-  45 % („3D po zgięciu”) = lekko przymknięta, 100 % („Złożona”) = płaska. Etap: „Torba uformowana” / „Składanie na
-  płasko”. Zrzuty 3D w karcie PDF używają tego samego modelu. Kolejność produkcji z wytycznych klienta (rękaw + fałdy,
-  szew, cięcie, dno) jest opisana w `docs/PRODUCTION.md` §13.1 na przyszłą animację.
+- **Oś czasu (decyzja klienta 30.09.2026 [K]):** jak w torbie klockowej jedna oś od arkusza, ale z własnym podziałem
+  (`TIMELINE_DEFINITIONS` w `previewStore`: presety, przystanki, etapy dla typu; torba klockowa bez zmian).
+  **0–60 % formowanie z arkusza jak na maszynie** (`docs/PRODUCTION.md` §13.7): 0 % płaski arkusz („Arkusz”) →
+  A 0–15 % noże wsuwają fałdy po `F/2` → B 15–30 % tył zawinięty, szew zamknięty (zakładka pod krawędzią fałdy
+  lewej) → C 30–45 % pasek dna `d` zagięty na tył → D 45–60 % torba się otwiera → **60 % („3D pełne”) = otwarta
+  torba** (dokładnie stan otwarty modelu, test ciągłości) → **60–100 % dotychczasowe złożenie na płasko**: 75 % („3D po
+  zgięciu”, wartość klienta), 100 % („Złożona”). Przystanki: 0, 15, 30, 45, 60, 75, 100 %. Etapy pod suwakiem
+  (PL / EN / DE): „A: fałdy wsuwane nożami (po F/2)”, „B: tył zawinięty, szew zamknięty…”, „C: pasek dna d zagięty na
+  tył (klej)”, „D: otwarcie torby”, „Torba uformowana”, „Składanie na płasko”. Zaznaczony preset zachowuje znaczenie
+  przy zmianie typu i przy wczytaniu projektu (wartość osi dla typu projektu). Zrzuty 3D w karcie PDF używają złożenia
+  (`foldProgress`, 0 = otwarta, 1 = płaska) jak dotąd. Okienko (otwór + folia od środka) jest widoczne we wszystkich
+  etapach.
 
 ### 4c. Tryby podglądu (wywiad 29.09.2026)
 
@@ -661,13 +670,16 @@ klockowej; środek tylnej ścianki nie jest używany), ~~pole nadruku~~ (`W × (
 - Zakres regulacji `d` (15–30): czy użytkownik ma go wybierać, czy zostaje stały produkcyjny (25)? (`s` 10–20 jest już
   ustawiane w konfiguratorze.)
 - Minimum fałdy: przyjęto 20 mm. Torba płaska (`F = 0`) ma być osobnym typem / wariantem?
-- Nadruk na pasku dna `d` i klej tylko na pasku czy też wewnątrz końca rękawa?
 - Gramatury: lista w zakresie 30–60 (przyjęto co 5, domyślnie 40)?
 - „Standardowe wymiary 180×180, 200×200, 260×260, 280×280”: do czego należą? Obecnie brak rozmiarów standardowych.
 - ~~Okno~~ — rozstrzygnięte [K] 30.09.2026, w konfiguratorze (§2b). Rożek, pakowanie w wiązki 100 / 250 / 500 i paleta: kiedy
   mają wejść do konfiguratora?
-- Czy torba fałdowa ma mieć w podglądzie składanie z arkusza według kolejności z wytycznych (rękaw + fałdy, szew,
-  cięcie, dno)?
+- ~~Czy torba fałdowa ma mieć w podglądzie składanie z arkusza według kolejności z wytycznych?~~ — rozstrzygnięte [K]
+  (30.09.2026): **tak**, 0–60 % osi (fałdy, rękaw + szew, dno, otwarcie), potem dotychczasowe złożenie (§4i). Cięcie na
+  `L` nie jest osobnym etapem (arkusz jest już wykrojem `B × L`).
+- ~~Nadruk na pasku dna `d`~~ — rozstrzygnięte [K] (30.09.2026): **„Rozciągnij na dno” dostępne** (pasek `d` jako zapas
+  na dno), mimo pola nadruku `W × (H − d)` z wytycznych. Nadal otwarte: klej tylko na pasku czy też wewnątrz końca
+  rękawa?
 
 **Okienko z folią (§2b, `docs/PRODUCTION.md` §13.6)** — założenia [Z] do potwierdzenia z produkcją:
 

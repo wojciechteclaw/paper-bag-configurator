@@ -3,7 +3,7 @@ import { BAG_TYPES } from '../../src/domain/config/productCatalog';
 import { buildDieline } from '../../src/domain/dieline';
 import { createArtwork, createConfiguration, createHandle } from '../../src/domain/factories';
 import { getSupportedHandleTypes } from '../../src/domain/handleVariants';
-import { changeProductType, getDimensionWarningsFor } from '../../src/domain/productType';
+import { changeProductType, constrainPlacements, getDimensionWarningsFor } from '../../src/domain/productType';
 import type { BagConfiguration } from '../../src/domain/types';
 import { validateDimensions } from '../../src/domain/validation/dimensions';
 
@@ -43,12 +43,12 @@ describe('FOLDED catalog entry', () => {
     expect(validateDimensions(folded.defaultDimensions, folded.limits)).toEqual({});
   });
 
-  it('offers no handles, 30–60 g/m² paper and no printed bottom allowance', () => {
+  it('offers no handles, 30–60 g/m² paper and a printable bottom strip (client [K])', () => {
     expect(getSupportedHandleTypes(folded)).toEqual([]);
     expect(folded.handleVariants).toHaveLength(1);
     expect(folded.handleVariants[0].grammage).toMatchObject({ min: 30, max: 60 });
     expect(folded.handleVariants[0].paperTypes).toContain(folded.handleVariants[0].defaultPaperType);
-    expect(folded.extendToBottomAvailable).toBe(false);
+    expect(folded.extendToBottomAvailable).toBe(true);
     expect(BAG_TYPES.BLOCK.extendToBottomAvailable).toBe(true);
   });
 
@@ -79,20 +79,19 @@ describe('changeProductType', () => {
       { field: 'dimension', key: 'width', from: 320, to: 300 },
       { field: 'grammage', from: 100, to: 60 },
       { field: 'glueFlap', from: 10, to: 15 },
-      { field: 'extendToBottom', targets: ['FRONT', 'LEFT', 'WRAP:base'] },
     ]);
   });
 
-  it('keeps artwork, print colours and the layout, and drops "extend to bottom"', () => {
+  it('keeps artwork, print colours, the layout and "extend to bottom" (the strip d is the gusseted allowance [K])', () => {
     const source = blockWithEverything();
     const { configuration } = changeProductType(source, 'FOLDED');
     expect(configuration.panels.FRONT.artwork).toBe(artwork);
-    expect(configuration.panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: false });
-    expect(configuration.panels.LEFT.placement).toMatchObject({ mode: 'CUSTOM', extendToBottom: false });
-    // Every whole-bag layer is kept (order, ids, artwork); none extends to the bottom any more.
+    expect(configuration.panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    expect(configuration.panels.LEFT.placement).toBe(source.panels.LEFT.placement);
+    // Every whole-bag layer is kept (order, ids, artwork, placement).
     expect(configuration.wrapLayers.map((layer) => layer.id)).toEqual(['base', 'logo']);
     expect(configuration.wrapLayers.every((layer) => layer.artwork === artwork)).toBe(true);
-    expect(configuration.wrapLayers.map((layer) => layer.placement.extendToBottom)).toEqual([false, false]);
+    expect(configuration.wrapLayers.map((layer) => layer.placement.extendToBottom)).toEqual([true, false]);
     expect(configuration.wrapLayers[1]).toBe(source.wrapLayers[1]);
     expect(configuration.print).toEqual(source.print);
     expect(configuration.artworkLayout).toBe(source.artworkLayout);
@@ -106,12 +105,14 @@ describe('changeProductType', () => {
     expect(buildDieline(configuration).sheet.width).toBe(2 * 300 + 2 * 150 + 18);
   });
 
-  it('keeps a CUSTOM image where it was on the wall when the bottom extension is dropped', () => {
-    const { configuration } = changeProductType(blockWithEverything(), 'FOLDED');
-    const placement = configuration.panels.LEFT.placement;
+  it('drops "extend to bottom" only for a type without a printable allowance, keeping a CUSTOM image in place', () => {
+    const source = blockWithEverything();
+    const { panels } = constrainPlacements(source, { extendToBottomAvailable: false });
+    const placement = panels.LEFT.placement;
     if (placement.mode !== 'CUSTOM') throw new Error('expected CUSTOM');
     // Extended area of LEFT (150 × (450 + 90)) centred at y = 180; the image centre was at 160 → now 160 − 225 = −65.
     expect(placement.offsetY).toBeCloseTo(-65, 9);
+    expect(placement.extendToBottom).toBe(false);
   });
 
   it('switches back without re-adding what the gusseted-bag bag dropped, and is a no-op for the same type', () => {

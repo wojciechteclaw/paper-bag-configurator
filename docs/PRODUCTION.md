@@ -932,8 +932,9 @@ maszyny Garant; legenda znaczników tam §0). Wartości bez [K] to nadal założ
 - **Dno:** pasek `d` z klejem, zagięty **na tył** (dno pojedyncze; podwójne = dwa zagięcia, ciaśniejsze) [K]. Fałdy
   zaginają się razem z dnem (w narożnikach dna kilka warstw) [K]. Brak dna klockowego; torba nie stoi.
 - Wylot: cięcie proste lub ząbkowane, opcjonalnie wycięcie na kciuk [K] — **w MVP tylko proste** (pytanie w SPEC §8).
-- Kolejność produkcji (na przyszłą animację) [K]: rękaw + fałdy razem (płyta formująca, noże wsuwające boki po `F/2`),
-  zamknięcie szwu na tyle, cięcie na `L` (nóż prosty / ząbkowany, opcjonalnie wycięcie na kciuk), na końcu zagięcie dna.
+- Kolejność produkcji [K]: rękaw + fałdy razem (płyta formująca, noże wsuwające boki po `F/2`), zamknięcie szwu na
+  tyle, cięcie na `L` (nóż prosty / ząbkowany, opcjonalnie wycięcie na kciuk), na końcu zagięcie dna. Animacja w
+  podglądzie: §13.7.
 - Klej: dyspersyjny / skrobiowy (dopuszczony do żywności) [K]. Włókna wzdłuż `H` [K]. Brak uchwytów.
 
 ### 13.2 Parametry (katalog `BAG_TYPES.FOLDED`, `GUSSETED_BAG_RULES` w `productCatalog.ts`)
@@ -974,8 +975,9 @@ Współrzędne jak w torbie klockowej (panel-local od zewnątrz, `y = 0` = linia
 - linie: krawędzie rękawa (szew leży na krawędzi BACK / LEFT [K], zakładka wewnątrz — bez osobnej linii), krawędź wylotu, krawędź dna, górna krawędź paska; bigi osi fałd;
 - rozciągnięcie papieru w `y` przy wygięciu ścianek pominięte (pomijalne dla `F ≪ H`) [W].
 
-Oś czasu podglądu (MVP): bez składania z arkusza — suwak od 40 % (otwarta torba) do 100 % (płaska), brak presetu
-„Arkusz”. Szczegóły: `docs/SPEC.md` §4i.
+Parametr `stripTurn` (0 → 1) obraca pasek dna o `π · stripTurn` wokół tej samej osi (`y = 0`, `z = −1,5·gap`):
+warstwy pozostają współśrodkowe, więc się nie przecinają; `stripTurn = 1` to położenie powyżej. Używa go formowanie
+z arkusza (§13.7), otwarta torba i jej złożenie to ten sam model. Oś czasu podglądu: `docs/SPEC.md` §4i.
 
 ### 13.4 Wykrój (`buildGussetedDieline`, wybierany przez `buildDieline` dla `productType = 'FOLDED'`)
 
@@ -1015,9 +1017,13 @@ Przykład klienta 140 + 90 × 370, `s = 15`, `d = 25`: **arkusz 475 × 395 mm (b
 - Grafika per ścianka (fałdy = LEFT / RIGHT, `F × H`) albo warstwy całej torby (WRAP, obszar `(2W + 2F) × H` od lewej
   krawędzi frontu) — to samo mapowanie (`computePanelUvTransform`) w 2D, 3D, pokryciu farbą i eksporcie; na wykroju
   obraz całej torby łamie się na krawędzi LEFT | FRONT (początek obszaru) jak w torbie klockowej.
-- **Pasek dna `d` bez nadruku w MVP:** „Rozciągnij na dno” jest wyłączone dla tego typu
-  (`extendToBottomAvailable: false`; przy zmianie typu wyłączane na ściankach i na każdej warstwie, UI go nie pokazuje).
-  Pole nadruku `W × (H − d)` na stronę [K].
+- **Nadruk na pasku dna `d` [K] (30.09.2026):** „Rozciągnij na dno” jest dostępne (`extendToBottomAvailable: true`);
+  zapasem na dno jest pasek `d` (`getArtworkBottomAllowance`: klockowa `(D + 30) / 2`, fałdowa `d`), więc obszar
+  grafiki ścianki / warstwy to `[−d, H]`. Pasek jest drukowany na wykroju (przycięcie do spadu pod arkuszem, strefa
+  zapasu jako zadrukowana), w 3D (części paska składają się z nadrukiem na tył: widoczny jest pasek FRONT, zewnętrzny,
+  na tyle płaskiej torby i pod otwartą torbą), w pokryciu farbą i w eksporcie. Wytyczne podawały pole nadruku
+  `W × (H − d)` na stronę — klient chce jednak tę opcję [K]. Przy zmianie typu „Rozciągnij na dno” zostaje (FILL
+  rozciąga się na nowy zapas, CUSTOM zachowuje przesunięcia względem nowego obszaru).
 
 ### 13.6 Okienko z folią (`BagConfiguration.window`, `src/domain/window.ts`, `WINDOW_RULES` w `productCatalog.ts`)
 
@@ -1059,3 +1065,30 @@ Założenia wyprowadzone [Z] (do potwierdzenia — `docs/SPEC.md` §8):
   `x ∈ [140, 180]`, `y ∈ [65, 395]`), folia 60 × 340 mm (204 cm²); arkusz papieru 475 × 395 − 40 × 330 mm².
 - Eksport PDF / Excel: sekcja „Okienko” (rodzaj, folia, wymiary otworu, dolna krawędź nad linią dna, położenie,
   wsunięcie, wymiar i pole folii); w arkuszu „Wykrój” linie cięcia otworu jako „wycięcie okienka”.
+
+### 13.7 Formowanie z arkusza w podglądzie (`src/domain/geometry/gussetedAssembly.ts`) [K]
+
+Decyzja klienta 30.09.2026: formowanie jak na maszynie (kolejność §13.1), z arkusza wprost do **płaskiego** rękawa z
+wsuniętymi fałdami (bez pośredniego otwartego pudełka `W × F`), potem dno, a na końcu otwarcie torby do otwartego
+stanu modelu §13.3 — tego samego, od którego zaczyna się złożenie na płasko. Postęp formowania `q ∈ [0, 1]` (na osi
+podglądu 0–60 %), fazy ściśle po kolei:
+
+| Faza | `q` | Oś | Ruch |
+|---|---|---|---|
+| A — fałdy | 0–0,25 | 0–15 % | noże wsuwają fałdy po `F/2`: krawędzie rękawa FRONT|RF, FRONT|LF zaginają się o 180° na zewnątrz (V), osie fałd o 180° do środka (M); RB / LB równolegle do przodu, BACK i zakładka przesuwają się płasko razem z RB |
+| B — rękaw i szew | 0,25–0,5 | 15–30 % | BACK zawija się o 180° za przód na krawędzi RIGHT|BACK; zakładka zagina się najpierw (C3) na wewnętrzną stronę BACK, więc BACK kładzie ją pod wolną krawędź LB — szew zamknięty na krawędzi BACK|LEFT |
+| C — dno | 0,5–0,75 | 30–45 % | pasek `d` (wszystkie warstwy z zakładką) zagina się o 180° na tył (`stripTurn`, §13.3) |
+| D — otwarcie | 0,75–1 | 45–60 % | gotowa płaska torba otwiera się (`open` 0 → 1) do otwartego stanu §13.3 |
+
+- A i B: łańcuch sztywnych ogniw (FRONT nieruchomy w płaszczyźnie arkusza, połówki fałd RF / RB / LF / LB, BACK,
+  zakładka) obracanych wokół pionowych bigów — każdy zawias zamknięty dla każdego `q` (test), papier bez rozciągania.
+  Koniec B = płaski rękaw modelu §13.3 (`open = 0`, pasek jeszcze wisi). C i D to już model §13.3, więc przy `q = 1`
+  poza jest **dokładnie** otwartą torbą, od której zaczyna się złożenie (test ciągłości).
+- Warstwy renderu: szczelina `gap` modelu §13.3 narasta w fazie A (arkusz przy 0 % jest idealnie płaski); zakładka
+  leży od końca B wewnątrz LB, przesunięta do środka o `min(0,1 mm, gap · u / F)` (w płaskim rękawie w połowie drogi do
+  BACK, więc nigdy nie prześwituje przez BACK).
+- Cięcie na `L` nie jest osobną fazą (arkusz w podglądzie jest już wykrojem `B × L`). Na maszynie fałdy i rękaw
+  powstają jednocześnie; w podglądzie A i B następują po sobie, żeby wsuwanie fałd było czytelne.
+- Znane uproszczenia: w fazie B zakładka zagina się na BACK, zanim BACK się położy (na maszynie klej jest na zakładce, a
+  krawędź LB kładzie się na nią); przy szczelinie renderu zagięcie dna ma na krawędzi dna odstęp warstw do `5·gap`
+  (jak w modelu §13.3).
