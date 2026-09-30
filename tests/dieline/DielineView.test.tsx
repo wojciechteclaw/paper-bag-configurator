@@ -218,3 +218,59 @@ describe('DielineView', () => {
     expect(screen.getByRole('button', { name: 'Export SVG' })).toBeInTheDocument();
   });
 });
+
+describe('DielineView on touch screens', () => {
+  /** Identity screen matrix: client px = SVG units (jsdom has no layout). */
+  const identityCtm = () => {
+    const m = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+    return { ...m, inverse: () => m } as unknown as DOMMatrix;
+  };
+  const touch = (target: Element, type: 'pointerDown' | 'pointerMove' | 'pointerUp', pointerId: number, x: number, y: number) =>
+    fireEvent[type](target, { pointerId, pointerType: 'touch', clientX: x, clientY: y, button: 0, isPrimary: pointerId === 1 });
+  const viewBoxWidth = (svg: Element) => Number(svg.getAttribute('viewBox')!.split(' ')[2]);
+
+  it('zooms with a two-finger pinch', () => {
+    render(<DielineView />);
+    const svg = screen.getByRole('img', { name: /arkusz/ });
+    const fitted = viewBoxWidth(svg);
+    touch(svg, 'pointerDown', 1, 100, 100);
+    touch(svg, 'pointerDown', 2, 140, 100);
+    touch(svg, 'pointerMove', 2, 180, 100); // fingers 40 → 80 px apart: 2×
+    expect(viewBoxWidth(svg)).toBeCloseTo(fitted / 2);
+    touch(svg, 'pointerUp', 2, 180, 100);
+    touch(svg, 'pointerMove', 1, 50, 100); // the remaining finger neither pans nor zooms
+    touch(svg, 'pointerUp', 1, 50, 100);
+    expect(viewBoxWidth(svg)).toBeCloseTo(fitted / 2);
+  });
+
+  it('drags artwork with one finger; a second finger undoes the drag and pinches instead', () => {
+    render(<DielineView />);
+    addArtwork('LEFT', 'blob:left');
+    const svg = screen.getByRole('img', { name: /arkusz/ }) as unknown as SVGSVGElement;
+    svg.getScreenCTM = identityCtm;
+    const artwork = screen.getByRole('button', { name: /Grafika: Bok lewy/ });
+    touch(artwork, 'pointerDown', 1, 100, 100);
+    touch(svg, 'pointerMove', 1, 110, 100);
+    expect(store().configuration.panels.LEFT.placement).toMatchObject({ mode: 'CUSTOM', offsetX: 10 });
+    touch(svg, 'pointerDown', 2, 200, 100);
+    expect(store().configuration.panels.LEFT.placement).toEqual(DEFAULT_PLACEMENT);
+    touch(svg, 'pointerMove', 2, 300, 100);
+    touch(svg, 'pointerMove', 1, 50, 100);
+    expect(store().configuration.panels.LEFT.placement).toEqual(DEFAULT_PLACEMENT);
+  });
+
+  it('has disclosure buttons for the layer toggles and the legend (collapsed on narrow screens by CSS)', () => {
+    const { container } = render(<DielineView />);
+    const layers = screen.getByRole('button', { name: 'Warstwy' });
+    const legend = screen.getByRole('button', { name: 'Legenda' });
+    expect(layers).toHaveAttribute('aria-expanded', 'false');
+    expect(legend).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(layers);
+    fireEvent.click(legend);
+    expect(layers).toHaveAttribute('aria-expanded', 'true');
+    expect(container.querySelector(`#${CSS.escape(layers.getAttribute('aria-controls')!)}`)).toHaveClass('is-open');
+    expect(container.querySelector(`#${CSS.escape(legend.getAttribute('aria-controls')!)}`)).toHaveClass('is-open');
+    // The toggles themselves stay usable (the content is only hidden visually on narrow screens).
+    expect(screen.getByLabelText('Bigi')).toBeInTheDocument();
+  });
+});

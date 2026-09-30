@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   getActiveArtworkTargets,
@@ -29,6 +29,7 @@ import { useConfiguratorUiStore } from '../state/configuratorUiStore';
 import { buildDielineScene, clipPathData, DIELINE_STYLE, isPointOnSceneImage, matrixAttr, type SceneImage } from './scene';
 import { keyForType } from '../i18n/keyForType';
 import { dimensionsSlug } from '../export/format';
+import { panView, pinchStep, zoomView, type DielineViewState, type Point } from './viewTransform';
 import './dieline.css';
 
 type LayerKey = 'artwork' | 'creases' | 'zones' | 'annotations' | 'labels';
@@ -57,8 +58,6 @@ const VERTICAL_ALIGNMENTS: { value: VerticalAlignment; icon: string }[] = [
 ];
 
 const PAPER_FILL: Record<PaperColor, string> = { WHITE: '#F4F1EA', BROWN: '#B8875A' };
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 20;
 
 type Drag =
   | { kind: 'pan'; pointerId: number; startClient: [number, number]; startCenter: [number, number]; moved: boolean }
@@ -70,7 +69,9 @@ type Drag =
       centre: [number, number];
       startDistance: number;
       placement: ArtworkPlacement;
-    };
+    }
+  /** Two touch pointers: pinch to zoom, move both to pan (the last finger positions in client px). */
+  | { kind: 'pinch'; pointerIds: [number, number]; last: [Point, Point] };
 
 /** Pointer position in SVG user units (mm), or null where the DOM has no layout (tests). */
 function toSvgPoint(svg: SVGSVGElement | null, clientX: number, clientY: number): [number, number] | null {
@@ -116,12 +117,18 @@ export function DielineView() {
   // Selection is view state shared with the layer list of the Graphics step (whole-bag layers, docs/SPEC.md §3b).
   const selected = useConfiguratorUiStore((s) => s.selectedArtwork);
   const setSelected = useConfiguratorUiStore((s) => s.selectArtwork);
-  const [zoom, setZoom] = useState(1);
-  const [center, setCenter] = useState<[number, number] | null>(null);
+  const [view, setView] = useState<DielineViewState>({ zoom: 1, center: null });
+  const { zoom, center } = view;
+  // Layer toggles and the legend collapse on narrow screens (always shown on desktop via CSS).
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [busy, setBusy] = useState<'svg' | 'pdf' | null>(null);
   const [exportError, setExportError] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const idBase = useId();
   const dragRef = useRef<Drag | null>(null);
+  /** Active touch pointers (client px), to recognise a two-finger pinch. */
+  const touchesRef = useRef(new Map<number, Point>());
 
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
   const bottomFoldDepth = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
@@ -143,28 +150,19 @@ export function DielineView() {
 
   // ——— View box (zoom / pan) ———
   const [bx, by, bw, bh] = scene.viewBox;
-  const viewCenter: [number, number] = center ?? [bx + bw / 2, by + bh / 2];
+  const sheetCenter: Point = [bx + bw / 2, by + bh / 2];
+  const viewCenter: Point = center ?? sheetCenter;
   const vw = bw / zoom;
   const vh = bh / zoom;
   const viewBox = `${viewCenter[0] - vw / 2} ${viewCenter[1] - vh / 2} ${vw} ${vh}`;
   const handleRadius = Math.max(vw, vh) / 120;
 
+  // Functional updates: several wheel / pinch events may arrive before React re-renders.
   const zoomBy = useCallback(
-    (factor: number, around?: [number, number]) => {
-      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
-      const f = next / zoom;
-      if (f === 1) return;
-      const c = center ?? [bx + bw / 2, by + bh / 2];
-      const p = around ?? c;
-      setZoom(next);
-      setCenter([p[0] + (c[0] - p[0]) / f, p[1] + (c[1] - p[1]) / f]);
-    },
-    [zoom, center, bx, by, bw, bh],
+    (factor: number, around?: Point) => setView((current) => zoomView(current, factor, [bx + bw / 2, by + bh / 2], around)),
+    [bx, by, bw, bh],
   );
-  const fitView = () => {
-    setZoom(1);
-    setCenter(null);
-  };
+  const fitView = () => setView({ zoom: 1, center: null });
 
   // ——— Placement editing ———
   /**
@@ -211,6 +209,21 @@ export function DielineView() {
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
   }, []);
+
+  // A second finger on the sheet turns any one-finger gesture into a pinch (zoom + pan); an artwork move or scale the
+  // first finger had started is undone. Runs in the capture phase so the second finger starts no drag of its own.
+  const onPointerDownCapture = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.pointerType !== 'touch') return;
+    const touches = touchesRef.current;
+    touches.set(event.pointerId, [event.clientX, event.clientY]);
+    if (touches.size !== 2) return;
+    event.stopPropagation();
+    const drag = dragRef.current;
+    if (drag && (drag.kind === 'move' || drag.kind === 'scale')) setPanelPlacement(drag.panel, drag.placement);
+    const [[idA, a], [idB, b]] = [...touches.entries()];
+    dragRef.current = { kind: 'pinch', pointerIds: [idA, idB], last: [a, b] };
+    svgRef.current?.setPointerCapture?.(event.pointerId);
+  };
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (event.button !== 0 || dragRef.current) return;
@@ -259,7 +272,22 @@ export function DielineView() {
   };
 
   const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const touches = touchesRef.current;
+    if (touches.has(event.pointerId)) touches.set(event.pointerId, [event.clientX, event.clientY]);
     const drag = dragRef.current;
+    if (drag?.kind === 'pinch') {
+      const [a, b] = drag.pointerIds.map((id) => touches.get(id));
+      if (!a || !b || !drag.pointerIds.includes(event.pointerId)) return;
+      const { factor, midpoint, pan } = pinchStep(drag.last, [a, b]);
+      drag.last = [a, b];
+      const ctm = svgRef.current?.getScreenCTM?.();
+      const around = toSvgPoint(svgRef.current, midpoint[0], midpoint[1]) ?? undefined;
+      setView((current) => {
+        const panned = ctm ? panView(current, [-pan[0] / ctm.a, -pan[1] / ctm.d], sheetCenter) : current;
+        return zoomView(panned, factor, sheetCenter, around);
+      });
+      return;
+    }
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.kind === 'pan') {
       const ctm = svgRef.current?.getScreenCTM?.();
@@ -267,7 +295,8 @@ export function DielineView() {
       const dyPx = event.clientY - drag.startClient[1];
       if (Math.hypot(dxPx, dyPx) > 3) drag.moved = true;
       if (!ctm || !drag.moved) return;
-      setCenter([drag.startCenter[0] - dxPx / ctm.a, drag.startCenter[1] - dyPx / ctm.d]);
+      const nextCenter: Point = [drag.startCenter[0] - dxPx / ctm.a, drag.startCenter[1] - dyPx / ctm.d];
+      setView((current) => ({ ...current, center: nextCenter }));
       return;
     }
     const point = toSvgPoint(svgRef.current, event.clientX, event.clientY);
@@ -283,7 +312,14 @@ export function DielineView() {
   };
 
   const onPointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    touchesRef.current.delete(event.pointerId);
     const drag = dragRef.current;
+    if (drag?.kind === 'pinch') {
+      // Lifting either finger ends the pinch; the remaining finger does nothing until it is lifted too.
+      if (drag.pointerIds.includes(event.pointerId)) dragRef.current = null;
+      svgRef.current?.releasePointerCapture?.(event.pointerId);
+      return;
+    }
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.kind === 'pan' && !drag.moved) setSelected(null);
     dragRef.current = null;
@@ -375,7 +411,16 @@ export function DielineView() {
   return (
     <div className="dieline-view" data-testid="dieline-view">
       <div className="dieline-view__toolbar">
-        <fieldset className="dieline-view__layers">
+        <button
+          type="button"
+          className="dieline-view__disclosure"
+          aria-expanded={layersOpen}
+          aria-controls={`${idBase}-layers`}
+          onClick={() => setLayersOpen((open) => !open)}
+        >
+          {t('dieline.layers.legend')} <span aria-hidden="true">{layersOpen ? '▴' : '▾'}</span>
+        </button>
+        <fieldset id={`${idBase}-layers`} className={layersOpen ? 'dieline-view__layers is-open' : 'dieline-view__layers'}>
           <legend className="visually-hidden">{t('dieline.layers.legend')}</legend>
           {LAYER_KEYS.map((key) => (
             <label key={key} className="dieline-view__toggle">
@@ -530,6 +575,7 @@ export function DielineView() {
             sheetWidth: scene.sheet.width,
             sheetHeight: scene.sheet.height,
           })}
+          onPointerDownCapture={onPointerDownCapture}
           onPointerDown={onBackgroundPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -754,7 +800,16 @@ export function DielineView() {
         </svg>
       </div>
 
-      <div className="dieline-view__footer">
+      <button
+        type="button"
+        className="dieline-view__disclosure dieline-view__disclosure--legend"
+        aria-expanded={legendOpen}
+        aria-controls={`${idBase}-legend`}
+        onClick={() => setLegendOpen((open) => !open)}
+      >
+        {t('dieline.legendToggle')} <span aria-hidden="true">{legendOpen ? '▴' : '▾'}</span>
+      </button>
+      <div id={`${idBase}-legend`} className={legendOpen ? 'dieline-view__footer is-open' : 'dieline-view__footer'}>
         <ul className="dieline-view__legend">
           <li><span className="swatch swatch--cut" />{t('dieline.legend.cut')}</li>
           <li><span className="swatch swatch--crease" />{t('dieline.legend.creaseValley')}</li>

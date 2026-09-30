@@ -352,6 +352,11 @@ Przełącznik trybów w panelu podglądu:
 
 Tryby 3D to **presety na osi czasu**; przełączenie animuje przejście przez wszystkie etapy pomiędzy (np. z „Złożona” do „Arkusz”). **Suwak** (tylko w trybach 3D) pozwala przejść całą oś płynnie; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane **per ścianka** albo jako **grafika na całą torbę** w warstwach (§3a, §3b).
 
+**Obrót kamery „360°”** (prośba klienta 30.09.2026, tylko w trybach 3D): przycisk nad płótnem włącza automatyczny
+obrót kamery wokół torby — pełne 360° w poziomie, a jednocześnie w drugim kierunku od 45° z góry do 45° od dołu i z
+powrotem (jeden cykl na obrót, 14 s; start z bieżącego widoku, bez skoku). Chwycenie płótna (obrót / zoom) lub przejście
+do wykroju 2D zatrzymuje obrót. Stan widoku (`previewStore.orbiting`), niezapisywany w projekcie.
+
 ### 4d. Pokrycie farbą (wywiad 29.09.2026)
 
 W kroku **Grafiki**, aktualizowane na żywo:
@@ -535,6 +540,22 @@ grafika / warstwa) **jest** zapisywany w pliku (decyzja klienta [K] 30.09.2026) 
 - **Nazwa pliku:** `<prefiks>-<typ>-<W>x<H>x<D>-<RRRR-MM-DD>.bagproj`, prefiks wg języka (`projekt-torby`,
   `bag-project`, `taschen-projekt`), np. `projekt-torby-block-200x400x150-2026-09-30.bagproj`.
 
+### 4j. Telefon i tablet (prośba klienta 30.09.2026: „zrób to na telefon”)
+
+- **Desktop (> 900 px) bez zmian:** konfiguracja po lewej (440 px), podgląd przyklejony po prawej.
+- **≤ 900 px (tablet pionowo, telefon):** podgląd **na górze, przyklejony** (48 % wysokości ekranu, 62 % w wykroju 2D —
+  więcej miejsca na paski narzędzi; jednostki `svh`, więc płótno nie skacze przy chowaniu pasków przeglądarki),
+  pod nim konfiguracja krok po kroku z przyklejonym paskiem „Wstecz / Dalej” na dole. Przewijanie strony — z obszaru
+  konfiguracji; płótno 3D i wykrój przejmują dotyk (3D: jeden palec obraca, dwa palce przybliżają / przesuwają;
+  wykrój: jeden palec przesuwa arkusz lub grafikę, dwa palce — zoom i przesuwanie).
+- **Telefon poziomo (≤ 900 × ≤ 560 px):** konfiguracja i podgląd obok siebie (45 / 55 %), podgląd przyklejony na
+  pełną wysokość pod nagłówkiem.
+- **Górny pasek:** tytuł + język, pod nimi przewijany poziomo rząd „Zapisz / Wczytaj projekt” i „Demo 1–4”
+  (w poziomie jeden rząd); komunikat zapisu / wczytania jako powiadomienie u góry ekranu.
+- **Kroki (≤ 600 px):** numery kroków, bieżący krok z nazwą. Pola ≥ 44 px, tekst pól 16 px, karty wyboru w jednej
+  kolumnie; warstwy i legenda wykroju zwijane. `prefers-reduced-motion` wyłącza przejścia CSS i animację dopasowania
+  kamery.
+
 ## 5. Architektura
 
 ```text
@@ -595,6 +616,11 @@ Wycena, zamówienia, płatności, konta, workflow akceptacji, zaawansowany prefl
 produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, moduł pozycjonowania grafiki.
 
 ## 8. Otwarte pytania
+
+- **Telefon (§4j):** czy podgląd na 48 % wysokości ekranu jest dobrym kompromisem, czy dodać przycisk zwijania /
+  powiększania podglądu? Czy „Demo 1–4” mają być w wersji produkcyjnej na telefonie widoczne w górnym pasku?
+- **Obrót 360° (§4c):** czy obrót ma się kończyć po jednym okrążeniu (zamiast trwać do zatrzymania) i czy tempo 14 s
+  na okrążenie jest dobre?
 
 - **Limity szerokości / wysokości — konflikt źródeł:** strona główna [0] podaje szerokość 75–260 mm i wysokość
   170–430 mm, a tabela toreb z uchwytem płaskim [2] zawiera rozmiary do 450×170×470 (szerokość 280–450, wysokość 470).

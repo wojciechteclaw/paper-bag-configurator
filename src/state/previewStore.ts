@@ -195,6 +195,12 @@ type PreviewState = {
   progress: number;
   /** Play button: the timeline advances by itself (see `tick`). */
   playing: boolean;
+  /** Orbit button: the 3D camera circles the bag by itself (360°, elevation ±45°); independent of the timeline. */
+  orbiting: boolean;
+  /** Starts / stops the camera orbit. */
+  toggleOrbiting: () => void;
+  /** Stops the camera orbit (the user took over the camera, or the 3D view closed). */
+  stopOrbiting: () => void;
   /**
    * Selects a mode; 3D modes also move the timeline to their preset for the current bag type (the model animates
    * there) and stop playback.
@@ -228,8 +234,12 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
   viewMode: DEFAULT_PREVIEW_VIEW_MODE,
   progress: getTimelinePresets(currentProductType())[DEFAULT_PREVIEW_VIEW_MODE],
   playing: false,
+  orbiting: false,
+  toggleOrbiting: () => set({ orbiting: !get().orbiting }),
+  stopOrbiting: () => set({ orbiting: false }),
   setViewMode: (mode) => {
-    if (mode === 'DIELINE') set({ viewMode: mode, playing: false });
+    // The 2D dieline has no camera: leaving 3D also ends the orbit.
+    if (mode === 'DIELINE') set({ viewMode: mode, playing: false, orbiting: false });
     else set({ viewMode: mode, progress: getTimelinePresets(currentProductType())[mode], playing: false });
   },
   setProgress: (progress) => {

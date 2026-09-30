@@ -233,10 +233,80 @@
   white-space: nowrap;
 }
 
-@media (max-width: 600px) {
+/* Layer toggles and legend are collapsible on narrow screens; on desktop the toggles are hidden and both always shown. */
+.dieline-view__disclosure {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .dieline-view {
+    min-height: 0;
+    gap: 0.4rem;
+  }
+
   .dieline-view__toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.3rem;
+  }
+
+  /* Zoom / export buttons wrap one by one next to the "Layers" toggle. */
+  .dieline-view__actions {
+    display: contents;
+  }
+
+  .dieline-view__disclosure {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .dieline-view__disclosure[aria-expanded='true'] {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .dieline-view__layers:not(.is-open),
+  .dieline-view__footer:not(.is-open) {
+    display: none;
+  }
+
+  /* The open layer list takes its own row under the buttons. */
+  .dieline-view__layers.is-open {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .dieline-view__disclosure--legend {
+    align-self: flex-start;
+  }
+
+  .dieline-view button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+
+  .dieline-view__toggle {
+    min-height: 36px;
+  }
+
+  /* The sheet comes right under the main toolbar and nearly fills the view; the artwork edit toolbar and the legend
+     follow it (the view scrolls). */
+  .dieline-view__canvas {
+    order: 1;
+    flex: 0 0 auto;
+    min-height: max(200px, calc(100% - 56px));
+  }
+
+  .dieline-view__edit {
+    order: 2;
+  }
+
+  .dieline-view__disclosure--legend {
+    order: 3;
+  }
+
+  .dieline-view__footer {
+    order: 4;
   }
 }
 

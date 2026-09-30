@@ -11,6 +11,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Narrow screens: title + language on the first row, the project and demo buttons in a scrollable row below. */}
       <header className="app-header">
         <h1>{t('app.title')}</h1>
         <div className="app-header__actions">
@@ -18,8 +19,8 @@ export default function App() {
           {Array.from({ length: DEMO_COUNT }, (_, i) => (
             <DemoButton key={i + 1} index={i + 1} />
           ))}
-          <LanguageSwitcher />
         </div>
+        <LanguageSwitcher />
       </header>
       <main className="app-layout">
         <section className="config-panel" aria-label={t('app.configuration')}>

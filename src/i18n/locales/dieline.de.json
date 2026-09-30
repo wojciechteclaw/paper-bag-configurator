@@ -42,6 +42,7 @@
       "sheetWidth": "Bogen {{value}} mm",
       "sheetHeight": "Bogen {{value}} mm"
     },
+    "legendToggle": "Legende",
     "legend": {
       "cut": "Schnittlinie",
       "crease": "Rilllinie",

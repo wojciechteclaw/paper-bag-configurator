@@ -42,6 +42,7 @@
       "sheetWidth": "sheet {{value}} mm",
       "sheetHeight": "sheet {{value}} mm"
     },
+    "legendToggle": "Legend",
     "legend": {
       "cut": "cut",
       "crease": "crease",

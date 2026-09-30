@@ -1,7 +1,7 @@
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Vector3, type PerspectiveCamera } from 'three';
+import { TOUCH, Vector3, type PerspectiveCamera } from 'three';
 import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
@@ -16,6 +16,7 @@ import { GUSSETED_PHASES } from '../domain/geometry/gussetedAssembly';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
+import { orbitDirection, orbitPose, orbitStartPhase, poseOfDirection } from './autoOrbit';
 
 // Pure view of the configuration: receives it (and the view-only timeline state) as props, never writes back.
 
@@ -23,6 +24,11 @@ type ControlsLike = { target: Vector3; minDistance: number; maxDistance: number;
 
 /** Seconds of the camera glide between the bag fit and the (larger) flat-sheet fit. */
 const CAMERA_GLIDE_S = 0.7;
+
+const ORBIT_TOUCHES = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN };
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 type Glide = { fromTarget: Vector3; toTarget: Vector3; fromDistance: number; toDistance: number; radius: number; t: number };
 
@@ -36,6 +42,9 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
   const get = useThree((s) => s.get);
   // Subscribed only to re-run the fit once OrbitControls registers as the default controls.
   const controlsReady = useThree((s) => s.controls !== null);
+  // Refit when the canvas shape changes noticeably (phone rotated, layout switched between side by side and stacked):
+  // a tall, narrow canvas needs a larger distance. Rounded so small resizes keep the user's zoom.
+  const aspect = useThree((s) => Math.round((s.size.width / Math.max(1, s.size.height)) * 10) / 10);
   const glide = useRef<Glide | null>(null);
   const fittedWithControls = useRef(false);
 
@@ -44,7 +53,7 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
     const camera = state.camera as PerspectiveCamera;
     const controls = state.controls as unknown as ControlsLike | null;
     const target = new Vector3(0, targetY, 0);
-    const distance = fitDistance(camera, radius);
+    const distance = fitDistance({ fov: camera.fov, aspect: state.size.width / Math.max(1, state.size.height) }, radius);
     if (!controls || !fittedWithControls.current) {
       const direction = controls ? camera.position.clone().sub(controls.target) : DEFAULT_VIEW_DIRECTION.clone();
       if (direction.lengthSq() < 1e-9) direction.copy(DEFAULT_VIEW_DIRECTION);
@@ -66,9 +75,10 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
       fromDistance: camera.position.distanceTo(controls.target),
       toDistance: distance,
       radius,
-      t: 0,
+      // prefers-reduced-motion: jump to the new fit instead of gliding.
+      t: prefersReducedMotion() ? 1 : 0,
     };
-  }, [targetY, radius, get, controlsReady]);
+  }, [targetY, radius, aspect, get, controlsReady]);
 
   useFrame((state, delta) => {
     const g = glide.current;
@@ -93,18 +103,74 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
   return null;
 }
 
+type OrbitControlsEvents = ControlsLike & {
+  addEventListener: (type: 'start', listener: () => void) => void;
+  removeEventListener: (type: 'start', listener: () => void) => void;
+};
+
+/**
+ * While `active`, circles the camera around the orbit target (`autoOrbit.ts`: 360° with the elevation sweeping ±45°),
+ * starting from the current view and keeping the current distance, so zoom and the camera fit still apply. Any user
+ * gesture on the canvas (OrbitControls "start": drag, pinch, wheel) calls `onEnd`.
+ */
+function AutoOrbit({ active, onEnd }: { active: boolean; onEnd?: () => void }) {
+  const get = useThree((s) => s.get);
+  const controlsReady = useThree((s) => s.controls !== null);
+  const orbit = useRef<{ azimuth: number; phase: number; elapsed: number } | null>(null);
+  const onEndRef = useRef(onEnd);
+  useEffect(() => {
+    onEndRef.current = onEnd;
+  });
+
+  useEffect(() => {
+    orbit.current = null;
+    const { camera, controls } = get();
+    const orbitControls = controls as unknown as OrbitControlsEvents | null;
+    if (!active || !orbitControls) return;
+    const offset = camera.position.clone().sub(orbitControls.target);
+    const pose = poseOfDirection([offset.x, offset.y, offset.z]);
+    orbit.current = { azimuth: pose.azimuth, phase: orbitStartPhase(pose.elevation), elapsed: 0 };
+    const stop = () => onEndRef.current?.();
+    orbitControls.addEventListener('start', stop);
+    return () => orbitControls.removeEventListener('start', stop);
+  }, [active, get, controlsReady]);
+
+  useFrame((state, delta) => {
+    const current = orbit.current;
+    const controls = state.controls as unknown as ControlsLike | null;
+    if (!current || !controls) return;
+    current.elapsed += Math.min(delta, 0.1);
+    const distance = state.camera.position.distanceTo(controls.target);
+    const [x, y, z] = orbitDirection(orbitPose(current, current.elapsed));
+    state.camera.position.set(controls.target.x + x * distance, controls.target.y + y * distance, controls.target.z + z * distance);
+    controls.update();
+  });
+
+  return null;
+}
+
 export type BagPreview3DProps = {
   configuration: BagConfiguration;
   /** View-only fold state 0..1: formed open bag → folded flat (preview store, not part of BagConfiguration). */
   foldProgress?: number;
   /** View-only assembly state 0..1: flat sheet → formed open bag (default 1 = formed). */
   assemblyProgress?: number;
+  /** View-only: the camera circles the bag by itself (orbit button). */
+  autoOrbit?: boolean;
+  /** Called when the user takes over the camera during an automatic orbit. */
+  onAutoOrbitEnd?: () => void;
 };
 
 /** Dev aid: `?lines` in the URL numbers the bottom-zone edges during the assembly (to discuss folds with the client). */
 const DEBUG_LINES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('lines');
 
-export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress = 1 }: BagPreview3DProps) {
+export function BagPreview3D({
+  configuration,
+  foldProgress = 0,
+  assemblyProgress = 1,
+  autoOrbit = false,
+  onAutoOrbitEnd,
+}: BagPreview3DProps) {
   const { dimensions, paper } = configuration;
   const [w, h, d] = [dimensions.width * MM_TO_SCENE, dimensions.height * MM_TO_SCENE, dimensions.depth * MM_TO_SCENE];
   const { handle } = configuration;
@@ -168,8 +234,11 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
 
       {/* Below every bottom layer so the shadow plane never draws over the bottom seen through the open top. */}
       <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d, assembling ? 2 * sheet.radius * MM_TO_SCENE : 0) * 4} blur={2.4} far={h} />
-      <OrbitControls makeDefault />
+      {/* Touch: one finger orbits, two fingers pinch-zoom and pan. The canvas takes all touches (touch-action: none),
+          so on phones the page scrolls from the configuration below / beside the sticky preview (index.css). */}
+      <OrbitControls makeDefault touches={ORBIT_TOUCHES} />
       <CameraFit targetY={targetY} radius={radius} />
+      <AutoOrbit active={autoOrbit} onEnd={onAutoOrbitEnd} />
     </Canvas>
   );
 }

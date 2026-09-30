@@ -384,6 +384,8 @@
     "play": "Aufbau abspielen",
     "pause": "Pause",
     "previousStage": "Vorherige Phase",
+    "orbit": "Um den Beutel kreisen: 360° rundum und von 45° oben bis 45° unten",
+    "orbitStop": "Kreisen anhalten",
     "nextStage": "Nächste Phase",
     "phase": {
       "SHEET": "Flacher Bogen",

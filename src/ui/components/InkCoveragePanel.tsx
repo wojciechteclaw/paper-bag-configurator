@@ -106,59 +106,62 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
       {palette.colors.length === 0 ? (
         <p className="note">{t('coverage.palette.empty')}</p>
       ) : (
-        <table className="coverage__table">
-          <thead>
-            <tr>
-              <th scope="col">{t('coverage.palette.swatch')}</th>
-              <th scope="col">{t('coverage.palette.hex')}</th>
-              <th scope="col">{t('coverage.palette.pantone')}</th>
-              {hasLibrary && <th scope="col">{t('swatches.nearest')}</th>}
-              <th scope="col" className="num">
-                {t('coverage.palette.area', { unit: 'cm²' })}
-              </th>
-              <th scope="col" className="num">
-                {t('coverage.palette.percent')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {palette.colors.map((color) => (
-              <tr key={color.hex}>
-                <td>
-                  <span className="swatch" style={{ background: color.hex }} aria-hidden="true" />
-                </td>
-                <td className="mono">{color.hex}</td>
-                <td>{color.pantone ? `${color.pantone.code} (ΔE ${deltaE(color.pantone.deltaE)})` : '—'}</td>
-                {hasLibrary && (
-                  <td>
-                    <SwatchSuggestions lab={color.lab} />
-                  </td>
-                )}
-                <td className="num">{cm2(color.area)}</td>
-                <td className="num">{percent(color.sheetRatio)}</td>
-              </tr>
-            ))}
-            {palette.other.area > 0 && (
+        // Scrolls sideways on narrow screens instead of widening the page; focusable so it scrolls from the keyboard.
+        <div className="coverage__table-scroll" role="region" aria-label={t('coverage.palette.title')} tabIndex={0}>
+          <table className="coverage__table">
+            <thead>
               <tr>
-                <td>
-                  <span className="swatch swatch--unassigned" aria-hidden="true" />
-                </td>
-                <td colSpan={2 + libraryColumns}>{t('coverage.palette.other', { count: palette.other.colorCount })}</td>
-                <td className="num">{cm2(palette.other.area)}</td>
-                <td className="num">{percent(palette.other.sheetRatio)}</td>
+                <th scope="col">{t('coverage.palette.swatch')}</th>
+                <th scope="col">{t('coverage.palette.hex')}</th>
+                <th scope="col">{t('coverage.palette.pantone')}</th>
+                {hasLibrary && <th scope="col">{t('swatches.nearest')}</th>}
+                <th scope="col" className="num">
+                  {t('coverage.palette.area', { unit: 'cm²' })}
+                </th>
+                <th scope="col" className="num">
+                  {t('coverage.palette.percent')}
+                </th>
               </tr>
-            )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" colSpan={3 + libraryColumns}>
-                {t('coverage.total')}
-              </th>
-              <td className="num">{cm2(palette.inkArea)}</td>
-              <td className="num">{percent(palette.sheetRatio)}</td>
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {palette.colors.map((color) => (
+                <tr key={color.hex}>
+                  <td>
+                    <span className="swatch" style={{ background: color.hex }} aria-hidden="true" />
+                  </td>
+                  <td className="mono">{color.hex}</td>
+                  <td>{color.pantone ? `${color.pantone.code} (ΔE ${deltaE(color.pantone.deltaE)})` : '—'}</td>
+                  {hasLibrary && (
+                    <td>
+                      <SwatchSuggestions lab={color.lab} />
+                    </td>
+                  )}
+                  <td className="num">{cm2(color.area)}</td>
+                  <td className="num">{percent(color.sheetRatio)}</td>
+                </tr>
+              ))}
+              {palette.other.area > 0 && (
+                <tr>
+                  <td>
+                    <span className="swatch swatch--unassigned" aria-hidden="true" />
+                  </td>
+                  <td colSpan={2 + libraryColumns}>{t('coverage.palette.other', { count: palette.other.colorCount })}</td>
+                  <td className="num">{cm2(palette.other.area)}</td>
+                  <td className="num">{percent(palette.other.sheetRatio)}</td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row" colSpan={3 + libraryColumns}>
+                  {t('coverage.total')}
+                </th>
+                <td className="num">{cm2(palette.inkArea)}</td>
+                <td className="num">{percent(palette.sheetRatio)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
       <p className="note">
         {t('coverage.palette.note', {

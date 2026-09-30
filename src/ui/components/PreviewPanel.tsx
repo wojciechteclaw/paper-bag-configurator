@@ -3,27 +3,42 @@ import { BagPreview3D } from '../../renderer/BagPreview3D';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { getTimelineStateFor, is3DViewMode, usePreviewStore } from '../../state/previewStore';
 import { FoldSlider } from './FoldSlider';
+import { OrbitButton } from './OrbitButton';
 import { PreviewModeSwitcher } from './PreviewModeSwitcher';
 
 /**
  * Preview area: mode switcher (dieline / sheet / 3D box / 3D standing / flat), the 2D dieline or the 3D canvas, and —
- * in 3D only — the timeline slider (assembly from the sheet, then the fold) with play / pause. Reads the configuration
- * and the view-only preview state and passes them to the renderer as props.
+ * in 3D only — the timeline slider (assembly from the sheet, then the fold) with play / pause and the camera orbit
+ * button. Reads the configuration and the view-only preview state and passes them to the renderer as props.
  */
 export function PreviewPanel() {
   const configuration = useConfigurationStore((s) => s.configuration);
   const progress = usePreviewStore((s) => s.progress);
   const viewMode = usePreviewStore((s) => s.viewMode);
+  const orbiting = usePreviewStore((s) => s.orbiting);
+  const stopOrbiting = usePreviewStore((s) => s.stopOrbiting);
   const show3D = is3DViewMode(viewMode);
   const { assemblyProgress, foldProgress } = getTimelineStateFor(configuration.productType, progress);
 
   return (
     <div className="preview-stage">
-      {show3D ? (
-        <BagPreview3D configuration={configuration} foldProgress={foldProgress} assemblyProgress={assemblyProgress} />
-      ) : (
-        <DielineView />
-      )}
+      {/* Desktop: fills the stage under the floating controls; narrow screens: between them (index.css). */}
+      <div className="preview-stage__view">
+        {show3D ? (
+          <>
+            <BagPreview3D
+              configuration={configuration}
+              foldProgress={foldProgress}
+              assemblyProgress={assemblyProgress}
+              autoOrbit={orbiting}
+              onAutoOrbitEnd={stopOrbiting}
+            />
+            <OrbitButton />
+          </>
+        ) : (
+          <DielineView />
+        )}
+      </div>
       <div className="preview-stage__top">
         <PreviewModeSwitcher />
       </div>
