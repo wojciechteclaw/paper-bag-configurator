@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PANEL_POSITIONS } from '../../domain/factories';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot } from '../../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { createNumberFormatter } from '../../i18n/numberFormat';
 import { useConfigurationStore } from '../../state/configurationStore';
@@ -14,7 +14,7 @@ export function ConfigurationSummary() {
   const configuration = useConfigurationStore((s) => s.configuration);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>(null);
 
-  const { dimensions, paper, handle, panels, print } = configuration;
+  const { dimensions, paper, handle, print } = configuration;
   const colorAnalysis = normalizeColorAnalysis(print.colorAnalysis);
   const json = JSON.stringify(configuration, null, 2);
 
@@ -59,10 +59,11 @@ export function ConfigurationSummary() {
 
           <dt>{t('summary.artwork')}</dt>
           <dd>
+            {t(`artwork.layout.${getArtworkLayout(configuration)}`)}
             <ul className="summary__list">
-              {PANEL_POSITIONS.map((position) => (
-                <li key={position}>
-                  {t(`artwork.${position}`)}: {panels[position].artwork?.fileName ?? t('summary.noArtwork')}
+              {getActiveArtworkTargets(configuration).map((target) => (
+                <li key={target}>
+                  {t(`artwork.${target}`)}: {getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork')}
                 </li>
               ))}
             </ul>

@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  getActiveArtworkTargets,
+  getArtworkSlot,
+  getArtworkTargetArea,
+  resolvePanelArtworks,
+} from '../domain/artworkLayout';
+import {
   containPlacement,
   coverPlacement,
-  getPanelArtworkArea,
   movePlacement,
   rotatePlacement,
   scalePlacement,
@@ -12,7 +17,7 @@ import {
 } from '../domain/artworkPlacement';
 import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
-import type { ArtworkPlacement, PanelPosition, PaperColor } from '../domain/types';
+import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
 import { buildDielineScene, DIELINE_STYLE, matrixAttr, type SceneImage } from './scene';
 import './dieline.css';
@@ -46,11 +51,11 @@ const MAX_ZOOM = 20;
 
 type Drag =
   | { kind: 'pan'; pointerId: number; startClient: [number, number]; startCenter: [number, number]; moved: boolean }
-  | { kind: 'move'; pointerId: number; panel: PanelPosition; start: [number, number]; placement: ArtworkPlacement }
+  | { kind: 'move'; pointerId: number; panel: ArtworkTarget; start: [number, number]; placement: ArtworkPlacement }
   | {
       kind: 'scale';
       pointerId: number;
-      panel: PanelPosition;
+      panel: ArtworkTarget;
       centre: [number, number];
       startDistance: number;
       placement: ArtworkPlacement;
@@ -63,6 +68,10 @@ function toSvgPoint(svg: SVGSVGElement | null, clientX: number, clientY: number)
   const inv = ctm.inverse();
   return [inv.a * clientX + inv.c * clientY + inv.e, inv.b * clientX + inv.d * clientY + inv.f];
 }
+
+/** Current placement of a target (a wall or the whole-bag wrap), read at call time. */
+const placementOf = (target: ArtworkTarget) =>
+  getArtworkSlot(useConfigurationStore.getState().configuration, target).placement;
 
 const centreOf = (image: SceneImage): [number, number] => [
   image.corners.reduce((sum, [x]) => sum + x, 0) / 4,
@@ -81,7 +90,10 @@ export function DielineView() {
   const fillPanelPlacement = useConfigurationStore((s) => s.fillPanelPlacement);
   const alignPanelArtwork = useConfigurationStore((s) => s.alignPanelArtwork);
   const setPanelExtendToBottom = useConfigurationStore((s) => s.setPanelExtendToBottom);
-  const { dimensions, handle, panels, paper } = configuration;
+  const { dimensions, handle, paper } = configuration;
+  // What every wall shows (per wall, or the whole-bag wrap — docs/SPEC.md §3a); images are edited per target.
+  const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
+  const activeTargets = getActiveArtworkTargets(configuration);
 
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     artwork: true,
@@ -90,7 +102,7 @@ export function DielineView() {
     annotations: true,
     labels: true,
   });
-  const [selected, setSelected] = useState<PanelPosition | null>(null);
+  const [selected, setSelected] = useState<ArtworkTarget | null>(null);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const [busy, setBusy] = useState<'svg' | 'pdf' | null>(null);
@@ -101,11 +113,11 @@ export function DielineView() {
   const dieline = useMemo(() => buildDieline({ dimensions, handle }), [dimensions, handle]);
   const scene = useMemo(
     () =>
-      buildDielineScene(dieline, panels, {
+      buildDielineScene(dieline, artworks, {
         label: (key) => t(`dieline.label.${key}`),
         dimension: (key, value) => t(`dieline.dimension.${key}`, { value: Math.round(value * 10) / 10 }),
       }),
-    [dieline, panels, t],
+    [dieline, artworks, t],
   );
 
   // ——— View box (zoom / pan) ———
@@ -134,25 +146,25 @@ export function DielineView() {
   };
 
   // ——— Placement editing ———
-  /** Artwork area of a panel (wall, or wall + bottom allowance when extended) for `placement` (default: current). */
+  /**
+   * Artwork area of a target (wall, or wall + bottom allowance when extended; the wall row for the wrap) for
+   * `placement` (default: current).
+   */
   const areaOf = useCallback(
-    (position: PanelPosition, placement?: ArtworkPlacement) =>
-      getPanelArtworkArea(
-        position,
-        dimensions,
-        placement ?? useConfigurationStore.getState().configuration.panels[position].placement,
-      ),
+    (target: ArtworkTarget, placement?: ArtworkPlacement) =>
+      getArtworkTargetArea(target, dimensions, placement ?? placementOf(target)),
     [dimensions],
   );
   const applyPlacement = useCallback(
-    (position: PanelPosition, update: (placement: ArtworkPlacement) => ArtworkPlacement) =>
-      setPanelPlacement(position, update(useConfigurationStore.getState().configuration.panels[position].placement)),
+    (target: ArtworkTarget, update: (placement: ArtworkPlacement) => ArtworkPlacement) =>
+      setPanelPlacement(target, update(placementOf(target))),
     [setPanelPlacement],
   );
-  const scaleSelected = (position: PanelPosition, factor: number) =>
-    applyPlacement(position, (p) => scalePlacement(p, factor, areaOf(position)));
+  const scaleSelected = (target: ArtworkTarget, factor: number) =>
+    applyPlacement(target, (p) => scalePlacement(p, factor, areaOf(target)));
 
-  const selectedArtwork = selected ? panels[selected].artwork : null;
+  // A selection of the inactive layout (after switching per wall ↔ whole bag) is ignored.
+  const selectedArtwork = selected && activeTargets.includes(selected) ? getArtworkSlot(configuration, selected).artwork : null;
   const activeSelection = selectedArtwork ? selected : null;
 
   // Wheel: scale the selected artwork when over it, otherwise zoom the sheet. Native listener (React's is passive).
@@ -168,7 +180,7 @@ export function DielineView() {
       const factor = event.deltaY < 0 ? ARTWORK_PLACEMENT_RULES.scaleStep : 1 / ARTWORK_PLACEMENT_RULES.scaleStep;
       const state = wheelState.current;
       const target = event.target as Element | null;
-      const panel = target?.closest?.('[data-panel]')?.getAttribute('data-panel') as PanelPosition | null;
+      const panel = target?.closest?.('[data-target]')?.getAttribute('data-target') as ArtworkTarget | null;
       if (state.activeSelection && panel === state.activeSelection) {
         state.scale(panel, factor);
         return;
@@ -191,13 +203,13 @@ export function DielineView() {
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
-  const onArtworkPointerDown = (event: ReactPointerEvent<SVGGElement>, panel: PanelPosition) => {
+  const onArtworkPointerDown = (event: ReactPointerEvent<SVGGElement>, panel: ArtworkTarget) => {
     if (event.button !== 0) return;
     event.stopPropagation();
     setSelected(panel);
     const start = toSvgPoint(svgRef.current, event.clientX, event.clientY);
     if (!start) return;
-    dragRef.current = { kind: 'move', pointerId: event.pointerId, panel, start, placement: panels[panel].placement };
+    dragRef.current = { kind: 'move', pointerId: event.pointerId, panel, start, placement: placementOf(panel) };
     svgRef.current?.setPointerCapture?.(event.pointerId);
   };
 
@@ -210,10 +222,10 @@ export function DielineView() {
     dragRef.current = {
       kind: 'scale',
       pointerId: event.pointerId,
-      panel: image.panel,
+      panel: image.target,
       centre,
       startDistance: Math.max(1e-6, Math.hypot(start[0] - centre[0], start[1] - centre[1])),
-      placement: panels[image.panel].placement,
+      placement: placementOf(image.target),
     };
     svgRef.current?.setPointerCapture?.(event.pointerId);
   };
@@ -250,7 +262,7 @@ export function DielineView() {
     svgRef.current?.releasePointerCapture?.(event.pointerId);
   };
 
-  const onArtworkKeyDown = (event: KeyboardEvent<SVGGElement>, panel: PanelPosition) => {
+  const onArtworkKeyDown = (event: KeyboardEvent<SVGGElement>, panel: ArtworkTarget) => {
     const size = areaOf(panel);
     const step = event.shiftKey ? ARTWORK_PLACEMENT_RULES.nudgeLargeMm : ARTWORK_PLACEMENT_RULES.nudgeMm;
     const moves: Record<string, [number, number]> = {
@@ -305,11 +317,11 @@ export function DielineView() {
     }
   };
 
-  const panelName = (position: PanelPosition) => t(`dieline.panel.${position}`);
+  const panelName = (target: ArtworkTarget) => t(`dieline.panel.${target}`);
   const hasArtwork = scene.images.length > 0;
   const firstImageOfPanel = new Set<string>();
   const s = DIELINE_STYLE;
-  const selectedPlacement = activeSelection ? panels[activeSelection].placement : null;
+  const selectedPlacement = activeSelection ? getArtworkSlot(configuration, activeSelection).placement : null;
 
   return (
     <div className="dieline-view" data-testid="dieline-view">
@@ -490,21 +502,22 @@ export function DielineView() {
           {layers.artwork && (
             <g data-layer="artwork">
               {scene.images.map((image) => {
-                const focusable = !firstImageOfPanel.has(image.panel);
-                firstImageOfPanel.add(image.panel);
+                const focusable = !firstImageOfPanel.has(image.target);
+                firstImageOfPanel.add(image.target);
                 return (
                   <g
                     key={image.id}
                     data-panel={image.panel}
-                    className={`dieline-view__artwork${activeSelection === image.panel ? ' is-selected' : ''}`}
+                    data-target={image.target}
+                    className={`dieline-view__artwork${activeSelection === image.target ? ' is-selected' : ''}`}
                     clipPath={`url(#dv-${image.clip.id})`}
                     tabIndex={focusable ? 0 : undefined}
                     role={focusable ? 'button' : undefined}
-                    aria-label={focusable ? t('dieline.edit.artworkLabel', { panel: panelName(image.panel) }) : undefined}
-                    aria-pressed={focusable ? activeSelection === image.panel : undefined}
-                    onPointerDown={(event) => onArtworkPointerDown(event, image.panel)}
-                    onKeyDown={(event) => onArtworkKeyDown(event, image.panel)}
-                    onFocus={() => setSelected(image.panel)}
+                    aria-label={focusable ? t('dieline.edit.artworkLabel', { panel: panelName(image.target) }) : undefined}
+                    aria-pressed={focusable ? activeSelection === image.target : undefined}
+                    onPointerDown={(event) => onArtworkPointerDown(event, image.target)}
+                    onKeyDown={(event) => onArtworkKeyDown(event, image.target)}
+                    onFocus={() => setSelected(image.target)}
                   >
                     <image
                       href={image.href}
@@ -638,7 +651,7 @@ export function DielineView() {
           {layers.artwork && activeSelection && (
             <g data-layer="selection">
               {scene.images
-                .filter((image) => image.panel === activeSelection)
+                .filter((image) => image.target === activeSelection)
                 .map((image) => (
                   <g key={image.id}>
                     <rect

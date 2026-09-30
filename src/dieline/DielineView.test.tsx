@@ -127,6 +127,29 @@ describe('DielineView', () => {
     expect(store().configuration.panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
   });
 
+  it('edits a whole-bag (wrap) artwork as one image over all walls', () => {
+    const { container } = render(<DielineView />);
+    addArtwork('FRONT', 'blob:front'); // per-wall artwork, kept but inactive after the switch
+    act(() => {
+      store().setArtworkLayout('WRAP');
+      store().setPanelArtwork(
+        'WRAP',
+        createArtwork({ fileName: 'wrap.png', fileUrl: 'blob:wrap', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 10 }),
+      );
+    });
+    expect(container.querySelectorAll('[data-layer="artwork"] image')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Grafika: Przód/ })).not.toBeInTheDocument();
+    const artwork = screen.getByRole('button', { name: /Grafika: Cała torba/ });
+    fireEvent.focus(artwork);
+    expect(screen.getByRole('toolbar', { name: /Cała torba/ })).toBeInTheDocument();
+    fireEvent.keyDown(artwork, { key: 'ArrowRight', shiftKey: true });
+    expect(store().configuration.wrapArtwork.placement).toMatchObject({ mode: 'CUSTOM', offsetX: 10 });
+    expect(store().configuration.panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Rozciągnij na dno' }));
+    expect(store().configuration.wrapArtwork.placement.extendToBottom).toBe(true);
+    expect(container.querySelectorAll('[data-zone="BOTTOM_ALLOWANCE"][data-printed="true"]')).toHaveLength(4);
+  });
+
   it('switches labels with the language', async () => {
     render(<DielineView />);
     await act(() => i18n.changeLanguage('en'));

@@ -1,6 +1,7 @@
 // Excel export (docs/SPEC.md §4e) as a pure, localized table model; the exceljs adapter only writes it.
 // Sheets: Parameters / Panels & artwork / Pantone & coverage / Artwork colours / Dieline. Units live in the column headers.
 
+import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
@@ -55,7 +56,10 @@ export function buildWorkbookModel(
   palette: ArtworkPaletteResult | null = null,
 ): WorkbookModel {
   const { t } = context;
-  const { dimensions, panels, print } = configuration;
+  const { dimensions, print } = configuration;
+  // What every wall prints (per wall, or the whole-bag wrap on all four — then the placement is the wrap's, relative
+  // to the whole wall row; the layout is listed on the Parameters sheet).
+  const panels = resolvePanelArtworks(configuration);
   const h = (key: string, unit?: string) => (unit ? `${t(`export.xlsx.col.${key}`)} [${unit}]` : t(`export.xlsx.col.${key}`));
   const mm = t('dimensions.unit');
   const mm2 = t('export.unit.mm2');

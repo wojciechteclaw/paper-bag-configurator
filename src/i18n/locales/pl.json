@@ -112,6 +112,18 @@
       "EMPTY_FILE": "Plik jest pusty.",
       "FILE_TOO_LARGE": "Plik jest za duży (maks. {{maxMb}} MB).",
       "DECODE_FAILED": "Nie udało się odczytać obrazu z pliku."
+    },
+    "WRAP": "Cała torba",
+    "dropZoneLabelWrap": "Cała torba: dodaj grafikę",
+    "fileInputLabelWrap": "Cała torba: plik grafiki",
+    "aspectMismatchWrap": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji rozłożonych ścianek torby ({{panelRatio}}) — grafika zostanie zdeformowana.",
+    "layout": {
+      "label": "Układ grafik",
+      "PER_PANEL": "Osobna grafika na każdą ściankę",
+      "WRAP": "Jedna grafika na całą torbę",
+      "wrapNote": "Grafika jest rozciągana na wszystkie ścianki w kolejności z arkusza: {{order}} (od szwu; zakładka klejowa bez nadruku). Położenie, skalę i „Rozciągnij na dno” ustawisz w widoku Wykrój.",
+      "keptPanels": "Grafiki poszczególnych ścianek są zachowane i wrócą po przełączeniu układu; w tym układzie nie są drukowane.",
+      "keptWrap": "Grafika całej torby jest zachowana i wróci po przełączeniu układu; w tym układzie nie jest drukowana."
     }
   },
   "paper": {

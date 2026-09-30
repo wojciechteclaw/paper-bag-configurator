@@ -23,7 +23,7 @@
       "handle": "Handle",
       "print": "Print & packaging",
       "construction": "Construction & sheet",
-      "artwork": "Panel artwork"
+      "artwork": "Artwork"
     },
     "param": {
       "productType": "Bag type",
@@ -56,7 +56,8 @@
       "sheetHeight": "Sheet height",
       "sheetArea": "Sheet area",
       "colorMergeTolerance": "Merging of similar artwork colours (ΔE00)",
-      "colorMinAreaShare": "Minimum artwork colour spot (share of ink)"
+      "colorMinAreaShare": "Minimum artwork colour spot (share of ink)",
+      "artworkLayout": "Artwork layout"
     },
     "handleMaterial": {
       "KRAFT": "strong kraft paper"

@@ -23,7 +23,7 @@
       "handle": "Uchwyt",
       "print": "Nadruk i pakowanie",
       "construction": "Konstrukcja i arkusz",
-      "artwork": "Grafiki na ściankach"
+      "artwork": "Grafiki"
     },
     "param": {
       "productType": "Typ torby",
@@ -56,7 +56,8 @@
       "sheetHeight": "Arkusz — wysokość",
       "sheetArea": "Arkusz — powierzchnia",
       "colorMergeTolerance": "Łączenie podobnych kolorów grafik (ΔE00)",
-      "colorMinAreaShare": "Minimalna plama koloru grafik (udział w farbie)"
+      "colorMinAreaShare": "Minimalna plama koloru grafik (udział w farbie)",
+      "artworkLayout": "Układ grafik"
     },
     "handleMaterial": {
       "KRAFT": "mocny papier kraft"

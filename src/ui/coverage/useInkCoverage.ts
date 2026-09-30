@@ -3,6 +3,7 @@
 // Changing only the colour-analysis settings (merge tolerance, minimum share) recomputes the palette alone.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { resolvePanelArtworks } from '../../domain/artworkLayout';
 import { buildDieline } from '../../domain/dieline';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import {
@@ -40,14 +41,21 @@ export function useInkCoverage(): InkCoverageState {
   const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
   const handle = useConfigurationStore((s) => s.configuration.handle);
   const panels = useConfigurationStore((s) => s.configuration.panels);
+  const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
+  const wrapArtwork = useConfigurationStore((s) => s.configuration.wrapArtwork);
   const paperColor = useConfigurationStore((s) => s.configuration.paper.color);
   const pantoneColors = useConfigurationStore((s) => s.configuration.print.pantoneColors);
   const colorAnalysis = useConfigurationStore((s) => s.configuration.print.colorAnalysis);
-  const hasArtwork = PANEL_POSITIONS.some((position) => panels[position].artwork);
+  // What every wall shows under the active layout (per wall, or the whole-bag wrap — docs/SPEC.md §3a).
+  const artworks = useMemo(
+    () => resolvePanelArtworks({ dimensions, panels, artworkLayout, wrapArtwork }),
+    [dimensions, panels, artworkLayout, wrapArtwork],
+  );
+  const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].artwork);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.
   const coverageRequest = useMemo(
-    () => ({ dieline: buildDieline({ dimensions, handle }), panels, paperColor, pantoneColors }),
-    [dimensions, handle, panels, paperColor, pantoneColors],
+    () => ({ dieline: buildDieline({ dimensions, handle }), artworks, paperColor, pantoneColors }),
+    [dimensions, handle, artworks, paperColor, pantoneColors],
   );
   const request = useMemo(() => ({ coverageRequest, colorAnalysis }), [coverageRequest, colorAnalysis]);
   const [computed, setComputed] = useState<Computed | null>(null);
@@ -64,12 +72,12 @@ export function useInkCoverage(): InkCoverageState {
       const used = new Set<string>();
       const entries = await Promise.all(
         PANEL_POSITIONS.map(async (position) => {
-          const { artwork, placement } = inputs.panels[position];
+          const { artwork, placement, area } = inputs.artworks[position];
           if (!artwork) return [position, null] as const;
           used.add(artwork.fileUrl);
           const sample = await loadArtworkSample(artwork);
           const input: CoveragePanelInput | null = sample
-            ? { imageSize: { width: artwork.width, height: artwork.height }, placement, sample }
+            ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, sample }
             : null;
           return [position, input] as const;
         }),
@@ -89,7 +97,7 @@ export function useInkCoverage(): InkCoverageState {
           lastCoverage.current?.request === inputs ? lastCoverage.current.result : computeInkCoverage(analysisInput);
         lastCoverage.current = { request: inputs, result };
         const palette = computeArtworkPalette({ ...analysisInput, colorAnalysis: request.colorAnalysis });
-        const unavailablePanels = PANEL_POSITIONS.filter((p) => inputs.panels[p].artwork && !samples[p]);
+        const unavailablePanels = PANEL_POSITIONS.filter((p) => inputs.artworks[p].artwork && !samples[p]);
         setComputed({ request, result, palette, unavailablePanels });
       });
     }, COVERAGE_DEBOUNCE_MS);

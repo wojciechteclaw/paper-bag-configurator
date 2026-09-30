@@ -2,8 +2,9 @@ import { useEffect, useId, useRef, useState, type DragEvent, type KeyboardEvent 
 import { useTranslation } from 'react-i18next';
 import { ARTWORK_RULES } from '../../domain/config/productCatalog';
 import { createArtwork } from '../../domain/factories';
-import { getAspectRatio, getPanelSize, hasAspectRatioMismatch } from '../../domain/panels';
-import type { PanelPosition } from '../../domain/types';
+import { getArtworkSlot, getArtworkTargetSize } from '../../domain/artworkLayout';
+import { getAspectRatio, hasAspectRatioMismatch } from '../../domain/panels';
+import type { ArtworkTarget } from '../../domain/types';
 import { validateArtworkFile, validateDecodedImage, type ArtworkError } from '../../domain/validation/artwork';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { loadImageFile } from '../artwork/loadImageFile';
@@ -11,7 +12,8 @@ import { useFormatNumber } from '../useFormatNumber';
 
 const MAX_MB = Math.round(ARTWORK_RULES.maxSizeBytes / (1024 * 1024));
 
-export function PanelArtworkUploader({ position }: { position: PanelPosition }) {
+/** Upload of the artwork of one wall, or of the whole-bag wrap (`position="WRAP"`, docs/SPEC.md §3a). */
+export function PanelArtworkUploader({ position }: { position: ArtworkTarget }) {
   const { t } = useTranslation();
   const formatNumber = useFormatNumber();
   const id = useId();
@@ -22,7 +24,7 @@ export function PanelArtworkUploader({ position }: { position: PanelPosition }) 
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
 
-  const artwork = useConfigurationStore((s) => s.configuration.panels[position].artwork);
+  const artwork = useConfigurationStore((s) => getArtworkSlot(s.configuration, position).artwork);
   const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
   const setPanelArtwork = useConfigurationStore((s) => s.setPanelArtwork);
 
@@ -33,8 +35,9 @@ export function PanelArtworkUploader({ position }: { position: PanelPosition }) 
     [],
   );
 
+  const isWrap = position === 'WRAP';
   const panelName = t(`artwork.${position}`);
-  const panelSize = getPanelSize(position, dimensions);
+  const panelSize = getArtworkTargetSize(position, dimensions);
   const mismatch = artwork !== null && hasAspectRatioMismatch(artwork, panelSize);
 
   const accept = async (file: File | undefined) => {
@@ -134,7 +137,7 @@ export function PanelArtworkUploader({ position }: { position: PanelPosition }) 
           role="button"
           tabIndex={0}
           className={dragging ? 'dropzone is-dragging' : 'dropzone'}
-          aria-label={t('artwork.dropZoneLabel', { panel: panelName })}
+          aria-label={t(isWrap ? 'artwork.dropZoneLabelWrap' : 'artwork.dropZoneLabel', { panel: panelName })}
           aria-describedby={`${id}-accepted`}
           onClick={openPicker}
           onKeyDown={zoneKeyDown}
@@ -151,7 +154,7 @@ export function PanelArtworkUploader({ position }: { position: PanelPosition }) 
         type="file"
         hidden
         accept={ARTWORK_RULES.acceptedMimeTypes.join(',')}
-        aria-label={t('artwork.fileInputLabel', { panel: panelName })}
+        aria-label={t(isWrap ? 'artwork.fileInputLabelWrap' : 'artwork.fileInputLabel', { panel: panelName })}
         onChange={(e) => {
           void accept(e.target.files?.[0]);
           e.target.value = '';
@@ -167,7 +170,7 @@ export function PanelArtworkUploader({ position }: { position: PanelPosition }) 
         )}
         {mismatch && (
           <small className="warning">
-            {t('artwork.aspectMismatch', {
+            {t(isWrap ? 'artwork.aspectMismatchWrap' : 'artwork.aspectMismatch', {
               imageRatio: formatNumber(getAspectRatio(artwork), 2),
               panelRatio: formatNumber(getAspectRatio(panelSize), 2),
             })}

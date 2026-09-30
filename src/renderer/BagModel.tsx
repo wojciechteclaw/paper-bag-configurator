@@ -3,10 +3,10 @@ import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { BackSide, FrontSide, type BufferGeometry, type Group, type InterleavedBufferAttribute, type Texture } from 'three';
 import { getHandlePaperColor } from '../domain/geometry/handles';
-import { getPanelArtworkArea } from '../domain/artworkPlacement';
+import type { ResolvedPanelArtwork, ResolvedPanelArtworks } from '../domain/artworkLayout';
 import { splitPreviewTimeline, toPreviewTimeline } from '../domain/geometry/assemblyKinematics';
 import { getPanelSize } from '../domain/panels';
-import type { BagPanel, BagPanels, Dimensions, Handle, PanelPosition, PaperColor } from '../domain/types';
+import type { Dimensions, Handle, PanelPosition, PaperColor } from '../domain/types';
 import {
   createAssemblyMeshes,
   getAssemblyFrame,
@@ -31,7 +31,7 @@ import {
 import { PAPER_PALETTES, type PaperPalette } from './constants';
 import { getHandleWallPose, HANDLE_WALLS } from './handleGeometry';
 import { HandleModel, type HandleWallGroups } from './HandleModel';
-import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTransform } from './panelTexture';
+import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTransform, useTextureView } from './panelTexture';
 
 // Procedural block-bottom bag body. Face mapping (see bagGeometry.ts):
 //   FRONT → +Z, BACK → −Z, LEFT → −X, RIGHT → +X, BOTTOM → −Y; the top is open (no top face, no turn-in).
@@ -56,8 +56,11 @@ type LineRef = ComponentRef<typeof Line>;
 type BagModelProps = {
   dimensions: Dimensions;
   paperColor: PaperColor;
-  /** Per-panel artwork and placement (from BagConfiguration). */
-  panels: BagPanels;
+  /**
+   * What every wall shows — artwork, placement and its artwork area (`resolvePanelArtworks(configuration)`): per-wall
+   * artwork or the whole-bag wrap (docs/SPEC.md §3a).
+   */
+  artworks: ResolvedPanelArtworks;
   /** Internal handle (FRONT + BACK) or null. */
   handle: Handle | null;
   /** Target fold state 0..1 (formed open bag → folded flat; view state); the model animates towards it. */
@@ -139,41 +142,44 @@ function SurfaceView({ name, geometry, userData, palette, texture }: SurfaceView
 
 /**
  * Artwork texture of one wall with its placement applied over the wall's artwork area (wall, or wall + bottom
- * allowance). One texture per wall, shared by the wall mesh and the bottom piece(s) formed from its allowance, so
- * the image continues across the bottom crease in one UV space.
+ * allowance; for the whole-bag wrap the wall row expressed in this wall's coordinates). One texture per wall, shared
+ * by the wall mesh and the bottom piece(s) formed from its allowance, so the image continues across the bottom crease
+ * in one UV space. A wrap image is loaded once (`wrapBase`) and viewed by every wall with its own transform.
  */
-function useWallTexture(panel: BagPanel, dimensions: Dimensions): Texture | null {
-  const artwork = panel.artwork;
-  const texture = usePanelTexture(artwork?.fileUrl);
+function useWallTexture(resolved: ResolvedPanelArtwork, dimensions: Dimensions, wrapBase: Texture | null): Texture | null {
+  const { artwork, placement, area, source, position } = resolved;
+  const own = usePanelTexture(source === 'WRAP' ? null : artwork?.fileUrl);
+  const texture = useTextureView(source === 'WRAP' ? wrapBase : own);
   usePanelUvTransform(
     texture,
-    getPanelSize(panel.position, dimensions),
+    getPanelSize(position, dimensions),
     artwork?.width ?? 0,
     artwork?.height ?? 0,
-    panel.placement,
-    getPanelArtworkArea(panel.position, dimensions, panel.placement),
+    placement,
+    area,
   );
   return texture;
 }
 
-export function BagModel({ dimensions, paperColor, panels, handle, foldProgress, assemblyProgress = 1 }: BagModelProps) {
+export function BagModel({ dimensions, paperColor, artworks, handle, foldProgress, assemblyProgress = 1 }: BagModelProps) {
   const { width, height, depth } = dimensions;
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
 
   const meshes = useMemo(() => createBagMeshes(dims), [dims]);
   const assemblyMeshes = useMemo(() => createAssemblyMeshes(dims), [dims]);
+  const wrapBase = usePanelTexture(artworks.FRONT.source === 'WRAP' ? artworks.FRONT.artwork?.fileUrl : null);
   const textures: Record<PanelPosition, Texture | null> = {
-    FRONT: useWallTexture(panels.FRONT, dims),
-    BACK: useWallTexture(panels.BACK, dims),
-    LEFT: useWallTexture(panels.LEFT, dims),
-    RIGHT: useWallTexture(panels.RIGHT, dims),
+    FRONT: useWallTexture(artworks.FRONT, dims, wrapBase),
+    BACK: useWallTexture(artworks.BACK, dims, wrapBase),
+    LEFT: useWallTexture(artworks.LEFT, dims, wrapBase),
+    RIGHT: useWallTexture(artworks.RIGHT, dims, wrapBase),
   };
   const textureOf = (mesh: PanelMesh) =>
-    mesh.id !== 'BOTTOM' || panels[mesh.artworkPanel].placement.extendToBottom ? textures[mesh.artworkPanel] : null;
+    mesh.id !== 'BOTTOM' || artworks[mesh.artworkPanel].placement.extendToBottom ? textures[mesh.artworkPanel] : null;
   // Sheet pieces: walls always show their artwork; allowance pieces only when the wall extends to the bottom.
   const assemblyTextureOf = (mesh: AssemblyMesh) =>
-    mesh.artworkPanel && (!mesh.piece.allowance || panels[mesh.artworkPanel].placement.extendToBottom)
+    mesh.artworkPanel && (!mesh.piece.allowance || artworks[mesh.artworkPanel].placement.extendToBottom)
       ? textures[mesh.artworkPanel]
       : null;
   useEffect(() => () => meshes.forEach((m) => m.geometry.dispose()), [meshes]);

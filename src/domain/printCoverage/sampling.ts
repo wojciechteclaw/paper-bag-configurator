@@ -6,7 +6,7 @@
 // the 2D dieline use, so a cell carries ink exactly where the previews show the image. Cells outside the image
 // (after placement) are bare paper and are not visited. Used by `computeInkCoverage` and `computeArtworkPalette`.
 
-import { computePanelUvTransform, getPanelArtworkArea, type Size2 } from '../artworkPlacement';
+import { computePanelUvTransform, getPanelArtworkArea, type PanelArtworkArea, type Size2 } from '../artworkPlacement';
 import type { Dieline } from '../dieline/types';
 import { getPanelSize } from '../panels';
 import type { ArtworkPlacement, PanelPosition, PaperColor } from '../types';
@@ -23,6 +23,11 @@ export type CoveragePanelInput = {
   /** Pixel size of the source image — the placement is defined against it (the sample may be smaller). */
   imageSize: Size2;
   placement: ArtworkPlacement;
+  /**
+   * Artwork area the placement refers to, panel-local mm (`resolvePanelArtwork(...).area` — e.g. the whole wall row
+   * for a wrap artwork, docs/SPEC.md §3a). Omitted: the panel's own area (`getPanelArtworkArea`).
+   */
+  area?: PanelArtworkArea;
   sample: PixelSample;
 };
 
@@ -53,9 +58,10 @@ export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number
     const position = segment.panel;
     const panelSize = getPanelSize(position, dieline.dimensions);
     const artwork = input.panels[position];
-    // Artwork area: the wall (y ∈ [0, H]) or, extended to the bottom, y ∈ [−a, H] (SPEC §4f — counted then).
+    // Artwork area: the wall (y ∈ [0, H]) or, extended to the bottom, y ∈ [−a, H] (SPEC §4f — counted then). A wrap
+    // area is wider than the wall but has the same vertical extent; only this column (x ∈ the wall) is sampled.
     const area = artwork
-      ? getPanelArtworkArea(position, dieline.dimensions, artwork.placement)
+      ? (artwork.area ?? getPanelArtworkArea(position, dieline.dimensions, artwork.placement))
       : { x: 0, y: 0, width: panelSize.width, height };
     visitor.onSegment?.(position, segmentWidth * height, segmentWidth * area.height);
     const sample = artwork?.sample;

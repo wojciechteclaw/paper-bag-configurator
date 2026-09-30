@@ -59,7 +59,8 @@
       "FRONT": "Przód",
       "BACK": "Tył",
       "LEFT": "Bok lewy",
-      "RIGHT": "Bok prawy"
+      "RIGHT": "Bok prawy",
+      "WRAP": "Cała torba"
     },
     "edit": {
       "artworkLabel": "Grafika: {{panel}}. Kliknij, aby edytować; strzałki przesuwają, + i − skalują, R obraca, 0 resetuje.",

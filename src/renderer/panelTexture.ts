@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { ClampToEdgeWrapping, SRGBColorSpace, TextureLoader, type Texture, type WebGLProgramParametersWithUniforms } from 'three';
 import { computePanelUvTransform, type PanelArtworkArea, type PanelUvTransform } from '../domain/artworkPlacement';
 import type { ArtworkPlacement } from '../domain/types';
@@ -50,6 +50,22 @@ export function usePanelTexture(url: string | null | undefined): Texture | null 
   }, [url, gl]);
 
   return url && loaded?.url === url ? loaded.texture : null;
+}
+
+/**
+ * A wall's own view of a loaded texture: a clone sharing the image (`Source`, uploaded to the GPU once) with its own
+ * transform, so several walls can show one image with different UV transforms (the whole-bag wrap, docs/SPEC.md §3a).
+ * Disposed when the base texture changes or the wall unmounts (three.js frees the shared image with its last user).
+ */
+export function useTextureView(base: Texture | null): Texture | null {
+  const view = useMemo(() => {
+    if (!base) return null;
+    const clone = base.clone();
+    clone.needsUpdate = true; // a clone starts at version 0, which the renderer never uploads
+    return clone;
+  }, [base]);
+  useEffect(() => () => view?.dispose(), [view]);
+  return view;
 }
 
 /**

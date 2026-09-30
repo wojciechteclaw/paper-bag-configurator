@@ -384,3 +384,56 @@ describe('fold preview state (docs/SPEC.md §4a/§4c)', () => {
     expect(json).not.toMatch(/foldProgress|"progress"/);
   });
 });
+
+describe('whole-bag (wrap) artwork', () => {
+  beforeEach(() => {
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  it('starts per wall and switches layouts without dropping the other layout\'s artwork', () => {
+    expect(config().artworkLayout).toBe('PER_PANEL');
+    store().setPanelArtwork('FRONT', artwork('blob:front'));
+    store().setArtworkLayout('WRAP');
+    expect(config().artworkLayout).toBe('WRAP');
+    store().setPanelArtwork('WRAP', artwork('blob:wrap'));
+    store().setArtworkLayout('PER_PANEL');
+    expect(config().panels.FRONT.artwork?.fileUrl).toBe('blob:front');
+    expect(config().wrapArtwork.artwork?.fileUrl).toBe('blob:wrap');
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    store().setArtworkLayout('SIDEWAYS' as never);
+    expect(config().artworkLayout).toBe('PER_PANEL');
+  });
+
+  it('stores the wrap artwork in its own slot and revokes its URL on replace / remove', () => {
+    store().setPanelArtwork('WRAP', artwork('blob:one'));
+    expect(config().wrapArtwork).toEqual({ artwork: expect.objectContaining({ fileUrl: 'blob:one' }), placement: DEFAULT_PLACEMENT });
+    expect(config().panels.FRONT.artwork).toBeNull();
+    store().setPanelArtwork('WRAP', artwork('blob:two'));
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:one');
+    store().setPanelArtwork('WRAP', null);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:two');
+    expect(config().wrapArtwork.artwork).toBeNull();
+  });
+
+  it('normalises wrap placements against the whole wall row (2W + 2D wide), not a single wall', () => {
+    store().setPanelArtwork('WRAP', artwork('blob:wrap'));
+    // 200 × 400 × 150: wall row 700 mm → the centre may move up to ±350 mm.
+    store().setPanelPlacement('WRAP', { mode: 'CUSTOM', offsetX: 300, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    expect(config().wrapArtwork.placement).toMatchObject({ offsetX: 300 });
+    store().setPanelPlacement('WRAP', { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    expect(config().wrapArtwork.placement).toMatchObject({ offsetX: 350 });
+    expect(config().panels.LEFT.placement).toEqual(DEFAULT_PLACEMENT);
+  });
+
+  it('aligns, fills, extends to the bottom and resets the wrap placement', () => {
+    store().setPanelArtwork('WRAP', artwork('blob:wrap')); // 100 × 200 px → contain in 700 × 400: 200 × 400 mm
+    store().alignPanelArtwork('WRAP', { horizontal: 'LEFT' });
+    expect(config().wrapArtwork.placement).toMatchObject({ mode: 'CUSTOM', offsetX: -250, offsetY: 0 });
+    store().setPanelExtendToBottom('WRAP', true);
+    expect(config().wrapArtwork.placement.extendToBottom).toBe(true);
+    store().fillPanelPlacement('WRAP');
+    expect(config().wrapArtwork.placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    store().resetPanelPlacement('WRAP');
+    expect(config().wrapArtwork.placement).toEqual(DEFAULT_PLACEMENT);
+  });
+});

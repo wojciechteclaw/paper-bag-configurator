@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { resolvePanelArtworks, WRAP_PANEL_ORDER } from '../artworkLayout';
 import { buildDieline } from '../dieline';
+import { createArtwork, createConfiguration } from '../factories';
 import type { ArtworkPlacement, Dimensions, PantoneColor, PanelPosition, PaperColor } from '../types';
 import { computeInkCoverage, type CoveragePanelInput, type PixelSample } from './computeInkCoverage';
 
@@ -181,6 +183,42 @@ describe('computeInkCoverage', () => {
       // Extended area [−90, 400] has its centre at y = 155: the whole image counts.
       const extended: ArtworkPlacement = { ...wall, offsetY: 10 - 155, extendToBottom: true };
       expect(compute({ FRONT: panel([[RED]], extended) }).inkArea).toBeCloseTo(200 * 200, -3);
+    });
+  });
+
+  describe('whole-bag (wrap) artwork (SPEC §3a)', () => {
+    /** One image over the wall row LEFT | FRONT | RIGHT | BACK (700 mm), fed per wall with its resolved area. */
+    const wrapInputs = (rows: Rgba[][], extendToBottom = false) => {
+      const configuration = createConfiguration('BLOCK');
+      configuration.artworkLayout = 'WRAP';
+      const s = sample(rows);
+      configuration.wrapArtwork = {
+        artwork: createArtwork({ fileName: 'w.png', fileUrl: 'blob:w', mimeType: 'image/png', width: s.width, height: s.height, sizeBytes: 1 }),
+        placement: { mode: 'FILL', extendToBottom },
+      };
+      const resolved = resolvePanelArtworks(configuration);
+      return Object.fromEntries(
+        WRAP_PANEL_ORDER.map((position) => [
+          position,
+          { imageSize: { width: s.width, height: s.height }, placement: resolved[position].placement, area: resolved[position].area, sample: s },
+        ]),
+      ) as Record<PanelPosition, CoveragePanelInput>;
+    };
+
+    it('samples one continuous image across the walls: the left half of the row is LEFT + FRONT', () => {
+      // 2 px: red | transparent → ink on x ∈ [0, 350) = LEFT (150) + FRONT (200); RIGHT and BACK stay bare.
+      const result = compute(wrapInputs([[RED, CLEAR]]));
+      expect(result.panels.LEFT?.inkArea).toBeCloseTo(150 * 400, 6);
+      expect(result.panels.FRONT?.inkArea).toBeCloseTo(FRONT_AREA, 6);
+      expect(result.panels.RIGHT?.inkArea).toBe(0);
+      expect(result.panels.BACK?.inkArea).toBe(0);
+      expect(result.colors[0].area).toBeCloseTo(350 * 400, 6);
+    });
+
+    it('prints on every bottom allowance when the wrap extends to the bottom', () => {
+      const result = compute(wrapInputs([[RED]], true));
+      expect(result.inkArea).toBeCloseTo(700 * 490, 3);
+      expect(result.panels.BACK?.printArea).toBeCloseTo(200 * 490, 6);
     });
   });
 });

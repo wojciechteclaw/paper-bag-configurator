@@ -2,6 +2,7 @@ import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { Vector3, type PerspectiveCamera } from 'three';
+import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
 import { getSheetViewExtent } from './assemblyGeometry';
@@ -104,6 +105,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
     [handle, dimensions],
   );
   const sheet = useMemo(() => getSheetViewExtent(dimensions), [dimensions]);
+  const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
   // While the bag is assembled from the sheet, fit the (flat, much wider) sheet; otherwise the bag.
   const assembling = assemblyProgress < 1;
   const bagHeight = h + loopHeight;
@@ -121,7 +123,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
       <BagModel
         dimensions={dimensions}
         paperColor={paper.color}
-        panels={configuration.panels}
+        artworks={artworks}
         handle={configuration.handle}
         foldProgress={foldProgress}
         assemblyProgress={assemblyProgress}
