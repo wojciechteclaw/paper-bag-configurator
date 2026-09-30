@@ -342,14 +342,14 @@ export function buildWorkbookModel(
   };
 
   const cutLines = dieline.cuts.flatMap((polygon, pi) =>
-    polygon.map((from, i) => ({ id: `cut-${pi + 1}-${i + 1}`, from, to: polygon[(i + 1) % polygon.length] })),
+    polygon.map((from, i) => ({ id: `cut-${pi + 1}-${i + 1}`, inner: pi > 0, from, to: polygon[(i + 1) % polygon.length] })),
   );
   const lineRows: Cell[][] = [
     ...cutLines.map((line): Cell[] => [
       line.id,
       t('export.xlsx.lineKind.cut'),
       null,
-      t('export.xlsx.cutOutline'),
+      t(line.inner ? 'export.xlsx.cutWindow' : 'export.xlsx.cutOutline'),
       round(line.from.x, 2),
       round(line.from.y, 2),
       round(line.to.x, 2),

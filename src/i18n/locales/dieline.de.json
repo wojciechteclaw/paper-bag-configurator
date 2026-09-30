@@ -53,7 +53,9 @@
       "allowance": "Bodenzugabe (ohne Druckmotiv)",
       "allowancePrinted": "Bodenzugabe mit Druckmotiv (Farbe auf dem Boden)",
       "glue": "Leim",
-      "glueReverse": "Leim auf der Innenseite (hintere Klappe oben)"
+      "glueReverse": "Leim auf der Innenseite (hintere Klappe oben)",
+      "windowOpening": "Sichtfenster — Ausschnitt (kein Druck)",
+      "windowFilm": "Fensterfolie (innen, Überlappung {{overlap}} mm)"
     },
     "panel": {
       "FRONT": "Vorderseite",

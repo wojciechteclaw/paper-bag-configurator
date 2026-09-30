@@ -23,6 +23,7 @@ import type {
   Artwork,
   ArtworkPlacement,
   BagConfiguration,
+  BagWindow,
   BagPanel,
   BagPanels,
   BagType,
@@ -35,10 +36,11 @@ import type {
   WrapArtworkLayer,
 } from '../types';
 import { normalizePantoneCode, validatePantoneColorToAdd } from '../validation/production';
+import { constrainWindow, getWindowDimensions, windowsEqual, type WindowDimensions } from '../window';
 import { isArtworkLike } from './artworkRefs';
 
 /** Part of the configuration an adjustment belongs to (the UI names the section). */
-export type AdjustmentSection = 'dimensions' | 'paper' | 'handle' | 'artwork' | 'print' | 'packaging';
+export type AdjustmentSection = 'dimensions' | 'paper' | 'handle' | 'artwork' | 'print' | 'packaging' | 'window';
 
 /** A value from the file that could not be used as it was (clamped, replaced by a default, or dropped). */
 export type ConfigurationAdjustment = { section: AdjustmentSection; field: string };
@@ -243,6 +245,35 @@ function sanitizePrint(raw: unknown, definition: BagTypeDefinition, note: (field
 }
 
 /**
+ * The window read from a file (docs/SPEC.md §2b): missing (older files) or null → null; a window on a type without
+ * windows, or with an unknown type → null (noted); otherwise every value is brought into its limits for `dimensions`
+ * (`constrainWindow`; noted when anything changed, unknown material → the default).
+ */
+function sanitizeWindow(
+  raw: unknown,
+  definition: BagTypeDefinition,
+  dimensions: WindowDimensions,
+  note: (field: string) => void,
+): BagWindow | null {
+  if (raw === undefined || raw === null) return null;
+  const stored = asRecord(raw);
+  if (!definition.windowAvailable || (stored.type !== 'PANORAMIC' && stored.type !== 'RECTANGLE')) {
+    note('window');
+    return null;
+  }
+  const requested = {
+    type: stored.type,
+    material: stored.material,
+    width: numberOrNaN(stored.width),
+    filmOverlap: numberOrNaN(stored.filmOverlap),
+    ...(stored.type === 'RECTANGLE' ? { height: numberOrNaN(stored.height), bottomOffset: numberOrNaN(stored.bottomOffset) } : {}),
+  } as BagWindow;
+  const window = constrainWindow(requested, dimensions);
+  if (!windowsEqual(window, requested)) note('window');
+  return window;
+}
+
+/**
  * A valid configuration of the current catalog from anything read from a file, with what had to be changed. Fails
  * only when the input is not a configuration at all, or its product type is unknown / not available in this build.
  */
@@ -281,13 +312,18 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
       ? defaults.glueFlapWidth
       : constrainGlueFlapWidth(Number(raw.glueFlapWidth), productType, defaults.glueFlapWidth);
   if (raw.glueFlapWidth !== undefined && glueFlapWidth !== raw.glueFlapWidth) noter('dimensions')('glueFlapWidth');
-
   const bottomFoldDepth = constrainBottomFold(
     raw.bottomFoldDepth === undefined ? Number.NaN : Number(raw.bottomFoldDepth),
     productType,
     defaults.bottomFoldDepth,
   );
   if (raw.bottomFoldDepth !== undefined && bottomFoldDepth !== raw.bottomFoldDepth) noter('dimensions')('bottomFoldDepth');
+  const window = sanitizeWindow(
+    raw.window,
+    definition,
+    getWindowDimensions({ dimensions, bottomFoldDepth, productType }),
+    noter('window'),
+  );
 
   const { wrapArtwork: _legacy, ...rest } = raw;
   const configuration = {
@@ -304,6 +340,7 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     packaging,
     glueFlapWidth,
     bottomFoldDepth,
+    window,
   } as BagConfiguration;
   return { ok: true, configuration, adjustments };
 }

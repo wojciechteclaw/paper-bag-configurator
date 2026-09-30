@@ -1,5 +1,8 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { BAG_TYPES } from '../../domain/config/productCatalog';
+import type { BagConfiguration } from '../../domain/types';
+import { getWindow, getWindowDimensions, getWindowOpening } from '../../domain/window';
 import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { createNumberFormatter } from '../../i18n/numberFormat';
@@ -10,6 +13,20 @@ import { SaveProjectButton } from './ProjectFileActions';
 import { keyForType } from '../../i18n/keyForType';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
+
+/** "Panoramic, PP film, 50 × 315 mm, film overlap 10 mm" or "none". */
+function describeWindow(configuration: BagConfiguration, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const window = getWindow(configuration);
+  if (!window) return t('window.none');
+  const opening = getWindowOpening(window, getWindowDimensions(configuration));
+  return t('window.summary', {
+    type: t(`window.type.${window.type}`),
+    material: t(`window.material.${window.material}`),
+    width: Math.round(opening.width * 10) / 10,
+    height: Math.round(opening.height * 10) / 10,
+    overlap: window.filmOverlap,
+  });
+}
 
 export function ConfigurationSummary() {
   const { t, i18n } = useTranslation();
@@ -59,6 +76,13 @@ export function ConfigurationSummary() {
 
           <dt>{t('summary.handle')}</dt>
           <dd>{t(handle ? `handle.${handle.type}` : 'handle.none')}</dd>
+
+          {BAG_TYPES[configuration.productType].windowAvailable && (
+            <>
+              <dt>{t('window.label')}</dt>
+              <dd>{describeWindow(configuration, t)}</dd>
+            </>
+          )}
 
           <dt>{t('summary.artwork')}</dt>
           <dd>

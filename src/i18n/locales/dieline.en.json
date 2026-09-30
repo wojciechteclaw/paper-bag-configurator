@@ -53,7 +53,9 @@
       "allowance": "bottom allowance (no artwork)",
       "allowancePrinted": "bottom allowance with artwork (colours on the bottom)",
       "glue": "glue",
-      "glueReverse": "glue on the inside face (back flap on top)"
+      "glueReverse": "glue on the inside face (back flap on top)",
+      "windowOpening": "window — cut-out (no print)",
+      "windowFilm": "window film (inside, overlap {{overlap}} mm)"
     },
     "panel": {
       "FRONT": "Front",

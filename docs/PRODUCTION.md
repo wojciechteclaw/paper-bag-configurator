@@ -954,7 +954,8 @@ maszyny Garant; legenda znaczników tam §0). Wartości bez [K] to nadal założ
 | pakowanie | wiązki 100 / 250 / 500, karton / folia, paleta (w konfiguratorze: karton / folia) | [K] |
 | min. nakład z nadrukiem | Promar 30 000 szt. (tylko informacja) | [K] |
 | tolerancje (propozycja) | W, F ±2 mm; H ±3 mm; gramatura ±5 %; pasowanie druku ±1 mm; położenie druku względem krawędzi ±3 mm | [K] |
-| warianty poza MVP | torba płaska (`F = 0`), okno (folia PP / celulozowa, panoramiczne / prostokątne), rożek, dno podwójne, wylot ząbkowany / wycięcie na kciuk | [K] lista; decyzja MVP |
+| okienko | pasek panoramiczny / prostokąt na FRONT, folia PP / PP perforowana / celulozowa, wsunięcie 5–20 mm — **w konfiguratorze od 30.09.2026**, §13.6 | [K] |
+| warianty poza MVP | torba płaska (`F = 0`), rożek, dno podwójne, wylot ząbkowany / wycięcie na kciuk | [K] lista; decyzja MVP |
 
 `F = 0` nie jest dopuszczone (minimum 20 mm): zerowa fałda to osobny wariant (torba płaska) z inną geometrią 3D i
 wykrojem — nie jest „trywialne” w obecnym modelu.
@@ -1017,3 +1018,44 @@ Przykład klienta 140 + 90 × 370, `s = 15`, `d = 25`: **arkusz 475 × 395 mm (b
 - **Pasek dna `d` bez nadruku w MVP:** „Rozciągnij na dno” jest wyłączone dla tego typu
   (`extendToBottomAvailable: false`; przy zmianie typu wyłączane na ściankach i na każdej warstwie, UI go nie pokazuje).
   Pole nadruku `W × (H − d)` na stronę [K].
+
+### 13.6 Okienko z folią (`BagConfiguration.window`, `src/domain/window.ts`, `WINDOW_RULES` w `productCatalog.ts`)
+
+Decyzje klienta 30.09.2026 [K]:
+
+- Rodzaje: **pasek panoramiczny** i **prostokąt**; domyślnie bez okienka (`window: null`). **Tylko na przedniej ściance
+  (FRONT)**, zawsze **wyśrodkowane w poziomie**. Torba klockowa: brak okienka (`windowAvailable: false`; zmiana typu na
+  klockową usuwa okienko i to zgłasza).
+- Folia do wyboru: **PP**, **PP perforowana**, **celulozowa**.
+- **Pasek panoramiczny:** parametr = szerokość paska; biegnie od paska dna `d` do krawędzi wylotu — **otwarty u góry**,
+  folia kończy się na wylocie. Na wykroju wycięcie to **„U” przez górną krawędź** (część obrysu arkusza `cuts[0]`).
+- **Prostokąt:** szerokość × wysokość + odległość od dna. **Wybór [Z]: odległość mierzona od linii zagięcia dna**
+  (`y = 0`, dolna krawędź gotowej torby — tak klient zmierzy gotową torbę) do dolnej krawędzi otworu. Na wykroju
+  osobny zamknięty kontur cięcia (`cuts[1]`).
+- **Wsunięcie folii pod papier** 5–20 mm, domyślnie 10 mm, na każdym zamkniętym boku otworu (folia klejona od
+  wewnątrz). Na wykroju strefa `WINDOW_FILM` (strona wewnętrzna, linia przerywana, legenda „folia okienka (wewnątrz,
+  wsunięcie X mm)”), otwór strefą `WINDOW_OPENING`.
+- **Grafika:** w otworze nie ma nadruku — papier jest wycięty. Klip grafiki na wykroju / w SVG / PDF wycina otwór
+  (ścieżka even-odd, dla paska przez spad nad górną krawędzią); w 3D ścianka FRONT ma dziurę, widać wnętrze torby
+  (wewnętrzne strony fałd i tyłu); pokrycie farbą i paleta kolorów pomijają otwór (także w polu ścianki).
+
+Założenia wyprowadzone [Z] (do potwierdzenia — `docs/SPEC.md` §8):
+
+| Reguła | Wartość | Uzasadnienie |
+|---|---|---|
+| margines papieru za krawędzią folii (`paperSafetyMargin`) | 5 mm | jak strefa bezpieczna od bigów (§13.4); linia kleju folii nie wchodzi w big, w klejone dno ani w cięcie wylotu |
+| min. papier od krawędzi otworu `m` | `wsunięcie + 5` (domyślnie 15 mm) | od bigów bocznych FRONT (`x = 0`, `x = W`), od góry paska dna (`y = d`), od wylotu (prostokąt) |
+| dolna krawędź paska panoramicznego | `d + m` (domyślnie 40 mm nad linią dna) | pasek „od paska dna”, z miejscem na wsunięcie folii i margines |
+| szerokość otworu | 20 … `W − 2m` mm, co 1 mm | min. 20 mm (mniejszy otwór nie jest wart łatki folii) |
+| wysokość prostokąta | 20 … `H − d − 2m` mm | |
+| odległość prostokąta od dna | `d + m` … `H − m − wysokość` | |
+| domyślne wymiary nowego okienka | pasek 0,35 × (`W − 2m`); prostokąt 0,5 × (`W − 2m`) × 0,35 × (`H − d − 2m`), wyśrodkowany w pionie; zaokrąglone do 5 mm | tylko punkt startowy |
+| ostrzeżenie `WINDOW_LARGE_OPENING` | otwór > 50 % pola nadruku przodu `W × (H − d)` | osłabienie przedniej ścianki |
+| zmiana wymiarów / wsunięcia | okienko przycinane do nowych granic (`constrainWindow`) | konfiguracja zawsze poprawna |
+
+- **Waga torby:** otwór odejmowany od pola arkusza papieru (`getBagWeight`: `cuts[0]` minus kontury wewnętrzne);
+  folia to osobny materiał — jej pole (`windowFilmAreaM2`, eksport „Powierzchnia folii”) nie zmienia wagi papieru.
+- Przykład 140 + 90 × 370, `s = 15`, wsunięcie 10: pasek 40 mm → otwór `x ∈ [50, 90]`, `y ∈ [40, 370]` (arkusz
+  `x ∈ [140, 180]`, `y ∈ [65, 395]`), folia 60 × 340 mm (204 cm²); arkusz papieru 475 × 395 − 40 × 330 mm².
+- Eksport PDF / Excel: sekcja „Okienko” (rodzaj, folia, wymiary otworu, dolna krawędź nad linią dna, położenie,
+  wsunięcie, wymiar i pole folii); w arkuszu „Wykrój” linie cięcia otworu jako „wycięcie okienka”.

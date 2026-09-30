@@ -3,7 +3,7 @@
 // `crease_valley`, `crease_mountain` (fold direction seen from the print side) and `cut` (red stroke).
 // Images must be embedded (data URLs) — see `embedImages`.
 
-import { DIELINE_STYLE, matrixAttr, type DielineScene } from './scene';
+import { clipPathData, DIELINE_STYLE, matrixAttr, type DielineScene } from './scene';
 
 export type DielineSvgOptions = {
   /** Replaces image hrefs (e.g. blob: → data: URLs). Missing entries keep the original href. */
@@ -41,9 +41,11 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
   const imageHref = (href: string) => esc(hrefs[href] ?? href);
 
   const defs = [
-    ...scene.images.map(
-      (image) =>
-        `<clipPath id="${image.clip.id}"><rect x="${image.clip.x}" y="${image.clip.y}" width="${image.clip.width}" height="${image.clip.height}"/></clipPath>`,
+    // Window openings are cut out of the clip (even-odd path): the artwork never prints where the paper is removed.
+    ...scene.images.map((image) =>
+      image.clipHoles?.length
+        ? `<clipPath id="${image.clip.id}"><path d="${clipPathData(image)}" clip-rule="evenodd"/></clipPath>`
+        : `<clipPath id="${image.clip.id}"><rect x="${image.clip.x}" y="${image.clip.y}" width="${image.clip.width}" height="${image.clip.height}"/></clipPath>`,
     ),
     ...shared.map(
       (href) =>
@@ -116,6 +118,15 @@ export function buildDielineSvg(scene: DielineScene, options: DielineSvgOptions 
           return zoneRect(z, `fill="none" stroke="${s.safety.stroke}" stroke-width="${s.safety.width}" stroke-dasharray="${s.safety.dash}"`, z.id);
         case 'BOTTOM_ALLOWANCE':
           return zoneRect(z, `fill="${s.allowanceFill}" stroke="none"`, z.id);
+        // Window: the opening (no paper, film seen through) tinted, the film glued on the inside outlined dashed.
+        case 'WINDOW_OPENING':
+          return zoneRect(z, `fill="${s.windowOpeningFill}" stroke="none" data-zone="WINDOW_OPENING"`, z.id);
+        case 'WINDOW_FILM':
+          return zoneRect(
+            z,
+            `fill="none" stroke="${s.windowFilm.stroke}" stroke-width="${s.windowFilm.width}" stroke-dasharray="${s.windowFilm.dash}" data-zone="WINDOW_FILM" data-face="REVERSE"`,
+            z.id,
+          );
         default:
           return []; // glue zones: own layer
       }

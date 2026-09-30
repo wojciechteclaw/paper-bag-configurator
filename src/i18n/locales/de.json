@@ -37,7 +37,8 @@
       "handle": "Griff",
       "artwork": "Grafiken",
       "print": "Druck",
-      "packaging": "Verpackung"
+      "packaging": "Verpackung",
+      "window": "Sichtfenster"
     },
     "warnings": {
       "LEGACY_CONFIGURATION": "Dies ist eine ältere Konfigurationsdatei (JSON), keine Projektdatei.",
@@ -98,7 +99,9 @@
       "packaging": "Verpackung: {{from}} → {{to}}",
       "pantoneColors": "Druckfarben über dem Limit dieses Typs entfernt: {{removed}}",
       "extendToBottom": "„Auf den Boden ausdehnen“ ausgeschaltet (der umgelegte Bodenstreifen wird nicht bedruckt)",
-      "glueFlap": "Klebelasche: {{from}} → {{to}} mm"
+      "glueFlap": "Klebelasche: {{from}} → {{to}} mm",
+      "windowRemoved": "Sichtfenster entfernt (für diesen Typ nicht verfügbar)",
+      "windowConstrained": "Sichtfenster an die neuen Maße angepasst"
     }
   },
   "dimensions": {
@@ -390,6 +393,53 @@
       "BOX": "3D-Quader",
       "STANDING": "3D stehend",
       "FLAT": "Flach"
+    }
+  },
+  "window": {
+    "label": "Sichtfenster",
+    "typeLabel": "Art des Sichtfensters",
+    "none": "ohne Sichtfenster",
+    "summary": "{{type}}, {{material}}, Öffnung {{width}} × {{height}} mm, Folienüberlappung {{overlap}} mm",
+    "type": {
+      "PANORAMIC": "Panorama (Streifen)",
+      "RECTANGLE": "Rechteckig"
+    },
+    "description": {
+      "NONE": "Vorderseite ohne Ausschnitt.",
+      "PANORAMIC": "Senkrechter Streifen in der Mitte der Vorderseite, vom Bodenstreifen bis zur Öffnung (oben offen).",
+      "RECTANGLE": "Rechteckiger Ausschnitt in der Mitte der Vorderseite, in wählbarer Höhe."
+    },
+    "materialLabel": "Folie",
+    "material": {
+      "PP": "PP-Folie",
+      "PP_PERFORATED": "perforierte PP-Folie",
+      "CELLULOSE": "Zellulosefolie"
+    },
+    "field": {
+      "width": "Breite der Öffnung",
+      "height": "Höhe der Öffnung",
+      "bottomOffset": "Abstand vom Boden",
+      "filmOverlap": "Folienüberlappung unter dem Papier"
+    },
+    "fieldInfo": {
+      "width": "die Öffnung ist immer auf der Vorderseite zentriert; zu den Seitenkanten bleiben mindestens Folienüberlappung + 5 mm Papier.",
+      "height": "von der unteren bis zur oberen Kante der Öffnung; bis zur Beutelöffnung bleiben mindestens Folienüberlappung + 5 mm Papier.",
+      "bottomOffset": "von der Bodenfalzlinie (Unterkante des fertigen Beutels) bis zur Unterkante der Öffnung; Minimum = Bodenstreifen + Folienüberlappung + 5 mm.",
+      "filmOverlap": "wie weit die (innen geklebte) Folie das Papier an jeder geschlossenen Seite der Öffnung überlappt."
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Zahl eingeben",
+      "NOT_INTEGER": "Ganze Millimeter eingeben",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maximum: {{max}} mm"
+    },
+    "geometry": {
+      "PANORAMIC": "Öffnung {{width}} × {{height}} mm ab {{bottom}} mm über dem Boden bis zur Beutelöffnung; Folie {{filmWidth}} × {{filmHeight}} mm.",
+      "RECTANGLE": "Öffnung {{width}} × {{height}} mm, {{bottom}} mm über dem Boden; Folie {{filmWidth}} × {{filmHeight}} mm."
+    },
+    "artworkNote": "In der Öffnung wird nicht gedruckt — das Papier ist ausgeschnitten (3D-Vorschau, Stanzkontur und Farbdeckung berücksichtigen das).",
+    "warnings": {
+      "WINDOW_LARGE_OPENING": "Die Öffnung nimmt mehr als {{share}} % der Druckfläche der Vorderseite ein — die Vorderseite kann schwächer sein. Mit der Produktion abklären."
     }
   }
 }

@@ -4,7 +4,7 @@
 import { getWrapLayerId, type ResolvedPanelArtworks } from '../domain/artworkLayout';
 import { computePanelUvTransform, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
 import { DIELINE_RULES } from '../domain/config/productionRules';
-import { getArtworkClipRect } from '../domain/dieline';
+import { getArtworkClipHoles, getArtworkClipRect } from '../domain/dieline';
 import type {
   CreaseFold,
   Dieline,
@@ -52,6 +52,11 @@ export type SceneImage = {
   /** Maps the unit square (SVG `<image x=0 y=0 width=1 height=1 preserveAspectRatio="none">`) into the sheet. */
   matrix: Affine2;
   clip: SceneRect;
+  /**
+   * Parts of `clip` left unprinted because the paper is cut away there (window openings, docs/SPEC.md §2b), SVG space.
+   * Drawn as an even-odd clip path (`clipPathData`).
+   */
+  clipHoles?: SceneRect[];
   /** Artwork area (wall, or wall + bottom allowance when extended; the whole wall row for the wrap), SVG space. */
   area: SceneRect;
   extendToBottom: boolean;
@@ -61,8 +66,13 @@ export type SceneImage = {
   stackIndex?: number;
 };
 
+/** A film window (docs/SPEC.md §2b): the opening cut from the paper and the film glued on the inside, SVG space. */
+export type SceneWindow = { id: string; opening: SceneRect; film: SceneRect; openAtTop: boolean; filmOverlap: number };
+
 export type DielineScene = {
   sheet: { width: number; height: number };
+  /** Film windows (gusseted bag); their zones are also in `zones` (WINDOW_OPENING, WINDOW_FILM). */
+  windows: SceneWindow[];
   /** Drawing extent including dimension annotations: [minX, minY, width, height]. */
   viewBox: [number, number, number, number];
   cuts: string[];
@@ -226,7 +236,13 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
         ? Math.min(columnClip.x + columnClip.width, clipX.x1 + shiftX + overprint)
         : columnClip.x + columnClip.width;
       if (clipX1 <= clipX0) continue;
-      const clip = svgRect(`clip-${segment.id}`, { ...columnClip, x: clipX0, width: clipX1 - clipX0 });
+      const clipRect = { ...columnClip, x: clipX0, width: clipX1 - clipX0 };
+      const clip = svgRect(`clip-${segment.id}`, clipRect);
+      // Window openings: the paper is cut away, nothing is printed there (docs/SPEC.md §2b).
+      const clipHoles = getArtworkClipHoles(dieline, segment, placement.extendToBottom)
+        .map((hole) => intersectRect(hole, clipRect))
+        .filter((hole): hole is NonNullable<typeof hole> => hole !== null)
+        .map((hole, i) => svgRect(`hole-${segment.id}-${i + 1}`, hole));
       // A copy that does not reach this column is left out: nothing to draw, edit or embed.
       if (!overlaps(corners, clip)) continue;
       // Artwork area shown when selected: the wall (and allowance); a whole-bag layer's area is widened to the whole
@@ -241,6 +257,7 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
         href: artwork.fileUrl,
         matrix,
         clip,
+        ...(clipHoles.length > 0 ? { clipHoles } : {}),
         area: svgRect(`area-${segment.id}`, { x: areaX0, y: area.y + shiftY, width: Math.max(0, areaX1 - areaX0), height: area.height }),
         extendToBottom: placement.extendToBottom,
         corners,
@@ -254,8 +271,17 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
     x1: Math.max(...wallColumns.map((segment) => segment.x1)),
   });
 
+  const windows = (dieline.windows ?? []).map((window): SceneWindow => ({
+    id: window.id,
+    opening: svgRect(`${window.id}-opening`, window.opening),
+    film: svgRect(`${window.id}-film`, window.film),
+    openAtTop: window.openAtTop,
+    filmOverlap: window.filmOverlap,
+  }));
+
   return {
     sheet: { ...dieline.sheet },
+    windows,
     viewBox: [
       -SCENE_MARGIN.left,
       -SCENE_MARGIN.top,
@@ -275,14 +301,35 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
   };
 }
 
+type PlainRect = { x: number; y: number; width: number; height: number };
+
+function intersectRect(a: PlainRect, b: PlainRect): PlainRect | null {
+  const x0 = Math.max(a.x, b.x);
+  const x1 = Math.min(a.x + a.width, b.x + b.width);
+  const y0 = Math.max(a.y, b.y);
+  const y1 = Math.min(a.y + a.height, b.y + b.height);
+  return x1 > x0 && y1 > y0 ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
+}
+
+/**
+ * SVG path of an image's clip: its rectangle, minus the holes (use with `clip-rule="evenodd"`). Holes lie inside the
+ * rectangle and do not overlap, so even-odd filling cuts them out exactly.
+ */
+export function clipPathData(image: Pick<SceneImage, 'clip' | 'clipHoles'>): string {
+  const box = ({ x, y, width, height }: PlainRect) =>
+    `M${fmt(x)} ${fmt(y)} H${fmt(x + width)} V${fmt(y + height)} H${fmt(x)} Z`;
+  return [image.clip, ...(image.clipHoles ?? [])].map(box).join(' ');
+}
+
 /**
  * True when SVG point `[px, py]` lies on the visible part of `image`: inside its clip and its outline (a
  * parallelogram — the point is on the same side of every edge). Lets the dieline editor keep dragging the selected
  * layer where it is covered by another one.
  */
-export function isPointOnSceneImage(image: Pick<SceneImage, 'clip' | 'corners'>, [px, py]: [number, number]): boolean {
+export function isPointOnSceneImage(image: Pick<SceneImage, 'clip' | 'corners' | 'clipHoles'>, [px, py]: [number, number]): boolean {
   const { clip, corners } = image;
   if (px < clip.x || px > clip.x + clip.width || py < clip.y || py > clip.y + clip.height) return false;
+  if (image.clipHoles?.some((h) => px > h.x && px < h.x + h.width && py > h.y && py < h.y + h.height)) return false;
   let sign = 0;
   for (let i = 0; i < corners.length; i++) {
     const [ax, ay] = corners[i];
@@ -340,8 +387,10 @@ function mergeWrapImages(images: SceneImage[], row: { x0: number; x1: number }):
     used.add(`${layerId}${suffix}`);
     const minX = Math.min(...group.map((image) => image.clip.x));
     const maxX = Math.max(...group.map((image) => image.clip.x + image.clip.width));
+    const clipHoles = group.flatMap((image) => image.clipHoles ?? []);
     merged.push({
       ...first,
+      ...(clipHoles.length > 0 ? { clipHoles } : {}),
       id: `artwork-WRAP-${layerId}${suffix}`,
       segment: 'WRAP',
       clip: { ...first.clip, id: `clip-WRAP-${layerId}${suffix}`, x: fmt(minX), width: fmt(maxX - minX) },
@@ -373,6 +422,9 @@ export const DIELINE_STYLE = {
   /** Glue band on the inside face (BACK flap, back on top): outline only. */
   bottomGlueReverse: { stroke: '#b45309', width: 0.3, dash: '1 1' },
   glueFlapFill: 'rgba(234, 179, 8, 0.28)',
+  /** Window opening (no paper): a light film tint; film glued on the inside: dashed outline (docs/SPEC.md §2b). */
+  windowOpeningFill: 'rgba(56, 189, 248, 0.16)',
+  windowFilm: { stroke: '#0284c7', width: 0.35, dash: '2.5 1.2' },
   dimension: { stroke: '#444444', width: 0.2 },
   text: '#222222',
   sheetFill: '#ffffff',

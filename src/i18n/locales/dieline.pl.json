@@ -53,7 +53,9 @@
       "allowance": "zapas na dno (bez grafiki)",
       "allowancePrinted": "zapas na dno z grafiką (kolory na dnie)",
       "glue": "klej",
-      "glueReverse": "klej po stronie wewnętrznej (klapa tylna na wierzchu)"
+      "glueReverse": "klej po stronie wewnętrznej (klapa tylna na wierzchu)",
+      "windowOpening": "okienko — wycięcie (bez nadruku)",
+      "windowFilm": "folia okienka (wewnątrz, wsunięcie {{overlap}} mm)"
     },
     "panel": {
       "FRONT": "Przód",

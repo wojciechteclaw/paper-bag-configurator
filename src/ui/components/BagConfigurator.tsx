@@ -8,12 +8,14 @@ import { HandleConfigurator } from './HandleConfigurator';
 import { PaperConfigurator } from './PaperConfigurator';
 import { ProductTypeSelector } from './ProductTypeSelector';
 import { ProductionOptions } from './ProductionOptions';
+import { WindowConfigurator } from './WindowConfigurator';
 
 const STEP_CONTENT: Record<ConfiguratorStep, () => ReactNode> = {
   typeAndDimensions: () => (
     <>
       <ProductTypeSelector />
       <DimensionsForm />
+      <WindowConfigurator />
     </>
   ),
   paperAndHandle: () => (

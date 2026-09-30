@@ -37,7 +37,8 @@
       "handle": "uchwyt",
       "artwork": "grafiki",
       "print": "nadruk",
-      "packaging": "pakowanie"
+      "packaging": "pakowanie",
+      "window": "okienko"
     },
     "warnings": {
       "LEGACY_CONFIGURATION": "To starszy plik konfiguracji (JSON), a nie plik projektu.",
@@ -98,7 +99,9 @@
       "packaging": "pakowanie: {{from}} → {{to}}",
       "pantoneColors": "usunięto kolory nadruku ponad limit tego typu: {{removed}}",
       "extendToBottom": "wyłączono „Rozciągnij na dno” (pasek dna zaginanego jest bez nadruku)",
-      "glueFlap": "zakładka klejowa: {{from}} → {{to}} mm"
+      "glueFlap": "zakładka klejowa: {{from}} → {{to}} mm",
+      "windowRemoved": "usunięto okienko (niedostępne dla tego typu)",
+      "windowConstrained": "okienko dopasowano do nowych wymiarów"
     }
   },
   "dimensions": {
@@ -392,6 +395,53 @@
       "BOX": "3D pełne",
       "STANDING": "3D po zgięciu",
       "FLAT": "Złożona"
+    }
+  },
+  "window": {
+    "label": "Okienko",
+    "typeLabel": "Rodzaj okienka",
+    "none": "bez okienka",
+    "summary": "{{type}}, {{material}}, otwór {{width}} × {{height}} mm, wsunięcie folii {{overlap}} mm",
+    "type": {
+      "PANORAMIC": "Panoramiczne (pasek)",
+      "RECTANGLE": "Prostokątne"
+    },
+    "description": {
+      "NONE": "Przód bez wycięcia.",
+      "PANORAMIC": "Pionowy pasek na środku przodu, od paska dna do wylotu (otwarty u góry).",
+      "RECTANGLE": "Prostokątne wycięcie na środku przodu, na wybranej wysokości."
+    },
+    "materialLabel": "Folia",
+    "material": {
+      "PP": "folia PP",
+      "PP_PERFORATED": "folia PP perforowana",
+      "CELLULOSE": "folia celulozowa"
+    },
+    "field": {
+      "width": "Szerokość otworu",
+      "height": "Wysokość otworu",
+      "bottomOffset": "Odległość od dna",
+      "filmOverlap": "Wsunięcie folii pod papier"
+    },
+    "fieldInfo": {
+      "width": "otwór zawsze wyśrodkowany na przodzie; od krawędzi bocznych zostaje co najmniej wsunięcie folii + 5 mm papieru.",
+      "height": "od dolnej do górnej krawędzi otworu; nad otworem zostaje co najmniej wsunięcie folii + 5 mm papieru do wylotu.",
+      "bottomOffset": "od linii zagięcia dna (dolna krawędź gotowej torby) do dolnej krawędzi otworu; minimum = pasek dna + wsunięcie folii + 5 mm.",
+      "filmOverlap": "o ile folia (klejona od wewnątrz) zachodzi na papier z każdej zamkniętej strony otworu."
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Podaj liczbę",
+      "NOT_INTEGER": "Podaj pełne milimetry",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maksimum: {{max}} mm"
+    },
+    "geometry": {
+      "PANORAMIC": "Otwór {{width}} × {{height}} mm od {{bottom}} mm nad dnem do wylotu; folia {{filmWidth}} × {{filmHeight}} mm.",
+      "RECTANGLE": "Otwór {{width}} × {{height}} mm, {{bottom}} mm nad dnem; folia {{filmWidth}} × {{filmHeight}} mm."
+    },
+    "artworkNote": "W otworze nie ma nadruku — papier jest wycięty (podgląd 3D, wykrój i pokrycie farbą to uwzględniają).",
+    "warnings": {
+      "WINDOW_LARGE_OPENING": "Otwór zajmuje ponad {{share}} % pola nadruku przodu — przód może być słabszy. Sprawdź z produkcją."
     }
   }
 }

@@ -14,6 +14,7 @@ import { constrainBottomFold } from './bottomFold';
 import { constrainPaperToVariant, getHandleVariantDefinition, getSupportedHandleTypes, type PaperAdjustment } from './handleVariants';
 import { isGussetOutsideRecommended } from './geometry/gussetedBag';
 import { getDimensionWarnings, type DimensionWarning } from './validation/bottom';
+import { constrainWindow, getWindow, getWindowDimensions, windowsEqual } from './window';
 import type { ArtworkPlacement, ArtworkTarget, BagConfiguration, BagPanels, BagType, Dimensions, HandleType, PackagingType, PaperColor, WrapArtworkLayer } from './types';
 
 /** A change made to fit the configuration to a new bag type. */
@@ -27,6 +28,8 @@ export type ProductTypeAdjustment =
   | { field: 'glueFlap'; from: number; to: number }
   /** "Extend to bottom" was switched off on these targets (the new type prints no bottom allowance). */
   | { field: 'extendToBottom'; targets: ArtworkTarget[] }
+  /** The window was removed (the new type offers none), or its values were brought into the new limits. */
+  | { field: 'window'; removed: boolean }
   | PaperAdjustment;
 
 const DIMENSION_KEYS: (keyof Dimensions)[] = ['width', 'height', 'depth'];
@@ -144,6 +147,20 @@ export function changeProductType(
   const { panels, wrapLayers, targets } = constrainPlacements(configuration, definition);
   if (targets.length > 0) adjustments.push({ field: 'extendToBottom', targets });
 
+  // Window: only types that offer one keep it (the block bottom has none [K]); otherwise it follows the new dimensions.
+  const bottomFoldDepth = definition.bottomFold
+    ? constrainBottomFold(configuration.bottomFoldDepth ?? definition.bottomFold.default, type, definition.bottomFold.default)
+    : undefined;
+  const previousWindow = getWindow(configuration);
+  let window = previousWindow;
+  if (window && !definition.windowAvailable) {
+    adjustments.push({ field: 'window', removed: true });
+    window = null;
+  } else if (window) {
+    window = constrainWindow(window, getWindowDimensions({ dimensions, bottomFoldDepth, productType: type }));
+    if (!windowsEqual(window, previousWindow)) adjustments.push({ field: 'window', removed: false });
+  }
+
   return {
     configuration: {
       ...configuration,
@@ -151,12 +168,13 @@ export function changeProductType(
       handle,
       dimensions,
       glueFlapWidth,
-      bottomFoldDepth: definition.bottomFold ? constrainBottomFold(configuration.bottomFoldDepth ?? definition.bottomFold.default, type, definition.bottomFold.default) : undefined,
+      bottomFoldDepth,
       paper,
       packaging,
       print,
       panels,
       wrapLayers,
+      window,
     },
     adjustments,
   };

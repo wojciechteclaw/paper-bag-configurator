@@ -23,7 +23,8 @@
       "handle": "Handle",
       "print": "Print & packaging",
       "construction": "Construction & sheet",
-      "artwork": "Artwork"
+      "artwork": "Artwork",
+      "window": "Window"
     },
     "param": {
       "productType": "Bag type",
@@ -67,7 +68,19 @@
         "glueFlap": "Seam overlap (s)"
       },
       "printArea": "Print area (per side)",
-      "printAreaValue": "{{width}} × {{height}}"
+      "printAreaValue": "{{width}} × {{height}}",
+      "windowType": "Window",
+      "windowMaterial": "Window film",
+      "windowWidth": "Opening width",
+      "windowHeight": "Opening height",
+      "windowBottomOffset": "Lower edge of the opening above the bottom line",
+      "windowPosition": "Opening position",
+      "windowPositionPanoramic": "centred on the front, up to the mouth (open at the top)",
+      "windowPositionRectangle": "centred on the front",
+      "windowFilmOverlap": "Film overlap under the paper",
+      "windowFilmSize": "Film size",
+      "windowFilmSizeValue": "{{width}} × {{height}}",
+      "windowFilmArea": "Film area"
     },
     "handleMaterial": {
       "KRAFT": "strong kraft paper"
@@ -197,7 +210,8 @@
       "lineKind": {
         "cut": "cut",
         "crease": "crease"
-      }
+      },
+      "cutWindow": "window cut-out"
     },
     "creaseCode": {
       "C1": "bottom line",

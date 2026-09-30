@@ -11,12 +11,16 @@
 // instead of adding to it. A cell where one layer's pixel alone is visible is reported with that layer's sample and
 // pixel (the consumers' per-pixel memo stays effective); a real blend is written once per distinct colour into a
 // per-walk blend sample and reported from there.
+//
+// Window openings (gusseted bag, docs/SPEC.md §2b) are cut out of the paper: their cells are never visited and their
+// area is not part of the wall / printable area.
 
 import { computePanelUvTransform, getPanelArtworkArea, type PanelArtworkArea, type Size2 } from '../artworkPlacement';
 import type { Dieline } from '../dieline/types';
 import { getPanelSize } from '../panels';
 import type { ArtworkPlacement, PanelPosition, PaperColor } from '../types';
 import { deltaE76, rgbToLab, type Lab } from './color';
+import { isInWindowOpening } from '../window';
 
 /** Downscaled artwork pixels: RGBA, row-major, row 0 = TOP of the image (canvas `ImageData` layout). */
 export type PixelSample = {
@@ -43,7 +47,7 @@ export type CoveragePanelInput = {
 };
 
 export type SamplingInput = {
-  dieline: Pick<Dieline, 'sheet' | 'segments' | 'dimensions'>;
+  dieline: Pick<Dieline, 'sheet' | 'segments' | 'dimensions'> & Partial<Pick<Dieline, 'windows'>>;
   /**
    * Artwork of every wall: one input, or its layers bottom → top. Walls without artwork are left out, null or [];
    * layers without a decoded sample (yet) are left out.
@@ -145,7 +149,9 @@ export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number
     const prepared = layers
       .map((layer) => prepareLayer(layer, position, panelSize, dieline.dimensions))
       .filter((layer): layer is PreparedLayer => layer !== null);
-    return { segment, position, panelSize, hasArtwork: layers.length > 0, bottom, prepared };
+    // Openings on this panel (panel-local mm); only the part inside this column matters.
+    const holes = (dieline.windows ?? []).filter((w) => w.panel === position).map((w) => w.localOpening);
+    return { segment, position, panelSize, hasArtwork: layers.length > 0, bottom, prepared, holes };
   });
 
   // Blend sample for composites of several layers: one pixel per distinct blended colour (capacity = cells that may
@@ -165,13 +171,23 @@ export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number
   }
 
   const hits: number[] = []; // layer index, pixel — top → bottom
-  for (const { segment, position, panelSize, hasArtwork, bottom, prepared } of columns) {
+  for (const { segment, position, panelSize, hasArtwork, bottom, prepared, holes } of columns) {
     const segmentWidth = segment.x1 - segment.x0;
     if (segmentWidth <= 0 || height <= 0) continue;
     // Printable extent: the wall (y ∈ [0, H]) or, with a layer extended to the bottom, down to y = −a (SPEC §4f —
     // counted then). A wrap area is wider than the wall but only this column (x ∈ the wall) is sampled.
     const extentHeight = height - bottom;
-    visitor.onSegment?.(position, segmentWidth * height, segmentWidth * (hasArtwork ? extentHeight : height));
+    const cut = (y0: number) =>
+      holes.reduce((sum, h) => {
+        const w = Math.min(h.x + h.width, segment.localX0 + segmentWidth) - Math.max(h.x, segment.localX0);
+        const hh = Math.min(h.y + h.height, height) - Math.max(h.y, y0);
+        return sum + (w > 0 && hh > 0 ? w * hh : 0);
+      }, 0);
+    visitor.onSegment?.(
+      position,
+      segmentWidth * height - cut(0),
+      hasArtwork ? segmentWidth * extentHeight - cut(bottom) : segmentWidth * height - cut(0),
+    );
     if (prepared.length === 0) continue;
 
     const { nx, ny, cw, ch } = columnGrid(segmentWidth, panelSize, extentHeight, gridCellsLongSide);
@@ -184,6 +200,7 @@ export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number
       for (let ix = 0; ix < nx; ix++) {
         const x = segment.localX0 + (ix + 0.5) * cw;
         const u = x / panelSize.width;
+        if (holes.length > 0 && holes.some((h) => isInWindowOpening(h, x, y))) continue; // no paper: no ink
         if (single) {
           const pixel = pixelAt(single, x, y, u, v);
           if (pixel >= 0) visitor.onCell(position, single.sample, pixel, cellArea);

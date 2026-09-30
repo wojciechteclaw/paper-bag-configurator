@@ -55,6 +55,7 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     packaging: 'CARTON',
     glueFlapWidth: definition.glueFlap.default,
     ...(definition.bottomFold ? { bottomFoldDepth: definition.bottomFold.default } : {}),
+    window: null,
   };
 }
 

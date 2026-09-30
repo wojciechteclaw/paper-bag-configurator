@@ -49,6 +49,8 @@ export function ProductTypeSelector() {
         return t('productType.adjusted.pantoneColors', { removed: adjustment.removed });
       case 'glueFlap':
         return t('productType.adjusted.glueFlap', { from: adjustment.from, to: adjustment.to });
+      case 'window':
+        return t(adjustment.removed ? 'productType.adjusted.windowRemoved' : 'productType.adjusted.windowConstrained');
       case 'extendToBottom':
         return t('productType.adjusted.extendToBottom');
     }

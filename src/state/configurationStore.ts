@@ -16,7 +16,7 @@ import {
   getWrapLayerId,
   getWrapLayers,
 } from '../domain/artworkLayout';
-import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS } from '../domain/config/productCatalog';
+import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, WINDOW_RULES } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle, createWrapLayer } from '../domain/factories';
 import { constrainGlueFlapWidth, getGlueFlapWidth } from '../domain/glueFlap';
@@ -46,9 +46,12 @@ import type {
   PanelPosition,
   PaperColor,
   PaperType,
+  WindowMaterial,
+  WindowType,
 } from '../domain/types';
 import { normalizePantoneCode, validatePantoneColorToAdd, type PantoneError } from '../domain/validation/production';
 import { changeProductType, type ProductTypeAdjustment } from '../domain/productType';
+import { constrainWindow, createWindow, getWindow, getWindowDimensions, type WindowField } from '../domain/window';
 
 // Single source of truth for the configuration. The 3D renderer only reads from here.
 // Every action produces a valid BagConfiguration: invalid input is constrained or ignored, never stored.
@@ -138,7 +141,25 @@ type ConfigurationState = {
   /** Colour-analysis settings of the artwork palette (merge tolerance, minimum share); values are clamped. */
   setColorAnalysis: (patch: Partial<ColorAnalysisSettings>) => void;
   setPackaging: (packaging: PackagingType) => void;
+  /**
+   * Window in the FRONT wall (docs/SPEC.md §2b): null removes it; a type creates it (`createWindow`, defaults [Z]) or
+   * switches panoramic ↔ rectangle keeping material, overlap and width. Ignored for bag types without windows.
+   */
+  setWindowType: (type: WindowType | null) => void;
+  /** Film material; unknown materials and a missing window are ignored. */
+  setWindowMaterial: (material: WindowMaterial) => void;
+  /**
+   * One numeric window value, mm; the window is constrained into its limits afterwards (`constrainWindow` — a larger
+   * overlap may shrink / move the opening). Non-finite values keep the stored value; no window → ignored.
+   */
+  setWindowValue: (field: WindowField, value: number) => void;
 };
+
+/** The window re-constrained for new dimensions (patch; empty without a window). */
+function windowFor(configuration: BagConfiguration, patch: Partial<BagConfiguration>): Partial<BagConfiguration> {
+  const window = getWindow(configuration);
+  return window ? { window: constrainWindow(window, getWindowDimensions({ ...configuration, ...patch })) } : {};
+}
 
 function revokeArtworkUrl(artwork: Artwork | null) {
   if (artwork?.fileUrl.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') {
@@ -209,9 +230,11 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
     },
 
     setDimension: (key, value) =>
-      update(({ dimensions, productType }) => ({
-        dimensions: { ...dimensions, [key]: constrainDimension(key, value, dimensions, BAG_TYPES[productType].limits) },
-      })),
+      update((c) => {
+        const { dimensions, productType } = c;
+        const next = { ...dimensions, [key]: constrainDimension(key, value, dimensions, BAG_TYPES[productType].limits) };
+        return { dimensions: next, ...windowFor(c, { dimensions: next }) };
+      }),
 
     setGlueFlapWidth: (value) =>
       update((c) => ({ glueFlapWidth: constrainGlueFlapWidth(value, c.productType, getGlueFlapWidth(c)) })),
@@ -219,7 +242,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
     setBottomFoldDepth: (value) =>
       update((c) => {
         const next = constrainBottomFold(value, c.productType, getConfiguredBottomFold(c));
-        return next === undefined ? {} : { bottomFoldDepth: next };
+        return next === undefined ? {} : { bottomFoldDepth: next, ...windowFor(c, { bottomFoldDepth: next }) };
       }),
 
     applyStandardSize: (sizeId) => {
@@ -227,7 +250,10 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       const { limits } = definitionOf(configuration);
       const standardSize = variantOf(configuration).standardSizes.find((s) => s.id === sizeId);
       if (!standardSize || getStandardSizeViolations(standardSize, limits).length > 0) return false;
-      update((c) => ({ dimensions: constrainDimensions(standardSize.dimensions, c.dimensions, limits) }));
+      update((c) => {
+        const next = constrainDimensions(standardSize.dimensions, c.dimensions, limits);
+        return { dimensions: next, ...windowFor(c, { dimensions: next }) };
+      });
       return true;
     },
 
@@ -404,5 +430,28 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       }),
 
     setPackaging: (packaging) => update((c) => (definitionOf(c).packaging.includes(packaging) ? { packaging } : {})),
+
+    setWindowType: (type) =>
+      update((c) => {
+        const current = getWindow(c);
+        if (type === null) return current ? { window: null } : {};
+        if (!definitionOf(c).windowAvailable || !WINDOW_RULES.types.includes(type) || current?.type === type) return {};
+        return { window: createWindow(type, getWindowDimensions(c), current) };
+      }),
+
+    setWindowMaterial: (material) =>
+      update((c) => {
+        const current = getWindow(c);
+        if (!current || !WINDOW_RULES.materials.includes(material)) return {};
+        return { window: { ...current, material } };
+      }),
+
+    setWindowValue: (field, value) =>
+      update((c) => {
+        const current = getWindow(c);
+        if (!current || !Number.isFinite(value)) return {};
+        if ((field === 'height' || field === 'bottomOffset') && current.type !== 'RECTANGLE') return {};
+        return { window: constrainWindow({ ...current, [field]: value } as typeof current, getWindowDimensions(c)) };
+      }),
   };
 });

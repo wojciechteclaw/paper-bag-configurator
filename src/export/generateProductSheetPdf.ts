@@ -273,6 +273,7 @@ async function drawDielinePage(pdf: Pdf, input: ProductSheetPdfInput, svg2pdf: t
   sample(s.cut.stroke, s.cut.width, null, data.dieline.legend.cut);
   sample(s.crease.stroke, s.crease.width, dash(s.crease.dash), data.dieline.legend.crease);
   if (scene.patches.length > 0) sample(s.patch.stroke, s.patch.width, dash(s.patch.dash), data.dieline.legend.patch);
+  if (scene.windows.length > 0) sample(s.windowFilm.stroke, s.windowFilm.width, dash(s.windowFilm.dash), data.dieline.legend.windowFilm);
 }
 
 /** 3D pages: a 2 × 2 grid of 4:3 snapshots, each captioned with its view and fold %. */

@@ -23,7 +23,8 @@
       "handle": "Griff",
       "print": "Druck & Verpackung",
       "construction": "Konstruktion & Bogen",
-      "artwork": "Druckmotive"
+      "artwork": "Druckmotive",
+      "window": "Sichtfenster"
     },
     "param": {
       "productType": "Beuteltyp",
@@ -67,7 +68,19 @@
         "glueFlap": "Längsnaht-Überlappung (s)"
       },
       "printArea": "Druckfläche (je Seite)",
-      "printAreaValue": "{{width}} × {{height}}"
+      "printAreaValue": "{{width}} × {{height}}",
+      "windowType": "Sichtfenster",
+      "windowMaterial": "Fensterfolie",
+      "windowWidth": "Breite der Öffnung",
+      "windowHeight": "Höhe der Öffnung",
+      "windowBottomOffset": "Unterkante der Öffnung über der Bodenlinie",
+      "windowPosition": "Lage der Öffnung",
+      "windowPositionPanoramic": "mittig auf der Vorderseite, bis zur Beutelöffnung (oben offen)",
+      "windowPositionRectangle": "mittig auf der Vorderseite",
+      "windowFilmOverlap": "Folienüberlappung unter dem Papier",
+      "windowFilmSize": "Foliengröße",
+      "windowFilmSizeValue": "{{width}} × {{height}}",
+      "windowFilmArea": "Folienfläche"
     },
     "handleMaterial": {
       "KRAFT": "festes Kraftpapier"
@@ -197,7 +210,8 @@
       "lineKind": {
         "cut": "Schnitt",
         "crease": "Rillung"
-      }
+      },
+      "cutWindow": "Fensterausschnitt"
     },
     "creaseCode": {
       "C1": "Bodenlinie",

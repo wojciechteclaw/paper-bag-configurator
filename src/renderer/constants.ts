@@ -1,6 +1,6 @@
 import { PAPER_PREVIEW_COLORS } from '../domain/config/productCatalog';
 import type { BottomPieceId, InnerBottomPieceId } from '../domain/geometry/blockBottom';
-import type { PaperColor } from '../domain/types';
+import type { PaperColor, WindowMaterial } from '../domain/types';
 
 /** The only mm → scene-unit conversion factor (1 scene unit = 100 mm). */
 export const MM_TO_SCENE = 0.01;
@@ -93,6 +93,26 @@ export type PaperPalette = {
   edge: string;
   /** Crease (bigowanie) lines — subtler than edges. */
   crease: string;
+};
+
+export type WindowFilmLook = {
+  /** Tint of the film (seen over the bag interior). */
+  color: string;
+  /** Opacity of the tint: low — the interior must stay clearly visible through the film. */
+  opacity: number;
+  roughness: number;
+  /** Strength of the studio-environment reflections (glossy film). */
+  envMapIntensity: number;
+  /** Perforated film: a faint dot pattern with this pitch, mm (0 = none). */
+  perforationPitchMm: number;
+};
+
+/** Preview look of each window film (docs/SPEC.md §2b); an approximation, not a material specification. */
+export const WINDOW_FILM_LOOKS: Record<WindowMaterial, WindowFilmLook> = {
+  PP: { color: '#e8f3fb', opacity: 0.16, roughness: 0.06, envMapIntensity: 1.4, perforationPitchMm: 0 },
+  PP_PERFORATED: { color: '#e8f3fb', opacity: 0.2, roughness: 0.1, envMapIntensity: 1.2, perforationPitchMm: 6 },
+  // Cellulose film is slightly warmer and less glossy than PP.
+  CELLULOSE: { color: '#f6f0dc', opacity: 0.2, roughness: 0.14, envMapIntensity: 1, perforationPitchMm: 0 },
 };
 
 /** Single source of paper colours in the 3D preview. */
