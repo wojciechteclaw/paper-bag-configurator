@@ -154,9 +154,12 @@ type PreviewState = {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
+/** Mode the preview starts in (and that a project without saved view state opens in). */
+export const DEFAULT_PREVIEW_VIEW_MODE: TimelineViewMode = 'BOX';
+
 export const usePreviewStore = create<PreviewState>((set, get) => ({
-  viewMode: 'BOX',
-  progress: TIMELINE_PRESETS.BOX,
+  viewMode: DEFAULT_PREVIEW_VIEW_MODE,
+  progress: TIMELINE_PRESETS[DEFAULT_PREVIEW_VIEW_MODE],
   playing: false,
   setViewMode: (mode) => {
     if (mode === 'DIELINE') set({ viewMode: mode, playing: false });
