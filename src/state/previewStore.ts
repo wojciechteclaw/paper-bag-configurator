@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  ASSEMBLY_PHASES,
   ASSEMBLY_TIMELINE_SHARE,
   getAssemblyPhase,
   splitPreviewTimeline,
@@ -36,6 +37,28 @@ export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
 };
 
 const PRESET_TOLERANCE = 1e-9;
+
+const toSliderStep = (t: number) => Math.round(t / TIMELINE_SLIDER_STEP) * TIMELINE_SLIDER_STEP;
+
+/**
+ * Chapter stops of the timeline for the skip buttons (like a remote's previous / next chapter), ascending: the start
+ * of every assembly phase (sheet 0, sides 16 %, front flap 24 %, back flap 32 %) and every 3D preset (formed 40 %,
+ * after the fold 45 %, flat 100 %). On the 1 % slider grid.
+ */
+export const TIMELINE_STOPS: readonly number[] = [
+  ...new Set(
+    [
+      ...Object.values(ASSEMBLY_PHASES).map(([start]) => start * ASSEMBLY_TIMELINE_SHARE),
+      ...Object.values(TIMELINE_PRESETS),
+    ].map((t) => Number(toSliderStep(t).toFixed(2))),
+  ),
+].sort((a, b) => a - b);
+
+/** The next stop after `progress` (direction 1) or the previous one before it (−1); null at the end. */
+export function getTimelineStop(progress: number, direction: 1 | -1): number | null {
+  if (direction > 0) return TIMELINE_STOPS.find((stop) => stop > progress + PRESET_TOLERANCE) ?? null;
+  return [...TIMELINE_STOPS].reverse().find((stop) => stop < progress - PRESET_TOLERANCE) ?? null;
+}
 
 /** The 3D preset that equals `progress` exactly (within float noise), or null. */
 export function findTimelinePreset(progress: number): TimelineViewMode | null {
@@ -87,6 +110,8 @@ type PreviewState = {
   setProgress: (progress: number) => void;
   /** Play / pause; playing from the end (1) restarts from the flat sheet. */
   togglePlaying: () => void;
+  /** Jumps to the next (1) or previous (−1) chapter stop (`TIMELINE_STOPS`); stops playback. No-op at the ends. */
+  skip: (direction: 1 | -1) => void;
   /** Advances a running playback by `deltaSeconds`; stops at 1 (the FLAT preset). */
   tick: (deltaSeconds: number) => void;
 };
@@ -115,6 +140,10 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     }
     const start = progress >= 1 ? 0 : progress;
     set({ playing: true, progress: start, viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(start) });
+  },
+  skip: (direction) => {
+    const stop = getTimelineStop(get().progress, direction);
+    if (stop !== null) get().setProgress(stop);
   },
   tick: (deltaSeconds) => {
     const { playing, progress, viewMode } = get();

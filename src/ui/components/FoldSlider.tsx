@@ -1,6 +1,6 @@
 import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getTimelineState, usePreviewStore } from '../../state/previewStore';
+import { getTimelineState, getTimelineStop, usePreviewStore } from '../../state/previewStore';
 
 /** Drives a running playback: advances the preview timeline every animation frame while `playing`. */
 function usePlayback() {
@@ -32,12 +32,23 @@ export function FoldSlider() {
   const playing = usePreviewStore((s) => s.playing);
   const setProgress = usePreviewStore((s) => s.setProgress);
   const togglePlaying = usePreviewStore((s) => s.togglePlaying);
+  const skip = usePreviewStore((s) => s.skip);
   usePlayback();
   const percent = Math.round(progress * 100);
   const phase = getTimelineState(progress).phase;
 
   return (
     <div className="fold-slider">
+      <button
+        type="button"
+        className="fold-slider__skip"
+        aria-label={t('preview.previousStage')}
+        title={t('preview.previousStage')}
+        disabled={getTimelineStop(progress, -1) === null}
+        onClick={() => skip(-1)}
+      >
+        <span aria-hidden="true">⏮</span>
+      </button>
       <button
         type="button"
         className="fold-slider__play"
@@ -47,6 +58,16 @@ export function FoldSlider() {
         onClick={togglePlaying}
       >
         <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
+      </button>
+      <button
+        type="button"
+        className="fold-slider__skip"
+        aria-label={t('preview.nextStage')}
+        title={t('preview.nextStage')}
+        disabled={getTimelineStop(progress, 1) === null}
+        onClick={() => skip(1)}
+      >
+        <span aria-hidden="true">⏭</span>
       </button>
       <label htmlFor={id}>{t('preview.fold')}</label>
       <input

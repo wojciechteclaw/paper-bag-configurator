@@ -3,9 +3,11 @@ import { useConfigurationStore } from './configurationStore';
 import {
   findTimelinePreset,
   getTimelineState,
+  getTimelineStop,
   PREVIEW_VIEW_MODES,
   TIMELINE_PLAY_DURATION_S,
   TIMELINE_PRESETS,
+  TIMELINE_STOPS,
   usePreviewStore,
 } from './previewStore';
 
@@ -130,5 +132,32 @@ describe('playback', () => {
     preview().togglePlaying();
     preview().setViewMode('BOX');
     expect(preview()).toMatchObject({ playing: false, progress: 0.4 });
+  });
+});
+
+describe('chapter skip (previous / next stage)', () => {
+  it('stops at every assembly phase start and every 3D preset', () => {
+    expect(TIMELINE_STOPS).toEqual([0, 0.16, 0.24, 0.32, 0.4, 0.45, 1]);
+  });
+
+  it('finds the next / previous stop, also from between stops, and null at the ends', () => {
+    expect(getTimelineStop(0, 1)).toBe(0.16);
+    expect(getTimelineStop(0.2, 1)).toBe(0.24);
+    expect(getTimelineStop(0.2, -1)).toBe(0.16);
+    expect(getTimelineStop(0.4, -1)).toBe(0.32);
+    expect(getTimelineStop(1, 1)).toBeNull();
+    expect(getTimelineStop(0, -1)).toBeNull();
+  });
+
+  it('skip moves the timeline, selects the preset it lands on and stops playback', () => {
+    usePreviewStore.setState({ playing: true });
+    preview().skip(1);
+    expect(preview()).toMatchObject({ progress: 0.45, viewMode: 'STANDING', playing: false });
+    preview().skip(-1);
+    preview().skip(-1);
+    expect(preview()).toMatchObject({ progress: 0.32, viewMode: null });
+    preview().setProgress(1);
+    preview().skip(1);
+    expect(preview().progress).toBe(1);
   });
 });

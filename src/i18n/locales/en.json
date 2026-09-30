@@ -268,6 +268,8 @@
     "fold": "Assembly & fold",
     "play": "Play assembly",
     "pause": "Pause",
+    "previousStage": "Previous stage",
+    "nextStage": "Next stage",
     "phase": {
       "SHEET": "Flat sheet",
       "TUBE": "A: forming the tube",

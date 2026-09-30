@@ -270,6 +270,8 @@
     "fold": "Składanie",
     "play": "Odtwórz składanie",
     "pause": "Wstrzymaj",
+    "previousStage": "Poprzedni etap",
+    "nextStage": "Następny etap",
     "phase": {
       "SHEET": "Płaski arkusz",
       "TUBE": "A: formowanie rękawa",
