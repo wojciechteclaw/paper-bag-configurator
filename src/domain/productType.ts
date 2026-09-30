@@ -48,7 +48,7 @@ export function getDimensionWarningsFor(
 function withoutBottomExtension(
   target: ArtworkTarget,
   placement: ArtworkPlacement,
-  configuration: BagConfiguration,
+  configuration: Pick<BagConfiguration, 'dimensions'>,
   artwork: { width: number; height: number } | null,
 ): ArtworkPlacement {
   const from = getArtworkTargetArea(target, configuration.dimensions, placement);
@@ -57,12 +57,13 @@ function withoutBottomExtension(
 }
 
 /**
- * Drops "extend to bottom" from every panel and every whole-bag layer when `definition` does not offer it. All layers
- * are kept (order, ids, artwork); only their placements change.
+ * Drops "extend to bottom" from every panel and every whole-bag layer when `definition` does not offer it (the
+ * gusseted bag prints no bottom strip). All layers are kept (order, ids, artwork); only their placements change.
+ * `targets` lists what was changed. Shared by the type switch and by loading a saved configuration.
  */
-function constrainPlacements(
-  configuration: BagConfiguration,
-  definition: BagTypeDefinition,
+export function constrainPlacements(
+  configuration: Pick<BagConfiguration, 'dimensions' | 'panels'> & Partial<Pick<BagConfiguration, 'wrapLayers'>>,
+  definition: Pick<BagTypeDefinition, 'extendToBottomAvailable'>,
 ): { panels: BagPanels; wrapLayers: WrapArtworkLayer[]; targets: ArtworkTarget[] } {
   const layers = getWrapLayers(configuration);
   if (definition.extendToBottomAvailable) return { panels: configuration.panels, wrapLayers: [...layers], targets: [] };

@@ -7,7 +7,8 @@
 // missing `artworkLayout` / `colorAnalysis` / `extendToBottom`). Unknown fields — at the top level and inside known
 // objects — are kept as they are, so fields added by newer code (or by other features) flow through a save / load.
 
-import { getArtworkLayout, getWrapArtworkArea, getWrapLayers } from '../artworkLayout';
+import { getArtworkLayout, getWrapArtworkArea, getWrapLayerId, getWrapLayers } from '../artworkLayout';
+import { constrainPlacements } from '../productType';
 import { getPanelArtworkArea, normalizePlacement, DEFAULT_PLACEMENT, type Size2 } from '../artworkPlacement';
 import { ARTWORK_RULES, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, type BagTypeDefinition } from '../config/productCatalog';
 import { constrainDimensions } from '../constraints';
@@ -257,9 +258,18 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
   const dimensions = sanitizeDimensions(raw.dimensions, definition, defaults.dimensions, noter('dimensions'));
   const handle = sanitizeHandle(raw.handle, definition, noter('handle'));
   const paper = sanitizePaper(raw.paper, definition, handle, defaults.paper, noter('paper'));
-  const panels = sanitizePanels(raw.panels, dimensions, noter('artwork'));
+  const storedPanels = sanitizePanels(raw.panels, dimensions, noter('artwork'));
   if (raw.artworkLayout !== undefined && getArtworkLayout(raw) !== raw.artworkLayout) noter('artwork')('artworkLayout');
-  const wrapLayers = sanitizeWrapLayers(raw, dimensions, noter('artwork'));
+  const storedLayers = sanitizeWrapLayers(raw, dimensions, noter('artwork'));
+  // Types without a printed bottom allowance (gusseted bag) never keep "extend to bottom" (on walls and on every layer).
+  const { panels, wrapLayers, targets } = constrainPlacements(
+    { dimensions, panels: storedPanels, wrapLayers: storedLayers },
+    definition,
+  );
+  targets.forEach((target) => {
+    const layerId = getWrapLayerId(target);
+    noter('artwork')(layerId === null ? `panels.${target}.placement.extendToBottom` : `wrapLayers.${layerId}.placement.extendToBottom`);
+  });
   const print = sanitizePrint(raw.print, definition, noter('print'));
   const packaging = definition.packaging.includes(raw.packaging as BagConfiguration['packaging'])
     ? (raw.packaging as BagConfiguration['packaging'])

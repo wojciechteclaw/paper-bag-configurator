@@ -23,6 +23,7 @@
 
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { ARTWORK_RULES, PROJECT_FILE_RULES } from '../config/productCatalog';
+import { getDimensionsSlug } from '../dimensionNotation';
 import type { Artwork, BagConfiguration } from '../types';
 import { collectArtworks, mapArtworks } from './artworkRefs';
 import { sanitizeConfiguration, type ConfigurationAdjustment } from './sanitizeConfiguration';
@@ -137,14 +138,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
 /**
- * Suggested file name: `<prefix>-<type>-<W>x<H>x<D>-<YYYY-MM-DD>.bagproj`, e.g.
- * `projekt-torby-block-200x400x150-2026-09-30.bagproj` (local date; the prefix is localised by the UI).
+ * Suggested file name: `<prefix>-<type>-<size>-<YYYY-MM-DD>.bagproj`, e.g.
+ * `projekt-torby-block-200x400x150-2026-09-30.bagproj` or, for the gusseted bag (W + F × H),
+ * `projekt-torby-folded-140+90x370-2026-09-30.bagproj` (local date; the prefix is localised by the UI).
  */
 export function getProjectFileName(configuration: Pick<BagConfiguration, 'productType' | 'dimensions'>, date: Date, prefix: string): string {
-  const { width, height, depth } = configuration.dimensions;
   const day = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
   const safePrefix = prefix.trim().replace(/[^\p{L}\p{N}_-]+/gu, '-') || 'project';
-  return `${safePrefix}-${configuration.productType.toLowerCase()}-${width}x${height}x${depth}-${day}${PROJECT_FILE_RULES.extension}`;
+  return `${safePrefix}-${configuration.productType.toLowerCase()}-${getDimensionsSlug(configuration)}-${day}${PROJECT_FILE_RULES.extension}`;
 }
 
 /** Distinct artworks of a configuration (first occurrence per artwork id), in configuration order. */
