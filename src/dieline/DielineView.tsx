@@ -21,6 +21,7 @@ import { BAG_TYPES } from '../domain/config/productCatalog';
 import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
 import { getGlueFlapWidth } from '../domain/glueFlap';
+import { getConfiguredBottomFold } from '../domain/bottomFold';
 import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
 import { useConfiguratorUiStore } from '../state/configuratorUiStore';
@@ -120,10 +121,11 @@ export function DielineView() {
   const dragRef = useRef<Drag | null>(null);
 
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
+  const bottomFoldDepth = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
   const { productType } = configuration;
   const dieline = useMemo(
-    () => buildDieline({ dimensions, handle, glueFlapWidth, productType }),
-    [dimensions, handle, glueFlapWidth, productType],
+    () => buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth }),
+    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth],
   );
   const extendToBottomAvailable = BAG_TYPES[productType].extendToBottomAvailable;
   const scene = useMemo(

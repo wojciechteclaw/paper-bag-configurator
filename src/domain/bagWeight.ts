@@ -19,13 +19,15 @@ const MM2_PER_M2 = 1_000_000;
  * is B × L = (2W + 2F + s) × (H + d).
  */
 export function getBagWeight(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'paper'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'productType'>>,
+  configuration: Pick<BagConfiguration, 'dimensions' | 'paper'> &
+    Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth' | 'productType'>>,
 ): BagWeight {
   const dieline = buildDieline({
     dimensions: configuration.dimensions,
     handle: null,
     glueFlapWidth: configuration.glueFlapWidth,
     productType: configuration.productType,
+    bottomFoldDepth: configuration.bottomFoldDepth,
   });
   const blankAreaM2 = dieline.cuts.reduce((sum, polygon) => sum + Math.abs(polygonArea(polygon)), 0) / MM2_PER_M2;
   return { blankAreaM2, grams: blankAreaM2 * configuration.paper.grammage };

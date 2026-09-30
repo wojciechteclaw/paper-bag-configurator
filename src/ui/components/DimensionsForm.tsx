@@ -10,6 +10,7 @@ import { getRecommendedGussetRange } from '../../domain/geometry/gussetedBag';
 import { getMinTrapezoidWidth } from '../../domain/validation/bottom';
 import { validateDimensionValue } from '../../domain/validation/dimensions';
 import { getGlueFlapWidth } from '../../domain/glueFlap';
+import { getConfiguredBottomFold } from '../../domain/bottomFold';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { DimensionIcon } from './DimensionIcon';
 import { InfoTip } from './InfoTip';
@@ -184,6 +185,7 @@ export function DimensionsForm() {
         );
       })}
       <GlueFlapField />
+      <BottomFoldField />
       {warnings.map((warning) => (
         <p key={warning} className="warning" role="status" data-warning={warning}>
           {t(`dimensions.warnings.${warning}`, {
@@ -243,6 +245,59 @@ function GlueFlapField() {
       <span>{t('dimensions.unit')}</span>
       <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: t('dimensions.glueFlap') })}>
         {t('dimensions.glueFlapInfo', { min, max })}
+      </InfoTip>
+    </div>
+  );
+}
+
+/** Bottom strip d of the gusseted bag's fold-over bottom, whole mm in the bag type's range (shown only when it has one). */
+function BottomFoldField() {
+  const { t } = useTranslation();
+  const id = `${useId()}-bottomFold`;
+  const productType = useConfigurationStore((s) => s.configuration.productType);
+  const value = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
+  const setBottomFoldDepth = useConfigurationStore((s) => s.setBottomFoldDepth);
+  const [draft, setDraft] = useState<string | undefined>(undefined);
+  const range = BAG_TYPES[productType].bottomFold;
+  if (!range || value === undefined) return null;
+  const { min, max } = range;
+
+  const commit = () => {
+    if (draft === undefined) return;
+    setBottomFoldDepth(parseNumberDraft(draft));
+    setDraft(undefined);
+  };
+  const change = (raw: string) => {
+    setDraft(raw);
+    const next = parseNumberDraft(raw);
+    if (Number.isInteger(next) && next >= min && next <= max) setBottomFoldDepth(next);
+  };
+
+  return (
+    <div className="field field--dimension">
+      <label htmlFor={id}>
+        <span aria-hidden="true" className="field__icon-spacer" />
+        <span>{t('dimensions.bottomFold')}</span>
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        step={1}
+        value={draft ?? String(value)}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => change(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setDraft(undefined);
+        }}
+      />
+      <span>{t('dimensions.unit')}</span>
+      <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: t('dimensions.bottomFold') })}>
+        {t('dimensions.bottomFoldInfo', { min, max })}
       </InfoTip>
     </div>
   );

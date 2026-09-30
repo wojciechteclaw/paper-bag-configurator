@@ -108,6 +108,8 @@
     "depth": "Depth",
     "glueFlap": "Glue flap (s)",
     "glueFlapInfo": "Width of the longitudinal seam overlap: {{min}}–{{max}} mm, in 1 mm steps. Changes the blank width and the bag weight.",
+    "bottomFold": "Bottom strip (d)",
+    "bottomFoldInfo": "Height of the bottom strip (fold + glue), folded to the back: {{min}}–{{max}} mm, in 1 mm steps. Changes the cut length L = H + d and the bag weight.",
     "unit": "mm",
     "range": "{{min}}–{{max}} mm",
     "lock": {

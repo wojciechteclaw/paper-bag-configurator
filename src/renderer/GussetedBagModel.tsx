@@ -35,6 +35,8 @@ type LineRef = ComponentRef<typeof Line>;
 
 export type GussetedBagModelProps = {
   dimensions: Dimensions;
+  /** Bottom strip d, mm (default: GUSSETED_BAG_RULES.bottomFoldDepth). */
+  bottomFoldDepth?: number;
   paperColor: PaperColor;
   /** What every wall shows (`resolvePanelArtworks(configuration)`). */
   artworks: ResolvedPanelArtworks;
@@ -53,9 +55,9 @@ function writeLines(line: LineRef | null, specs: readonly GussetedLineSpec[], fr
 const placeholderPoints = (segments: number) =>
   Array.from({ length: segments * 2 }, (): [number, number, number] => [0, 0, 0]);
 
-export function GussetedBagModel({ dimensions, paperColor, artworks, foldProgress }: GussetedBagModelProps) {
+export function GussetedBagModel({ dimensions, bottomFoldDepth, paperColor, artworks, foldProgress }: GussetedBagModelProps) {
   const { width, height, depth } = dimensions;
-  const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
+  const dims = useMemo(() => ({ width, height, depth, bottomFold: bottomFoldDepth }), [width, height, depth, bottomFoldDepth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
 
   const meshes = useMemo(() => createGussetedMeshes(dims), [dims]);

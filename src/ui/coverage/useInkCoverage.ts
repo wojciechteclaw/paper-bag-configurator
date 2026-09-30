@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolvePanelArtworks } from '../../domain/artworkLayout';
 import { buildDieline } from '../../domain/dieline';
 import { getGlueFlapWidth } from '../../domain/glueFlap';
+import { getConfiguredBottomFold } from '../../domain/bottomFold';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import {
   computeArtworkPalette,
@@ -42,6 +43,7 @@ export function useInkCoverage(): InkCoverageState {
   const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
   const handle = useConfigurationStore((s) => s.configuration.handle);
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
+  const bottomFoldDepth = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
   const productType = useConfigurationStore((s) => s.configuration.productType);
   const panels = useConfigurationStore((s) => s.configuration.panels);
   const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
@@ -57,8 +59,8 @@ export function useInkCoverage(): InkCoverageState {
   const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].layers.length > 0);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.
   const coverageRequest = useMemo(
-    () => ({ dieline: buildDieline({ dimensions, handle, glueFlapWidth, productType }), artworks, paperColor, pantoneColors }),
-    [dimensions, handle, glueFlapWidth, productType, artworks, paperColor, pantoneColors],
+    () => ({ dieline: buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth }), artworks, paperColor, pantoneColors }),
+    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, artworks, paperColor, pantoneColors],
   );
   const request = useMemo(() => ({ coverageRequest, colorAnalysis }), [coverageRequest, colorAnalysis]);
   const [computed, setComputed] = useState<Computed | null>(null);

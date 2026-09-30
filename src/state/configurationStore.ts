@@ -20,6 +20,7 @@ import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS } from '../domain/c
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle, createWrapLayer } from '../domain/factories';
 import { constrainGlueFlapWidth, getGlueFlapWidth } from '../domain/glueFlap';
+import { constrainBottomFold, getConfiguredBottomFold } from '../domain/bottomFold';
 import {
   constrainPaperToVariant,
   getHandleVariantDefinition,
@@ -71,6 +72,8 @@ type ConfigurationState = {
   setDimension: (key: keyof Dimensions, value: number) => void;
   /** Glue flap width s, mm; clamped into the bag type's range (`BAG_TYPES[type].glueFlap`). */
   setGlueFlapWidth: (value: number) => void;
+  /** Bottom strip d (gusseted bag), mm; clamped into the bag type's range; ignored for types without one. */
+  setBottomFoldDepth: (value: number) => void;
   /**
    * Applies a standard size of the current handle variant. Sizes outside the dimension limits are ignored
    * (never silently clamped into a different size). Returns whether the size was applied.
@@ -212,6 +215,12 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
 
     setGlueFlapWidth: (value) =>
       update((c) => ({ glueFlapWidth: constrainGlueFlapWidth(value, c.productType, getGlueFlapWidth(c)) })),
+
+    setBottomFoldDepth: (value) =>
+      update((c) => {
+        const next = constrainBottomFold(value, c.productType, getConfiguredBottomFold(c));
+        return next === undefined ? {} : { bottomFoldDepth: next };
+      }),
 
     applyStandardSize: (sizeId) => {
       const { configuration } = get();

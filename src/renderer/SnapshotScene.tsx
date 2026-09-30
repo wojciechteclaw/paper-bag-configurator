@@ -4,6 +4,7 @@ import { resolvePanelArtworks } from '../domain/artworkLayout';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { getGlueFlapWidth } from '../domain/glueFlap';
+import { getConfiguredBottomFold } from '../domain/bottomFold';
 import { GussetedBagModel } from './GussetedBagModel';
 import { BACKGROUND_COLOR } from './camera';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
@@ -33,6 +34,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
       {configuration.productType === 'FOLDED' ? (
         <GussetedBagModel
           dimensions={dimensions}
+          bottomFoldDepth={getConfiguredBottomFold(configuration)}
           paperColor={configuration.paper.color}
           artworks={artworks}
           foldProgress={foldProgress}

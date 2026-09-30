@@ -211,4 +211,9 @@ export type BagConfiguration = {
    * before 30.09.2026 — read it through `getGlueFlapWidth`.
    */
   glueFlapWidth: number;
+  /**
+   * Bottom strip d of the gusseted bag's fold-over bottom, mm (range: `BAG_TYPES[type].bottomFold`); only for bag
+   * types that have one — read it through `getConfiguredBottomFold`.
+   */
+  bottomFoldDepth?: number;
 };

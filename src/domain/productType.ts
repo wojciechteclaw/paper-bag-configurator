@@ -10,6 +10,7 @@ import { BAG_TYPES, type BagTypeDefinition } from './config/productCatalog';
 import { constrainDimensions } from './constraints';
 import { PANEL_POSITIONS } from './factories';
 import { constrainGlueFlapWidth, getGlueFlapWidth } from './glueFlap';
+import { constrainBottomFold } from './bottomFold';
 import { constrainPaperToVariant, getHandleVariantDefinition, getSupportedHandleTypes, type PaperAdjustment } from './handleVariants';
 import { isGussetOutsideRecommended } from './geometry/gussetedBag';
 import { getDimensionWarnings, type DimensionWarning } from './validation/bottom';
@@ -150,6 +151,7 @@ export function changeProductType(
       handle,
       dimensions,
       glueFlapWidth,
+      bottomFoldDepth: definition.bottomFold ? constrainBottomFold(configuration.bottomFoldDepth ?? definition.bottomFold.default, type, definition.bottomFold.default) : undefined,
       paper,
       packaging,
       print,

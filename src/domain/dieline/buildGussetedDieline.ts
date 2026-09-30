@@ -70,13 +70,13 @@ export const GUSSETED_BOTTOM_FOLD: Readonly<{
 };
 
 export function buildGussetedDieline(
-  configuration: Pick<BagConfiguration, 'dimensions'> & Partial<Pick<BagConfiguration, 'glueFlapWidth'>>,
+  configuration: Pick<BagConfiguration, 'dimensions'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth'>>,
   options: GussetedDielineOptions = {},
 ): Dieline {
   const { dimensions } = configuration;
   const { width: W, height: H, depth: F } = dimensions;
   const rules = DIELINE_RULES;
-  const d = getBottomFoldDepth(dimensions);
+  const d = getBottomFoldDepth({ height: H, bottomFold: configuration.bottomFoldDepth });
   const s = Math.max(0, options.glueFlapWidth ?? getGlueFlapWidth({ glueFlapWidth: configuration.glueFlapWidth, productType: 'FOLDED' }));
 
   const sheetWidth = 2 * W + 2 * F + s;

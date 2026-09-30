@@ -29,9 +29,16 @@ import type { Dimensions, PanelPosition } from '../types';
 
 export type Vec3 = { x: number; y: number; z: number };
 
-/** Bottom strip `d` of the fold-over bottom, mm (never more than half the bag height). */
-export function getBottomFoldDepth(dimensions: Pick<Dimensions, 'height'>): number {
-  return Math.max(0, Math.min(GUSSETED_BAG_RULES.bottomFoldDepth, dimensions.height / 2));
+/**
+ * Gusseted-bag dimensions as the geometry takes them: W, H, F plus the configured bottom strip d (`bottomFold`, mm;
+ * absent = the default `GUSSETED_BAG_RULES.bottomFoldDepth`).
+ */
+export type GussetedDimensions = Dimensions & { bottomFold?: number };
+
+/** Bottom strip `d` of the fold-over bottom, mm (configured or default; never more than half the bag height). */
+export function getBottomFoldDepth(dimensions: Pick<GussetedDimensions, 'height' | 'bottomFold'>): number {
+  const d = dimensions.bottomFold ?? GUSSETED_BAG_RULES.bottomFoldDepth;
+  return Math.max(0, Math.min(d, dimensions.height / 2));
 }
 
 /** Recommended gusset F for a width W [K]: 0.4·W … 0.7·W, in mm (the hard maximum is F ≤ W). */
@@ -48,12 +55,12 @@ export function isGussetOutsideRecommended({ width, depth }: Pick<Dimensions, 'w
 }
 
 /** Cut length of the tube: H + b (single fold-over bottom). */
-export function getGussetedCutLength(dimensions: Pick<Dimensions, 'height'>): number {
+export function getGussetedCutLength(dimensions: Pick<GussetedDimensions, 'height' | 'bottomFold'>): number {
   return dimensions.height + getBottomFoldDepth(dimensions);
 }
 
 /** Height above the bottom fold over which the gussets open from flat to fully open: y_r = min(k·D, H/2, H − b). */
-export function getGussetOpeningRise(dimensions: Pick<Dimensions, 'height' | 'depth'>): number {
+export function getGussetOpeningRise(dimensions: Pick<GussetedDimensions, 'height' | 'depth' | 'bottomFold'>): number {
   const b = getBottomFoldDepth(dimensions);
   return Math.max(0, Math.min(GUSSETED_BAG_RULES.openingRiseFactor * dimensions.depth, dimensions.height / 2, dimensions.height - b));
 }

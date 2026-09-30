@@ -14,6 +14,7 @@ import { ARTWORK_RULES, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, type BagTypeDefiniti
 import { constrainDimensions } from '../constraints';
 import { createConfiguration, createHandle, createPanel, PANEL_POSITIONS } from '../factories';
 import { constrainGlueFlapWidth } from '../glueFlap';
+import { constrainBottomFold } from '../bottomFold';
 import { constrainPaperToVariant, getHandleVariantDefinition, getSupportedHandleTypes } from '../handleVariants';
 import { suggestPantonePreviewHex } from '../printColors';
 import { normalizeHex } from '../printCoverage/color';
@@ -281,6 +282,13 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
       : constrainGlueFlapWidth(Number(raw.glueFlapWidth), productType, defaults.glueFlapWidth);
   if (raw.glueFlapWidth !== undefined && glueFlapWidth !== raw.glueFlapWidth) noter('dimensions')('glueFlapWidth');
 
+  const bottomFoldDepth = constrainBottomFold(
+    raw.bottomFoldDepth === undefined ? Number.NaN : Number(raw.bottomFoldDepth),
+    productType,
+    defaults.bottomFoldDepth,
+  );
+  if (raw.bottomFoldDepth !== undefined && bottomFoldDepth !== raw.bottomFoldDepth) noter('dimensions')('bottomFoldDepth');
+
   const { wrapArtwork: _legacy, ...rest } = raw;
   const configuration = {
     ...rest,
@@ -295,6 +303,7 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     print,
     packaging,
     glueFlapWidth,
+    bottomFoldDepth,
   } as BagConfiguration;
   return { ok: true, configuration, adjustments };
 }

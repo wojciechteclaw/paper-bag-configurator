@@ -108,6 +108,8 @@
     "depth": "Tiefe",
     "glueFlap": "Klebelasche (s)",
     "glueFlapInfo": "Breite der Längsnahtlasche: {{min}}–{{max}} mm, in 1-mm-Schritten. Ändert die Zuschnittbreite und das Gewicht der Tüte.",
+    "bottomFold": "Bodenstreifen (d)",
+    "bottomFoldInfo": "Höhe des Bodenstreifens (Umschlag + Leim), nach hinten umgelegt: {{min}}–{{max}} mm, in 1-mm-Schritten. Ändert die Zuschnittlänge L = H + d und das Gewicht der Tüte.",
     "unit": "mm",
     "range": "{{min}}–{{max}} mm",
     "lock": {

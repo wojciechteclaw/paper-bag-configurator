@@ -73,7 +73,7 @@ export function getHandlePatchSize(handle: Handle, width: number): { width: numb
  * (`FOLDED`) has its own builder (`buildGussetedDieline`); anything else (or a missing type) is the block bottom.
  */
 export function buildDieline(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'productType'>>,
+  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth' | 'productType'>>,
   options: DielineOptions = {},
 ): Dieline {
   if (configuration.productType === 'FOLDED') return buildGussetedDieline(configuration, options);

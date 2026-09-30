@@ -61,6 +61,8 @@ export type BagTypeDefinition = {
   packaging: PackagingType[];
   /** Width s of the longitudinal glue flap (seam overlap), mm — configurable per bag (client [K], 30.09.2026). */
   glueFlap: { min: number; max: number; default: number };
+  /** Bottom strip d of a fold-over bottom (gusseted bag), mm — configurable (client [K], 30.09.2026); absent = none. */
+  bottomFold?: { min: number; max: number; default: number };
   /**
    * Whether artwork may be extended over the bottom allowance ("rozciągnij na dno", docs/SPEC.md §4f). The gusseted-bag
    * bag's fold-over strip stays unprinted in the MVP (docs/PRODUCTION.md §13), so its placements never extend.
@@ -190,6 +192,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     defaultDimensions: { width: 140, height: 370, depth: 90 },
     // Seam overlap s [K]: 10–20 mm, default 15 (on the BACK / LEFT tube edge like the block bottom, client 30.09.2026).
     glueFlap: { min: 10, max: 20, default: 15 },
+    bottomFold: { min: 15, max: 30, default: 25 },
     limits: {
       width: { min: 100, max: 300 },
       height: { min: 170, max: 670 },
