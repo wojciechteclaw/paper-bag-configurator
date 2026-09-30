@@ -2,9 +2,9 @@
   "id": "demo-4",
   "productType": "BLOCK",
   "dimensions": {
-    "width": 250,
+    "width": 180,
     "height": 400,
-    "depth": 200
+    "depth": 180
   },
   "paper": {
     "type": "RECYCLED",

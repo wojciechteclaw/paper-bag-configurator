@@ -14,7 +14,7 @@
       "1": "Demo 1 (public/demo1): Blockbodentasche XL 320 × 220 × 400 mm, weißes Kraftpapier 70 g/m² FSC, Kordelgriff, Motiv auf dem ganzen Bogen",
       "2": "Demo 2 (public/demo2): Seitenfaltenbeutel 150 + 60 × 250 mm, weißes Kraftpapier 40 g/m² FSC, Motiv auf dem ganzen Bogen",
       "3": "Demo 3 (public/demo3): Seitenfaltenbeutel 250 + 100 × 320 mm, braunes fettdichtes Papier 50 g/m² FSC, Panoramafenster (perforierte PP-Folie), Motiv rund um die Tüte",
-      "4": "Demo 4 (public/demo4): Blockbodentasche 250 × 200 × 400 mm, braunes Recyclingpapier 80 g/m² FSC, flacher Papiergriff, „Wave“-Motive auf den Wänden, bis auf den Boden"
+      "4": "Demo 4 (public/demo4): Blockbodentasche 180 × 180 × 400 mm, braunes Recyclingpapier 80 g/m² FSC, flacher Papiergriff, „Wave“-Motive auf den Wänden, bis auf den Boden"
     },
     "demoHintGeneric": "Beispiel aus {{folder}} laden (config.json + Bilder)"
   },
