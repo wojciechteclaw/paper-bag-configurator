@@ -16,6 +16,8 @@
 //   configuration   the BagConfiguration AS-IS (unknown / future fields included), except that every artwork's
 //                   `fileUrl` is the archive path of its file (object URLs are not portable)
 //   files           [{ artworkId, path, fileName, mimeType, width, height, sizeBytes }] — one per distinct artwork id
+//   view            optional (added within v1): { step, previewMode, timelineProgress, selectedArtwork } — where the
+//                   user was (`viewState.ts`); missing = the default view
 //
 // Reading also accepts the older plain JSON download of the configuration (`bag-configuration-<id>.json`) and a bare
 // manifest: their artwork cannot be restored (it was only a `blob:` URL of the tab that saved it) and is dropped with
@@ -26,6 +28,7 @@ import { ARTWORK_RULES, PROJECT_FILE_RULES } from '../config/productCatalog';
 import type { Artwork, BagConfiguration } from '../types';
 import { collectArtworks, mapArtworks } from './artworkRefs';
 import { sanitizeConfiguration, type ConfigurationAdjustment } from './sanitizeConfiguration';
+import type { ProjectViewState } from './viewState';
 
 export const PROJECT_FORMAT = 'paper-bag-configurator/project';
 /** Version of the file layout and manifest. Bump it (and add a migration) when either changes incompatibly. */
@@ -52,6 +55,8 @@ export type ProjectManifest = {
   exportedAt: string;
   configuration: BagConfiguration;
   files: ProjectFileEntry[];
+  /** Optional view state (`viewState.ts`); older files have none. */
+  view?: ProjectViewState;
 };
 
 export type ProjectFileErrorCode =
@@ -108,6 +113,8 @@ export type ParsedProject = {
   /** Values that were clamped / replaced / dropped to fit the current catalog. */
   adjustments: ConfigurationAdjustment[];
   warnings: ProjectWarning[];
+  /** The stored `view` section as found (unvalidated — read it through `sanitizeProjectView`); null when absent. */
+  view: Record<string, unknown> | null;
 };
 
 // ——— Helpers ———
@@ -164,10 +171,12 @@ export type SerializeProjectInput = {
   files: ReadonlyMap<string, Uint8Array>;
   exportedAt: Date;
   appVersion: string;
+  /** View state to store with the project (optional). */
+  view?: ProjectViewState;
 };
 
 /** The manifest of a project (configuration with archive paths instead of object URLs) and the archive entries. */
-export function buildProjectManifest({ configuration, files, exportedAt, appVersion }: SerializeProjectInput): {
+export function buildProjectManifest({ configuration, files, exportedAt, appVersion, view }: SerializeProjectInput): {
   manifest: ProjectManifest;
   entries: Map<string, Uint8Array>;
 } {
@@ -202,6 +211,7 @@ export function buildProjectManifest({ configuration, files, exportedAt, appVers
     exportedAt: exportedAt.toISOString(),
     configuration: mapArtworks(configuration, (artwork) => ({ ...artwork, fileUrl: pathById.get(artwork.id) ?? '' })),
     files: fileEntries,
+    ...(view ? { view: { ...view } } : {}),
   };
   return { manifest, entries };
 }
@@ -279,6 +289,7 @@ function parseJsonWithoutFiles(value: unknown): ParsedProject {
     generator: isManifest ? parseGenerator(value.generator) : null,
     adjustments,
     warnings,
+    view: isManifest && isRecord(value.view) ? value.view : null,
   };
 }
 
@@ -367,6 +378,7 @@ function parseArchive(bytes: Uint8Array): ParsedProject {
     generator: parseGenerator(manifest.generator),
     adjustments,
     warnings: [],
+    view: isRecord(manifest.view) ? manifest.view : null,
   };
 }
 

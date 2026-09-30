@@ -352,14 +352,17 @@ Exchange (np. eksport z Pantone Connect), a aplikacja używa jej do przybliżani
 
 „Chciałbym mieć opcję wczytania projektu i eksportu” — cały projekt (konfiguracja + pliki grafik) zapisywany do
 jednego pliku i wczytywany później, z dokładnym odtworzeniem konfiguratora. Wzorniki `.ase` (§4g) **nie** są częścią
-projektu (zostają w przeglądarce), podobnie stan widoku (krok, tryb podglądu, suwak, zaznaczenie).
+projektu (zostają w przeglądarce). **Stan widoku** (krok kreatora, tryb podglądu, suwak składania, zaznaczona
+grafika / warstwa) **jest** zapisywany w pliku (decyzja klienta [K] 30.09.2026) — osobno od konfiguracji produktu.
 
 - **Format `.bagproj`** (`src/domain/project/projectFile.ts`) = archiwum **ZIP**:
   - `project.json` — manifest: `format: "paper-bag-configurator/project"`, `formatVersion` (liczba całkowita,
     obecnie **1**), `generator: { name, version }` (wersja aplikacji z `package.json`), `exportedAt` (ISO 8601),
     `configuration` — **cały `BagConfiguration` bez zmian** (także pola nieznane tej wersji), z jednym wyjątkiem:
     `fileUrl` każdej grafiki to ścieżka jej pliku w archiwum (URL-e `blob:` nie są przenośne), oraz `files` —
-    `[{ artworkId, path, fileName, mimeType, width, height, sizeBytes }]`;
+    `[{ artworkId, path, fileName, mimeType, width, height, sizeBytes }]`, oraz opcjonalnie `view` —
+    `{ step, previewMode, timelineProgress, selectedArtwork }` (stan widoku; dodane w ramach v1, brak sekcji / pola
+    = widok domyślny, więc starsze pliki v1 wczytują się bez zmian);
   - `artwork/<n>.<png|jpg|webp>` — oryginalne pliki grafik (bez rekompresji, w ZIP „stored”), **każdy raz na id
     grafiki** (ta sama grafika na kilku ściankach / w warstwie = jeden plik). Zapisywane są grafiki obu układów
     (per ścianka i całej torby), jak w JSON.
@@ -391,9 +394,17 @@ projektu (zostają w przeglądarce), podobnie stan widoku (krok, tryb podglądu,
   z ostrzeżeniem.
 - **Stan** (`src/state/projectFile.ts`): `exportProject` czyta bajty grafik z bieżących URL-i (`fetch` obiektowego
   URL-a lub zasobu demo), raz na id; `readProjectFile` (bez skutków ubocznych) + `applyProject` = `loadProject`:
-  nowe URL-e obiektowe dla grafik, `replaceConfiguration` (zwalnia URL-e poprzedniego projektu), zaznaczenie grafiki
-  (także cel edycji na wykroju) czyszczone, odtwarzanie osi czasu zatrzymane (tryb podglądu i pozycja suwaka
-  zostają). „Niezapisane zmiany” = konfiguracja różna od ostatnio zapisanej / wczytanej (na starcie: od domyślnej).
+  nowe URL-e obiektowe dla grafik, `replaceConfiguration` (zwalnia URL-e poprzedniego projektu), odtworzenie stanu
+  widoku (`applyProjectView`), projekt oznaczony jako zapisany. „Niezapisane zmiany” = konfiguracja różna od ostatnio
+  zapisanej / wczytanej (na starcie: od domyślnej); zmiany samego widoku się nie liczą.
+- **Stan widoku** (`src/domain/project/viewState.ts`, `sanitizeProjectView`; listy kroków / trybów przekazuje warstwa
+  stanu): eksport zapisuje bieżący krok (`configuratorUiStore.step`), tryb podglądu (`previewStore.viewMode`, `null`
+  = własna pozycja suwaka 3D), pozycję osi czasu 0–1 (`progress`) i zaznaczoną grafikę (`selectedArtwork`: ścianka
+  lub `WRAP:<id warstwy>` — id warstw są zachowywane). Przy wczytaniu: nieznany krok / tryb → domyślny (krok 1,
+  „3D pełne”), oś czasu przycinana do 0–1, tryb 3D ustawia swój preset (jak przycisk trybu), `null` + pozycja trafiająca
+  dokładnie w preset wybiera ten preset (jak suwak), zaznaczenie zostaje tylko, jeśli wskazuje grafikę aktywnego układu
+  wczytanej konfiguracji (inaczej brak zaznaczenia). Odtwarzanie zawsze zatrzymane. **Nie** są zapisywane: kamera 3D
+  (orbita / zoom — stan wewnętrzny kontrolek renderera), powiększenie i warstwy widoczności wykroju 2D, język.
 - **UI:** w nagłówku obok „Demo” — „Zapisz projekt” i „Wczytaj projekt” (dostępne z każdego kroku; pliki
   `.bagproj`, `.zip`, `.json`). Przy niezapisanych zmianach wczytanie pyta o potwierdzenie w dialogu na stronie
   (`ConfirmDialog`, `role="alertdialog"`, fokus na „Anuluj”, Esc anuluje). Komunikat o wyniku pod przyciskami:
@@ -502,13 +513,14 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
   usuwane po przełączeniu?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.
   Przenośny zapis projektu z grafikami: plik `.bagproj` (§4h).
-- Plik projektu (§4h) — do potwierdzenia: (1) rozszerzenie `.bagproj` i nazwa pliku (prefiks wg języka interfejsu);
-  (2) czy zapisywać też grafiki nieaktywnego układu (obecnie tak — plik może być większy niż potrzeba); (3) czy
-  zapisywać stan widoku (krok, tryb podglądu, suwak) — obecnie nie; (4) czy plik ma zawierać też wzorniki `.ase`
-  (obecnie nie — licencja Pantone, §4g); (5) limit 256 MB na plik — wystarczy?; (6) „niezapisane zmiany” liczone od
-  ostatniego zapisu / wczytania — wczytanie Demo też jest zmianą (pyta o potwierdzenie); (7) projekt z typem torby
-  niedostępnym w danej wersji (np. fałdowa przed wdrożeniem) jest odrzucany — czy wczytywać go jako klockową?;
-  (8) wspólne przechowywanie projektów (serwer / konto) poza MVP.
+- Plik projektu (§4h) — rozstrzygnięte [K] (30.09.2026): ~~rozszerzenie `.bagproj` i nazwa pliku~~ — **tak, bez
+  zmian**; ~~czy zapisywać stan widoku~~ — **tak**: krok, tryb podglądu, suwak składania i zaznaczona grafika / warstwa
+  (opcjonalna sekcja `view`, brak = widok domyślny; bez orbity kamery); ~~wczytanie Demo jako niezapisana zmiana~~ —
+  **tak, zostaje**; ~~limit 256 MB na plik~~ — **wystarcza**.
+- Plik projektu (§4h) — nadal otwarte: (1) czy zapisywać też grafiki nieaktywnego układu (obecnie tak — plik może być
+  większy niż potrzeba); (2) czy plik ma zawierać też wzorniki `.ase` (obecnie nie — licencja Pantone, §4g);
+  (3) projekt z typem torby niedostępnym w danej wersji (np. fałdowa przed wdrożeniem) jest odrzucany — czy wczytywać
+  go jako klockową?; (4) wspólne przechowywanie projektów (serwer / konto) poza MVP.
 - Wzornik `.ase` (§4g): czy wzornik ma być współdzielony w firmie (serwer, licencja firmowa Pantone), czy zostaje
   lokalny w przeglądarce użytkownika (obecnie lokalny)? ~~Czy trzymać kilka wzorników naraz?~~ — rozstrzygnięte [K]
   (30.09.2026): **tak**, kilka wzorników naraz (np. Coated + Uncoated), §4g.

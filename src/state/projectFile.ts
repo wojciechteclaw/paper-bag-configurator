@@ -5,14 +5,22 @@ import {
   mapArtworks,
   parseProject,
   ProjectFileError,
+  sanitizeProjectView,
   serializeProject,
   type ParsedProject,
+  type ProjectViewState,
 } from '../domain/project';
 import { PROJECT_FILE_RULES } from '../domain/config/productCatalog';
 import type { Artwork, BagConfiguration } from '../domain/types';
 import { useConfigurationStore } from './configurationStore';
-import { useConfiguratorUiStore } from './configuratorUiStore';
-import { usePreviewStore } from './previewStore';
+import { CONFIGURATOR_STEPS, useConfiguratorUiStore } from './configuratorUiStore';
+import {
+  DEFAULT_PREVIEW_VIEW_MODE,
+  findTimelinePreset,
+  PREVIEW_VIEW_MODES,
+  TIMELINE_PRESETS,
+  usePreviewStore,
+} from './previewStore';
 
 // Saving / loading whole projects (docs/SPEC.md §4h). The file format lives in the domain (`src/domain/project`);
 // this module moves artwork between object URLs and file bytes and swaps the store's configuration.
@@ -56,8 +64,11 @@ export async function exportProject(options: {
   configuration?: BagConfiguration;
   readArtwork?: ArtworkReader;
   now?: Date;
+  /** View state stored with the project; default: the current one (`getCurrentProjectView`), null = none. */
+  view?: ProjectViewState | null;
 }): Promise<ExportedProject> {
   const configuration = options.configuration ?? useConfigurationStore.getState().configuration;
+  const view = options.view === undefined ? getCurrentProjectView() : (options.view ?? undefined);
   const readArtwork = options.readArtwork ?? fetchArtwork;
   const exportedAt = options.now ?? new Date();
   const files = new Map<string, Uint8Array>();
@@ -68,7 +79,7 @@ export async function exportProject(options: {
       throw new ProjectFileError('MISSING_FILE', artwork.fileName);
     }
   }
-  const bytes = serializeProject({ configuration, files, exportedAt, appVersion: __APP_VERSION__ });
+  const bytes = serializeProject({ configuration, files, exportedAt, appVersion: __APP_VERSION__, view });
   useProjectStore.getState().markSaved(configuration);
   return {
     blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type: PROJECT_FILE_RULES.mimeType }),
@@ -89,10 +100,40 @@ export async function readProjectFile(file: Blob): Promise<ParsedProject> {
   return parseProject(bytes);
 }
 
+/** The view state saved with a project: wizard step, preview mode, fold-slider position, selected artwork. */
+export function getCurrentProjectView(): ProjectViewState {
+  const { step, selectedArtwork } = useConfiguratorUiStore.getState();
+  const { viewMode, progress } = usePreviewStore.getState();
+  return { step, previewMode: viewMode, timelineProgress: progress, selectedArtwork };
+}
+
+/**
+ * Restores the view state of a loaded project (sanitised against the loaded configuration; a missing section or
+ * field → the default view). Playback always stops. A 3D preset mode moves the timeline to its preset; a custom
+ * slider position (null mode) selects the preset it lands on exactly, like the slider does.
+ */
+export function applyProjectView(raw: unknown, configuration: BagConfiguration) {
+  const view = sanitizeProjectView(raw, {
+    steps: CONFIGURATOR_STEPS,
+    previewModes: PREVIEW_VIEW_MODES,
+    defaultPreviewMode: DEFAULT_PREVIEW_VIEW_MODE,
+    defaultTimelineProgress: TIMELINE_PRESETS[DEFAULT_PREVIEW_VIEW_MODE],
+    configuration,
+  });
+  const mode = view.previewMode;
+  const progress = mode === null || mode === 'DIELINE' ? view.timelineProgress : TIMELINE_PRESETS[mode];
+  usePreviewStore.setState({
+    viewMode: mode === null ? findTimelinePreset(progress) : mode,
+    progress,
+    playing: false,
+  });
+  useConfiguratorUiStore.setState({ step: view.step, selectedArtwork: view.selectedArtwork });
+}
+
 /**
  * Makes a parsed project the current one: object URLs for its images, the configuration replaced (URLs of the
- * previous artwork revoked), the artwork selection cleared (it pointed at the old project), playback stopped (the
- * preview mode and timeline position stay), and the project marked as saved.
+ * previous artwork revoked), the saved view state restored (`applyProjectView`: step, preview mode, fold slider,
+ * selected artwork — defaults when the file has none), and the project marked as saved.
  */
 export function applyProject(project: ParsedProject): BagConfiguration {
   const urls = new Map<string, string>();
@@ -104,8 +145,7 @@ export function applyProject(project: ParsedProject): BagConfiguration {
     return url ? { ...artwork, fileUrl: url } : null;
   });
   useConfigurationStore.getState().replaceConfiguration(configuration);
-  useConfiguratorUiStore.getState().selectArtwork(null);
-  if (usePreviewStore.getState().playing) usePreviewStore.getState().togglePlaying();
+  applyProjectView(project.view, configuration);
   useProjectStore.getState().markSaved(configuration);
   return configuration;
 }
