@@ -51,9 +51,11 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(c.dimensions).toEqual({ width: 250, height: 420, depth: 180 });
     expect(c.paper).toMatchObject({ type: 'RECYCLED', color: 'BROWN', grammage: 80, fscCertified: true });
     expect(c.handle?.type).toBe('FLAT_PAPER');
-    (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position, i) => {
+    // The wide files (2500 px) on the 250 mm walls, the narrow ones (1800 px) on the 180 mm sides (client, 30.09.2026).
+    const files = { FRONT: 'image-4', BACK: 'image-2', LEFT: 'image-3', RIGHT: 'image-1' } as const;
+    (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position) => {
       // Pixel size and bytes come from the loaded image (mocked here), not from config.json.
-      expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo4/image-${i + 1}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
+      expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo4/${files[position]}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
       expect(c.panels[position].placement).toEqual({ mode: 'FILL', extendToBottom: true });
     });
   });

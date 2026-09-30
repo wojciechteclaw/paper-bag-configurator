@@ -30,12 +30,12 @@
       "id": "f15209dc-1cfe-40ad-9546-e77527a30701",
       "position": "FRONT",
       "artwork": {
-        "id": "6206c064-7b15-44d8-9af0-4f73c7ba473b",
-        "fileName": "image-1.webp",
-        "fileUrl": "image-1.webp",
-        "width": 1800,
+        "id": "6a394cf9-9095-46ec-baaa-957cb02a8f87",
+        "fileName": "image-4.webp",
+        "fileUrl": "image-4.webp",
+        "width": 2500,
         "height": 5250,
-        "sizeBytes": 10998,
+        "sizeBytes": 22768,
         "mimeType": "image/webp"
       },
       "placement": {
@@ -52,7 +52,7 @@
         "fileUrl": "image-2.webp",
         "width": 2500,
         "height": 5250,
-        "sizeBytes": 16708,
+        "sizeBytes": 18858,
         "mimeType": "image/webp"
       },
       "placement": {
@@ -69,7 +69,7 @@
         "fileUrl": "image-3.webp",
         "width": 1800,
         "height": 5250,
-        "sizeBytes": 11562,
+        "sizeBytes": 27452,
         "mimeType": "image/webp"
       },
       "placement": {
@@ -81,12 +81,12 @@
       "id": "2f81a935-ac65-4cf7-9c89-5329e322f224",
       "position": "RIGHT",
       "artwork": {
-        "id": "5c4cdcdc-410e-4401-b46c-1e9bda523371",
-        "fileName": "image-4.webp",
-        "fileUrl": "image-4.webp",
-        "width": 2500,
+        "id": "8edcaeee-edea-4f3a-99b9-a47aa182bff4",
+        "fileName": "image-1.webp",
+        "fileUrl": "image-1.webp",
+        "width": 1800,
         "height": 5250,
-        "sizeBytes": 19762,
+        "sizeBytes": 27998,
         "mimeType": "image/webp"
       },
       "placement": {
