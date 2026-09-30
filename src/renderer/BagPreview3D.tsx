@@ -12,7 +12,7 @@ import { getConfiguredBottomFold } from '../domain/bottomFold';
 import { getWindow } from '../domain/window';
 import { GussetedBagModel } from './GussetedBagModel';
 import { getGussetedSheetViewExtent } from './gussetedBagGeometry';
-import { GUSSETED_PHASES, toGussetedTimeline } from '../domain/geometry/gussetedAssembly';
+import { GUSSETED_PHASES } from '../domain/geometry/gussetedAssembly';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
@@ -128,7 +128,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
   // While the sheet is spread (block bottom: the whole assembly; gusseted: until BACK has wrapped), fit the (flat,
   // much wider) sheet; otherwise the bag.
   const assembling = gusseted
-    ? toGussetedTimeline(assemblyProgress, foldProgress) < GUSSETED_PHASES.WRAP[1]
+    ? assemblyProgress < GUSSETED_PHASES.WRAP[1]
     : assemblyProgress < 1;
   const bagHeight = h + loopHeight;
   const radius = assembling

@@ -9,7 +9,7 @@ import {
 import {
   getGussetedPhase,
   GUSSETED_PHASES,
-  GUSSETED_PRODUCTION_SHARE,
+  GUSSETED_TIMELINE_SHARE,
   splitGussetedTimeline,
   type GussetedPhaseId,
 } from '../domain/geometry/gussetedAssembly';
@@ -21,9 +21,9 @@ import { useConfigurationStore } from './configurationStore';
 // One continuous 3D timeline 0..1 on the fold slider, mapped PER BAG TYPE (explicit table `TIMELINE_DEFINITIONS`):
 // - BLOCK (client decision 29.09.2026): flat sheet (0) → tube → side triangles in → front flap → back flap on top →
 //   formed open bag (BOX, ASSEMBLY_TIMELINE_SHARE = 0.4) → standing → folded flat (1).
-// - FOLDED (client [K] 30.09.2026, production then use): flat sheet (0) → gussets tucked → BACK wrapped, seam closed →
-//   bottom strip folded to the back → finished flat bag (FLAT, 0.6) → opening → partly open (STANDING, 0.75) → fully
-//   open bag (BOX, 1).
+// - FOLDED (client [K] 30.09.2026): flat sheet (0) → gussets tucked → BACK wrapped, seam closed (15 %) → bottom strip
+//   folded to the back (30 %) → opening (45 %) → open bag (BOX, GUSSETED_TIMELINE_SHARE = 0.6, the gusseted model's
+//   open state) → its fold: STANDING 0.75 (client [K]) → folded flat (FLAT, 1).
 // The 3D mode buttons are presets on that timeline; the 2D dieline is a separate view. The store reads the current
 // bag type from the configuration store (it never copies it) and keeps a selected preset when the type changes.
 
@@ -51,14 +51,14 @@ export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
 };
 
 /**
- * Gusseted bag (client [K] 30.09.2026): SHEET = 0, FLAT = the finished flat bag at the end of production (0.6),
- * STANDING = partly opened (0.75, client [K]), BOX = the fully open bag at the end of the timeline (1).
+ * Gusseted bag (client [K] 30.09.2026): SHEET = 0, BOX = the formed open bag (0.6), STANDING = 0.75 (client [K]), FLAT
+ * = folded flat (1).
  */
 export const GUSSETED_TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
   SHEET: 0,
-  FLAT: GUSSETED_PRODUCTION_SHARE,
+  BOX: GUSSETED_TIMELINE_SHARE,
   STANDING: 0.75,
-  BOX: 1,
+  FLAT: 1,
 };
 
 const PRESET_TOLERANCE = 1e-9;
@@ -78,16 +78,19 @@ export const TIMELINE_STOPS: readonly number[] = stopsOf(
   TIMELINE_PRESETS,
 );
 
-/** Gusseted chapter stops: phase starts (sheet 0, BACK wrap 20 %, bottom 40 %, opening 60 %) and presets (75 %, 100 %). */
+/**
+ * Gusseted chapter stops: forming phase starts (sheet 0, BACK wrap 15 %, bottom 30 %, opening 45 %) and presets (open
+ * bag 60 %, 75 %, flat 100 %).
+ */
 export const GUSSETED_TIMELINE_STOPS: readonly number[] = stopsOf(
-  Object.values(GUSSETED_PHASES).map(([start]) => start),
+  Object.values(GUSSETED_PHASES).map(([start]) => start * GUSSETED_TIMELINE_SHARE),
   GUSSETED_TIMELINE_PRESETS,
 );
 
 /**
  * Stage shown next to the slider. Block bottom: the flat sheet, an assembly phase (A, B, C1, C2), the formed open bag
- * (exactly the BOX preset) or the fold towards flat. Gusseted bag: the flat sheet, a production phase (gussets, wrap +
- * seam, bottom), the finished flat bag (exactly FLAT), the opening, the open bag (exactly BOX).
+ * (exactly the BOX preset) or the fold towards flat. Gusseted bag: the flat sheet, a forming phase (gussets, wrap +
+ * seam, bottom, opening), then FORMED / FOLD like the block bottom.
  */
 export type TimelinePhase =
   | 'SHEET'
@@ -97,14 +100,12 @@ export type TimelinePhase =
   | 'GUSSET_TUCK'
   | 'GUSSET_WRAP'
   | 'GUSSET_BOTTOM'
-  | 'FLAT_BAG'
-  | 'GUSSET_OPEN'
-  | 'OPENED';
+  | 'GUSSET_OPEN';
 
 export type TimelineState = {
-  /** Block: sheet → formed bag (`assemblyKinematics.ts`); gusseted: sheet → finished flat bag. 0..1 */
+  /** Sheet → formed open bag, 0..1 (block: `assemblyKinematics.ts`, gusseted: `gussetedAssembly.ts`). */
   assemblyProgress: number;
-  /** Block: formed open bag → folded flat (`foldKinematics.ts`); gusseted: 1 = flat … 0 = fully open. */
+  /** Formed open bag → folded flat, 0..1 (block: `foldKinematics.ts`, gusseted: `gussetedBag.ts`). */
   foldProgress: number;
   phase: TimelinePhase;
 };
@@ -132,16 +133,15 @@ const GUSSETED_PHASE_LABEL: Readonly<Record<GussetedPhaseId, TimelinePhase>> = {
 
 /** Derived view of a gusseted timeline value (pure; `gussetedAssembly.ts`). */
 export function getGussetedTimelineState(progress: number): TimelineState {
-  const t = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
-  const { assemblyProgress, foldProgress } = splitGussetedTimeline(t);
+  const { assemblyProgress, foldProgress } = splitGussetedTimeline(progress);
   const phase: TimelinePhase =
-    t <= 0
+    assemblyProgress <= 0
       ? 'SHEET'
-      : Math.abs(t - GUSSETED_PRODUCTION_SHARE) < PRESET_TOLERANCE
-        ? 'FLAT_BAG'
-        : t >= 1
-          ? 'OPENED'
-          : GUSSETED_PHASE_LABEL[getGussetedPhase(t)];
+      : assemblyProgress < 1
+        ? GUSSETED_PHASE_LABEL[getGussetedPhase(assemblyProgress)]
+        : foldProgress <= 0
+          ? 'FORMED'
+          : 'FOLD';
   return { assemblyProgress, foldProgress, phase };
 }
 

@@ -396,9 +396,7 @@
       "GUSSET_TUCK": "A: fałdy wsuwane nożami (po F/2)",
       "GUSSET_WRAP": "B: tył zawinięty, szew zamknięty (zakładka z klejem)",
       "GUSSET_BOTTOM": "C: pasek dna d zagięty na tył (klej)",
-      "FLAT_BAG": "Torba gotowa (płaska, z maszyny)",
-      "GUSSET_OPEN": "D: otwieranie torby",
-      "OPENED": "Torba otwarta"
+      "GUSSET_OPEN": "D: otwarcie torby"
     },
     "modesLabel": "Tryb podglądu",
     "modes": {

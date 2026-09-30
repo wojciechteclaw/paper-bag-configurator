@@ -394,9 +394,7 @@
       "GUSSET_TUCK": "A: Seitenfalten eingelegt (je F/2)",
       "GUSSET_WRAP": "B: Rückseite umgelegt, Längsnaht geschlossen (Leimlasche)",
       "GUSSET_BOTTOM": "C: Bodenstreifen d nach hinten gefaltet (Leim)",
-      "FLAT_BAG": "Fertiger Beutel (flach, von der Maschine)",
-      "GUSSET_OPEN": "D: Beutel öffnen",
-      "OPENED": "Geöffneter Beutel"
+      "GUSSET_OPEN": "D: Beutel öffnen"
     },
     "modesLabel": "Vorschaumodus",
     "modes": {

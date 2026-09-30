@@ -227,6 +227,11 @@ export const GUSSETED_BAG_RULES = {
   // `BAG_TYPES.FOLDED.glueFlap`, read through `getGlueFlapWidth(configuration)`.
   /** Recommended gusset F as a share of W [K]: 0.4–0.7 (outside → warning; hard maximum F ≤ W). */
   recommendedGussetRatio: { min: 0.4, max: 0.7 },
+  /**
+   * Height above the bottom strip over which the gussets go from glued flat to fully open, as a multiple of F, capped
+   * at H / 2 [Z] (research §6.4: y_r ≈ min(F, H/2)); preview only.
+   */
+  openingRiseFactor: 1,
 } as const;
 
 /**
