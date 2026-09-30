@@ -11,6 +11,8 @@ import { getGlueFlapWidth } from '../domain/glueFlap';
 import { getConfiguredBottomFold } from '../domain/bottomFold';
 import { getWindow } from '../domain/window';
 import { GussetedBagModel } from './GussetedBagModel';
+import { getGussetedSheetViewExtent } from './gussetedBagGeometry';
+import { GUSSETED_PHASES, toGussetedTimeline } from '../domain/geometry/gussetedAssembly';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
@@ -112,12 +114,22 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
     [handle, dimensions],
   );
   const glueFlapWidth = getGlueFlapWidth(configuration);
-  const sheet = useMemo(() => getSheetViewExtent(dimensions, glueFlapWidth), [dimensions, glueFlapWidth]);
-  const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
-  // The gusseted-bag bag (FOLDED) has its own model and no assembly from the sheet (docs/SPEC.md §4i).
+  // The gusseted bag (FOLDED) has its own model and timeline: forming from the sheet, then opening (docs/SPEC.md §4i).
   const gusseted = configuration.productType === 'FOLDED';
-  // While the bag is assembled from the sheet, fit the (flat, much wider) sheet; otherwise the bag.
-  const assembling = !gusseted && assemblyProgress < 1;
+  const bottomFold = getConfiguredBottomFold(configuration);
+  const sheet = useMemo(
+    () =>
+      gusseted
+        ? getGussetedSheetViewExtent({ ...dimensions, bottomFold }, glueFlapWidth)
+        : getSheetViewExtent(dimensions, glueFlapWidth),
+    [gusseted, dimensions, bottomFold, glueFlapWidth],
+  );
+  const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
+  // While the sheet is spread (block bottom: the whole assembly; gusseted: until BACK has wrapped), fit the (flat,
+  // much wider) sheet; otherwise the bag.
+  const assembling = gusseted
+    ? toGussetedTimeline(assemblyProgress, foldProgress) < GUSSETED_PHASES.WRAP[1]
+    : assemblyProgress < 1;
   const bagHeight = h + loopHeight;
   const radius = assembling
     ? Math.max(sheet.radius * MM_TO_SCENE, 0.5 * Math.hypot(w, bagHeight, d))
@@ -133,10 +145,12 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
       {gusseted ? (
         <GussetedBagModel
           dimensions={dimensions}
-          bottomFoldDepth={getConfiguredBottomFold(configuration)}
+          bottomFoldDepth={bottomFold}
+          glueFlapWidth={glueFlapWidth}
           paperColor={paper.color}
           artworks={artworks}
           foldProgress={foldProgress}
+          assemblyProgress={assemblyProgress}
           window={getWindow(configuration)}
         />
       ) : (

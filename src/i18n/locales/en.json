@@ -390,7 +390,13 @@
       "FRONT_TRAPEZOID": "C1: front trapezoid onto the bottom",
       "BACK_TRAPEZOID": "C2: back trapezoid on top (glued)",
       "FORMED": "Formed bag",
-      "FOLD": "Folding flat"
+      "FOLD": "Folding flat",
+      "GUSSET_TUCK": "A: gussets tucked in by the knives (F/2 each)",
+      "GUSSET_WRAP": "B: back wrapped over, seam closed (glued flap)",
+      "GUSSET_BOTTOM": "C: bottom strip d folded to the back (glued)",
+      "FLAT_BAG": "Finished bag (flat, off the machine)",
+      "GUSSET_OPEN": "D: opening the bag",
+      "OPENED": "Open bag"
     },
     "modesLabel": "Preview mode",
     "modes": {
