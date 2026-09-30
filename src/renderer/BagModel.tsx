@@ -92,8 +92,10 @@ const placeholderPoints = (segments: number) =>
 const clamp01 = (value: number, fallback: number) => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : fallback);
 
 const PAPER_MATERIAL = { roughness: 0.85, metalness: 0, envMapIntensity: 0.4 } as const;
-// Push faces back in depth so edge/crease lines drawn on them never z-fight.
-const POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } as const;
+// Push faces back in depth so edge/crease lines drawn on them never z-fight. Constant bias only (~0.01 mm at the
+// default camera distance): a slope-scaled factor pushed oblique faces back by ~1 mm, more than the 0.05–0.2 mm
+// paper-layer gaps, so lines and patches of hidden layers showed through the layer covering them.
+const POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 4 } as const;
 const artworkProgramKey = () => ARTWORK_PROGRAM_KEY;
 
 type SurfaceViewProps = {

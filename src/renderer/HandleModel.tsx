@@ -131,7 +131,9 @@ export function HandleModel({ handle, dimensions, paperColor, wallGroups }: Hand
           <mesh geometry={built.shadowGeometry} frustumCulled={false} renderOrder={1} userData={{ patchShadow: wall }}>
             <meshBasicMaterial color="#000000" transparent opacity={PATCH_SHADOW.opacity} depthWrite={false} side={DoubleSide} {...HANDLE_POLYGON_OFFSET} />
           </mesh>
-          <Line points={built.outline} color={palette.edge} lineWidth={1} frustumCulled={false} />
+          {/* Same depth bias as the wall and patch: otherwise the outline, only ~0.1 mm behind FRONT / BACK when the
+              handle stack is squashed flat, wins against the pushed-back wall and shows through it. */}
+          <Line points={built.outline} color={palette.edge} lineWidth={1} frustumCulled={false} {...HANDLE_POLYGON_OFFSET} />
         </group>
       ))}
     </group>

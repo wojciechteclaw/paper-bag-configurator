@@ -35,7 +35,7 @@ export const PATCH_CLEARANCE_MM = 1;
  * Same polygon offset as the bag panels (BagModel POLYGON_OFFSET): the panels are pushed back in depth to keep their
  * lines visible, so without the same offset the handle / patch just behind a wall could show through it.
  */
-export const HANDLE_POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 } as const;
+export const HANDLE_POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 4 } as const;
 /** Thickness of the multi-folded flat strip, mm. */
 export const FLAT_STRIP_THICKNESS_MM = 0.8;
 /** Length of one helical stripe tile along the rope, in rope diameters. */
