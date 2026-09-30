@@ -4,7 +4,9 @@ import { ARTWORK_PALETTE_RULES, COLOR_ANALYSIS_LIMITS } from '../../domain/confi
 import { createNumberFormatter } from '../../i18n/numberFormat';
 import { normalizeColorAnalysis, type ArtworkPaletteResult, type InkCoverageResult } from '../../domain/printCoverage';
 import { useConfigurationStore } from '../../state/configurationStore';
+import { useSwatchLibraryStore } from '../../state/swatchLibraryStore';
 import { useInkCoverage } from '../coverage/useInkCoverage';
+import { SwatchSuggestions } from '../swatches/SwatchSuggestions';
 
 const MM2_PER_CM2 = 100;
 
@@ -91,6 +93,9 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
   const cm2 = (area: number) => createNumberFormatter(locale, { maximumFractionDigits: 1 })(area / MM2_PER_CM2);
   const deltaE = (value: number) => createNumberFormatter(locale, { maximumFractionDigits: 1 })(value);
   const share = (ratio: number) => createNumberFormatter(locale, { style: 'percent', maximumFractionDigits: 2 })(ratio);
+  // Imported swatch library (docs/SPEC.md §4g): an extra column with the nearest library swatches.
+  const hasLibrary = useSwatchLibraryStore((s) => s.library !== null);
+  const libraryColumns = hasLibrary ? 1 : 0;
 
   return (
     <details className="coverage__palette">
@@ -107,6 +112,7 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
               <th scope="col">{t('coverage.palette.swatch')}</th>
               <th scope="col">{t('coverage.palette.hex')}</th>
               <th scope="col">{t('coverage.palette.pantone')}</th>
+              {hasLibrary && <th scope="col">{t('swatches.nearest')}</th>}
               <th scope="col" className="num">
                 {t('coverage.palette.area', { unit: 'cm²' })}
               </th>
@@ -123,6 +129,11 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
                 </td>
                 <td className="mono">{color.hex}</td>
                 <td>{color.pantone ? `${color.pantone.code} (ΔE ${deltaE(color.pantone.deltaE)})` : '—'}</td>
+                {hasLibrary && (
+                  <td>
+                    <SwatchSuggestions lab={color.lab} />
+                  </td>
+                )}
                 <td className="num">{cm2(color.area)}</td>
                 <td className="num">{percent(color.sheetRatio)}</td>
               </tr>
@@ -132,7 +143,7 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
                 <td>
                   <span className="swatch swatch--unassigned" aria-hidden="true" />
                 </td>
-                <td colSpan={2}>{t('coverage.palette.other', { count: palette.other.colorCount })}</td>
+                <td colSpan={2 + libraryColumns}>{t('coverage.palette.other', { count: palette.other.colorCount })}</td>
                 <td className="num">{cm2(palette.other.area)}</td>
                 <td className="num">{percent(palette.other.sheetRatio)}</td>
               </tr>
@@ -140,7 +151,7 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
           </tbody>
           <tfoot>
             <tr>
-              <th scope="row" colSpan={3}>
+              <th scope="row" colSpan={3 + libraryColumns}>
                 {t('coverage.total')}
               </th>
               <td className="num">{cm2(palette.inkArea)}</td>

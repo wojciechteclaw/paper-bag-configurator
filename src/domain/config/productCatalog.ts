@@ -244,6 +244,24 @@ export const PANTONE_FALLBACK_PREVIEW_COLORS: readonly string[] = [
   '#8a8d8f',
 ];
 
+/**
+ * User-imported colour swatch library (Adobe Swatch Exchange, `.ase`, e.g. exported from Pantone Connect) — a local
+ * tool of the user, never bundled nor part of the configuration (docs/SPEC.md §4g). Pantone values are proprietary:
+ * the app ships no library data.
+ */
+export const SWATCH_LIBRARY_RULES = {
+  /** Accepted file extension / MIME hints of the file picker. */
+  accept: '.ase,application/octet-stream',
+  /** Files above this size are rejected before reading (a full Pantone guide is a few hundred kB). */
+  maxFileSizeBytes: 5 * 1024 * 1024,
+  /** Colour entries kept at most; the rest is skipped (counted). */
+  maxEntries: 20_000,
+  /** Serialized library larger than this (UTF-16 chars) is kept for the session only, not in localStorage. */
+  maxStoredChars: 2_000_000,
+  /** Nearest library swatches listed per detected artwork colour. */
+  suggestionsPerColor: 2,
+} as const;
+
 /** Ink-coverage estimate (docs/SPEC.md §4d). Distances are CIE76 ΔE*ab. */
 export const PRINT_COVERAGE_RULES = {
   /** Pixels with alpha below this (0–255) carry no ink; above it ink is weighted by alpha. */

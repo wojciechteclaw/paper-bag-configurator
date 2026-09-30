@@ -1,8 +1,11 @@
 import { useId, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BAG_TYPES, PANTONE_CODE_MAX_LENGTH } from '../../domain/config/productCatalog';
+import { findSwatchByCode } from '../../domain/swatches';
 import type { PantoneError } from '../../domain/validation/production';
 import { useConfigurationStore } from '../../state/configurationStore';
+import { useSwatchLibraryStore } from '../../state/swatchLibraryStore';
+import { SwatchLibraryImport } from '../swatches/SwatchLibraryImport';
 
 export function ProductionOptions() {
   return (
@@ -23,13 +26,17 @@ function PrintOptions() {
   const removePantoneColor = useConfigurationStore((s) => s.removePantoneColor);
   const [code, setCode] = useState('');
   const [error, setError] = useState<PantoneError | null>(null);
+  // Imported swatch library (docs/SPEC.md §4g): its colour wins over the built-in preview suggestions.
+  const library = useSwatchLibraryStore((s) => s.library);
+  const codeIndex = useSwatchLibraryStore((s) => s.codeIndex);
+  const typedSwatch = findSwatchByCode(codeIndex, code);
 
   const { maxColors } = BAG_TYPES[productType].print;
   const full = print.pantoneColors.length >= maxColors;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const result = addPantoneColor(code);
+    const result = addPantoneColor(code, findSwatchByCode(codeIndex, code)?.hex);
     setError(result);
     if (!result) setCode('');
   };
@@ -52,26 +59,45 @@ function PrintOptions() {
       ) : (
         <>
           <ul className="pantone-list" aria-labelledby={`${id}-colors`}>
-            {print.pantoneColors.map((color, index) => (
-              <li key={color.code}>
-                <input
-                  type="color"
-                  className="pantone-list__picker"
-                  value={color.hex}
-                  aria-label={t('print.previewColor', { code: color.code })}
-                  title={t('print.previewColor', { code: color.code })}
-                  onChange={(e) => setPantoneColorHex(index, e.target.value)}
-                />
-                <span>{color.code}</span>
-                <button
-                  type="button"
-                  onClick={() => removePantoneColor(index)}
-                  aria-label={t('print.removeColor', { code: color.code })}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
+            {print.pantoneColors.map((color, index) => {
+              const swatch = findSwatchByCode(codeIndex, color.code);
+              return (
+                <li key={color.code}>
+                  <input
+                    type="color"
+                    className="pantone-list__picker"
+                    value={color.hex}
+                    aria-label={t('print.previewColor', { code: color.code })}
+                    title={t('print.previewColor', { code: color.code })}
+                    onChange={(e) => setPantoneColorHex(index, e.target.value)}
+                  />
+                  <span>{color.code}</span>
+                  {swatch && library && swatch.hex === color.hex && (
+                    <small className="badge" title={t('swatches.fromLibraryTitle', { name: library.name })}>
+                      {t('swatches.fromLibrary')}
+                    </small>
+                  )}
+                  {swatch && swatch.hex !== color.hex && (
+                    <button
+                      type="button"
+                      className="pantone-list__library"
+                      onClick={() => setPantoneColorHex(index, swatch.hex)}
+                      aria-label={t('swatches.useLibraryColorFor', { code: color.code })}
+                      title={t('swatches.useLibraryColorFor', { code: color.code })}
+                    >
+                      {t('swatches.useLibraryColor')}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removePantoneColor(index)}
+                    aria-label={t('print.removeColor', { code: color.code })}
+                  >
+                    ×
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           <p className="note">{t('print.previewNote')}</p>
         </>
@@ -101,7 +127,15 @@ function PrintOptions() {
             {t(`print.errors.${error ?? 'LIMIT_REACHED'}`, { max: error === 'TOO_LONG' ? PANTONE_CODE_MAX_LENGTH : maxColors })}
           </small>
         )}
+        {typedSwatch && !error && !full && (
+          <small className="note pantone-form__library">
+            <span className="swatch" style={{ background: typedSwatch.hex }} aria-hidden="true" />{' '}
+            {t('swatches.inLibrary', { name: typedSwatch.name })}
+          </small>
+        )}
       </form>
+
+      <SwatchLibraryImport />
     </fieldset>
   );
 }

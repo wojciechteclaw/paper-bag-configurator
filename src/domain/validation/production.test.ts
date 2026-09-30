@@ -27,6 +27,12 @@ describe('validatePantoneColorToAdd', () => {
     expect(validatePantoneColorToAdd([pms('PMS 186 C')], ' pms  186 c', 8)).toBe('DUPLICATE');
   });
 
+  it('treats codes with and without the PMS / PANTONE prefix as the same colour', () => {
+    expect(validatePantoneColorToAdd([pms('PMS 186 C')], 'PANTONE 186 C', 8)).toBe('DUPLICATE');
+    expect(validatePantoneColorToAdd([pms('186 C')], 'pms 186 c', 8)).toBe('DUPLICATE');
+    expect(validatePantoneColorToAdd([pms('PMS 186 C')], 'PANTONE 186 U', 8)).toBeNull();
+  });
+
   it('rejects more than the maximum number of colours', () => {
     const eight = Array.from({ length: 8 }, (_, i) => pms(`PMS ${100 + i} C`));
     expect(validatePantoneColorToAdd(eight.slice(0, 7), 'PMS 999 C', 8)).toBeNull();
