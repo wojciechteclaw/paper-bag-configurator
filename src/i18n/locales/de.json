@@ -7,6 +7,7 @@
     "configuration": "Konfiguration",
     "preview": "3D-Vorschau",
     "demo": "Demo",
+    "demoNumbered": "Demo {{index}}",
     "demoBusy": "Wird geladen…",
     "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
     "demoError": "Die Demo-Grafiken konnten nicht geladen werden.",

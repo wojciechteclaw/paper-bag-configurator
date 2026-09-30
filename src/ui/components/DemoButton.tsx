@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keyForType } from '../../i18n/keyForType';
-import { useConfigurationStore } from '../../state/configurationStore';
+import type { BagType } from '../../domain/types';
 import { loadDemoConfiguration } from '../demo/demoConfiguration';
 
+type DemoButtonProps = {
+  /** Bag type whose demo (`DEMO_CONFIGURATIONS`) the button loads — whatever type is currently selected. */
+  productType: BagType;
+  /** Number shown on the button: "Demo 1", "Demo 2" (client, 30.09.2026). */
+  index: number;
+};
+
 /**
- * Loads the demo configuration of the currently selected bag type (`DEMO_CONFIGURATIONS`). Missing demo images are
- * skipped; the button's hint then names them (all missing: error).
+ * Loads the demo configuration of one bag type. Missing demo images are skipped; the button's hint then names them
+ * (all missing: error).
  */
-export function DemoButton() {
+export function DemoButton({ productType, index }: DemoButtonProps) {
   const { t } = useTranslation();
-  const productType = useConfigurationStore((s) => s.configuration.productType);
   const [state, setState] = useState<{ status: 'idle' | 'busy' | 'error' | 'partial'; missing?: string[] }>({
     status: 'idle',
   });
@@ -35,7 +41,7 @@ export function DemoButton() {
 
   return (
     <button type="button" className="demo-button" onClick={load} disabled={state.status === 'busy'} title={title}>
-      {state.status === 'busy' ? t('app.demoBusy') : t('app.demo')}
+      {state.status === 'busy' ? t('app.demoBusy') : t('app.demoNumbered', { index })}
     </button>
   );
 }

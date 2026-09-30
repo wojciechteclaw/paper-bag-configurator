@@ -14,7 +14,8 @@ export default function App() {
         <h1>{t('app.title')}</h1>
         <div className="app-header__actions">
           <ProjectFileActions />
-          <DemoButton />
+          <DemoButton productType="BLOCK" index={1} />
+          <DemoButton productType="FOLDED" index={2} />
           <LanguageSwitcher />
         </div>
       </header>

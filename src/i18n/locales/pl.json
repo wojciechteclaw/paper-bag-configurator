@@ -7,6 +7,7 @@
     "configuration": "Konfiguracja",
     "preview": "Podgląd 3D",
     "demo": "Demo",
+    "demoNumbered": "Demo {{index}}",
     "demoBusy": "Wczytywanie…",
     "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt skręcany (sznurek), grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
     "demoError": "Nie udało się wczytać grafik demo.",

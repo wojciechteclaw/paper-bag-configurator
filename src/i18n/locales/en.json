@@ -7,6 +7,7 @@
     "configuration": "Configuration",
     "preview": "3D preview",
     "demo": "Demo",
+    "demoNumbered": "Demo {{index}}",
     "demoBusy": "Loading…",
     "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
     "demoError": "The demo artwork could not be loaded.",
