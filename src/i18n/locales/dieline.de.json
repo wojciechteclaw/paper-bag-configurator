@@ -96,6 +96,13 @@
     "empty": "Noch keine Druckmotive. Fügen Sie sie im Schritt „Druckmotive“ hinzu — sie erscheinen hier sofort.",
     "svgTitleByType": {
       "FOLDED": "Stanzkontur des Seitenfaltenbeutels {{width}} + {{depth}} × {{height}} mm"
+    },
+    "pdf": {
+      "params": "Bogen {{sheetWidth}} × {{sheetHeight}} mm · Klebelasche s {{glueFlap}} mm · {{allowance}}",
+      "allowance": "Bodenzugabe {{value}} mm",
+      "allowanceByType": {
+        "FOLDED": "Bodenstreifen d {{value}} mm"
+      }
     }
   }
 }

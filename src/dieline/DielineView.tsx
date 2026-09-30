@@ -94,7 +94,7 @@ const centreOf = (image: SceneImage): [number, number] => [
  * Artwork is placed with the same `computePanelUvTransform` as the 3D view.
  */
 export function DielineView() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const configuration = useConfigurationStore((s) => s.configuration);
   const setPanelPlacement = useConfigurationStore((s) => s.setPanelPlacement);
   const resetPanelPlacement = useConfigurationStore((s) => s.resetPanelPlacement);
@@ -327,6 +327,7 @@ export function DielineView() {
   // ——— Export ———
   const baseName = `${t('dieline.export.fileName')}-${dimensionsSlug({ productType, dimensions })}`;
   const svgTitle = t(keyForType('dieline.svgTitle', productType), dimensions);
+  const formatMm = (value: number) => String(Math.round(value * 10) / 10).replace('.', i18n.language.startsWith('en') ? '.' : ',');
   const runExport = async (kind: 'svg' | 'pdf') => {
     setBusy(kind);
     setExportError(false);
@@ -336,7 +337,20 @@ export function DielineView() {
         await exportDielineSvgFile(scene, `${baseName}.svg`, svgTitle);
       } else {
         const { exportDielinePdfFile } = await import('./exportPdf');
-        await exportDielinePdfFile(scene, `${baseName}.pdf`, svgTitle, paper.color);
+        const allowanceKey = keyForType('dieline.pdf.allowance', productType);
+        await exportDielinePdfFile(scene, `${baseName}.pdf`, svgTitle, paper.color, {
+          header: [
+            svgTitle,
+            t('dieline.pdf.params', {
+              sheetWidth: formatMm(dieline.sheet.width),
+              sheetHeight: formatMm(dieline.sheet.height),
+              glueFlap: formatMm(dieline.glueFlapWidth),
+              allowance: t(allowanceKey, { value: formatMm(dieline.allowance) }),
+            }),
+          ],
+          wallName: (panel) => t(`dieline.label.${panel}`),
+          glueFlapName: dieline.glueFlapWidth > 0 ? 's' : null,
+        });
       }
     } catch {
       setExportError(true);

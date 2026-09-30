@@ -96,6 +96,13 @@
     "empty": "No artwork yet. Add it in the “Artwork” step — it shows up here right away.",
     "svgTitleByType": {
       "FOLDED": "Dieline of the gusseted bag {{width}} + {{depth}} × {{height}} mm"
+    },
+    "pdf": {
+      "params": "Sheet {{sheetWidth}} × {{sheetHeight}} mm · glue flap s {{glueFlap}} mm · {{allowance}}",
+      "allowance": "bottom allowance {{value}} mm",
+      "allowanceByType": {
+        "FOLDED": "bottom strip d {{value}} mm"
+      }
     }
   }
 }

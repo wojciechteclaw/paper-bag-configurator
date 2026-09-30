@@ -96,6 +96,13 @@
     "empty": "Brak grafik. Dodaj je w kroku „Grafiki” — pojawią się tu od razu.",
     "svgTitleByType": {
       "FOLDED": "Wykrój torby fałdowej {{width}} + {{depth}} × {{height}} mm"
+    },
+    "pdf": {
+      "params": "Arkusz {{sheetWidth}} × {{sheetHeight}} mm · zakładka klejowa s {{glueFlap}} mm · {{allowance}}",
+      "allowance": "zapas na dno {{value}} mm",
+      "allowanceByType": {
+        "FOLDED": "pas dna d {{value}} mm"
+      }
     }
   }
 }

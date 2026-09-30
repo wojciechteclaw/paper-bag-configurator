@@ -5,6 +5,7 @@ import type { PaperColor } from '../domain/types';
 import { embedSceneImagesForPdf } from '../export/flattenArtwork';
 import { registerPdfFonts, withEmbeddedSvgFont } from '../export/pdfFont';
 import { buildDielineSvg, downloadBlob } from './exportSvg';
+import { withPdfLayout, type DielinePdfTexts } from './pdfLayout';
 import type { DielineScene } from './scene';
 
 // jsPDF's standard fonts only cover WinAnsi (Latin-1-ish): Polish letters outside it (ą ć ę ł ń ś ź ż …) would be
@@ -25,7 +26,18 @@ function withPdfSafeTexts(scene: DielineScene): DielineScene {
   };
 }
 
-export async function exportDielinePdfFile(scene: DielineScene, fileName: string, title?: string, paperColor: PaperColor = 'WHITE') {
+/**
+ * `pdfTexts` (client, 30.09.2026): the PDF drawing carries no dimension lines — the parameters are written above the
+ * sheet and the wall names below it (`withPdfLayout`). Without it the scene is exported as drawn.
+ */
+export async function exportDielinePdfFile(
+  drawnScene: DielineScene,
+  fileName: string,
+  title?: string,
+  paperColor: PaperColor = 'WHITE',
+  pdfTexts?: DielinePdfTexts,
+) {
+  const scene = pdfTexts ? withPdfLayout(drawnScene, pdfTexts) : drawnScene;
   const [{ jsPDF }, { svg2pdf }] = await Promise.all([import('jspdf'), import('svg2pdf.js')]);
   const hrefs = await embedSceneImagesForPdf(scene, paperColor);
   const [, , width, height] = scene.viewBox;
