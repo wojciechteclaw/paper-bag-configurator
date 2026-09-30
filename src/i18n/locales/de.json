@@ -11,6 +11,57 @@
     "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
     "demoError": "Die Demo-Grafiken konnten nicht geladen werden."
   },
+  "project": {
+    "save": "Projekt speichern",
+    "saveWithExtension": "Projekt speichern ({{extension}})",
+    "saveHint": "Das ganze Projekt (Konfiguration und Grafikdateien) in einer Datei speichern, die später geladen werden kann",
+    "saving": "Speichern…",
+    "saved": "Projekt gespeichert: {{fileName}}",
+    "load": "Projekt laden",
+    "loadHint": "Ein zuvor gespeichertes Projekt (.bagproj-Datei) laden — ersetzt die aktuelle Konfiguration",
+    "loading": "Laden…",
+    "loaded": "Projekt „{{fileName}}“ geladen.",
+    "loadedAt": "Projekt „{{fileName}}“ geladen (gespeichert {{date}}).",
+    "adjusted": "Einige Werte wurden an die aktuellen Optionen des Konfigurators angepasst: {{sections}}.",
+    "dismiss": "Meldung schließen",
+    "fileNamePrefix": "taschen-projekt",
+    "summaryNote": "Die Projektdatei (.bagproj) enthält die Konfiguration und alle Grafikdateien — laden Sie sie mit „Projekt laden“ in der Kopfzeile. Die JSON-Vorschau oben verweist nur innerhalb dieses Browser-Tabs auf die Grafiken.",
+    "sections": {
+      "dimensions": "Abmessungen",
+      "paper": "Papier",
+      "handle": "Griff",
+      "artwork": "Grafiken",
+      "print": "Druck",
+      "packaging": "Verpackung"
+    },
+    "warnings": {
+      "LEGACY_CONFIGURATION": "Dies ist eine ältere Konfigurationsdatei (JSON), keine Projektdatei.",
+      "ARTWORK_NOT_INCLUDED": "Die Datei enthält keine Grafiken — laden Sie sie im Schritt Grafiken erneut hoch."
+    },
+    "confirm": {
+      "title": "Projekt laden?",
+      "body": "Das aktuelle Projekt hat ungespeicherte Änderungen. Das Laden von „{{fileName}}“ ersetzt es vollständig.",
+      "confirm": "Laden",
+      "cancel": "Abbrechen"
+    },
+    "saveErrors": {
+      "MISSING_FILE": "Das Projekt konnte nicht gespeichert werden: Die Grafik „{{detail}}“ kann nicht gelesen werden. Laden Sie sie erneut hoch.",
+      "TOO_LARGE": "Das Projekt konnte nicht gespeichert werden: Die Grafiken sind zu groß für eine Projektdatei.",
+      "TOO_MANY_FILES": "Das Projekt konnte nicht gespeichert werden: zu viele Grafikdateien.",
+      "generic": "Das Projekt konnte nicht gespeichert werden."
+    },
+    "loadErrors": {
+      "EMPTY_FILE": "Projekt nicht geladen: Die Datei ist leer.",
+      "TOO_LARGE": "Projekt nicht geladen: Die Datei ist zu groß.",
+      "TOO_MANY_FILES": "Projekt nicht geladen: Die Datei enthält zu viele Grafiken.",
+      "NOT_A_PROJECT": "Projekt nicht geladen: Dies ist keine Projektdatei des Taschenkonfigurators (.bagproj).",
+      "NEWER_VERSION": "Projekt nicht geladen: Die Datei wurde von einer neueren Version des Konfigurators gespeichert (Format {{detail}}). Bitte aktualisieren Sie die Anwendung.",
+      "MISSING_FILE": "Projekt nicht geladen: Die Grafikdatei „{{detail}}“ fehlt.",
+      "CORRUPT_DATA": "Projekt nicht geladen: Die Datei ist beschädigt.",
+      "UNSUPPORTED_PRODUCT_TYPE": "Projekt nicht geladen: Dieser Taschentyp ist im Konfigurator noch nicht verfügbar.",
+      "generic": "Das Projekt konnte nicht geladen werden."
+    }
+  },
   "steps": {
     "navLabel": "Konfigurationsschritte",
     "position": "Schritt {{current}} von {{total}}",
@@ -261,7 +312,6 @@
     "packaging": "Verpackung",
     "json": "Konfiguration (JSON)",
     "copy": "JSON kopieren",
-    "download": "JSON herunterladen",
     "copied": "In die Zwischenablage kopiert.",
     "copyFailed": "Kopieren nicht möglich — bitte den Text manuell markieren.",
     "moistureBarrier": "Feuchtigkeitsbarriere"
