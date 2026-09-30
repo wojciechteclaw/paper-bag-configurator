@@ -84,10 +84,11 @@
   "glueFlapWidth": 15,
   "bottomFoldDepth": 25,
   "window": {
-    "type": "PANORAMIC",
+    "type": "RECTANGLE",
     "material": "PP_PERFORATED",
     "width": 140,
-    "bottomOffset": 105,
+    "height": 185,
+    "bottomOffset": 110,
     "filmOverlap": 10
   }
 }
