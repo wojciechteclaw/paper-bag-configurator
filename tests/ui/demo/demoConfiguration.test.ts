@@ -42,7 +42,7 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     for (let i = 1; i <= DEMO_COUNT; i++) expect(CONFIGS[`/public/demo${i}/config.json`]).toBeDefined();
   });
 
-  it('Demo 4: block-bottom bag 250 × 180 × 420, brown recycled 80 g/m² FSC, flat paper handle, wave artwork per wall (client configuration)', async () => {
+  it('Demo 4: block-bottom bag 250 × 180 × 420, brown recycled 80 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
     const result = await loadDemoConfiguration(4, '/');
     expect(result).toEqual({ missing: [], total: 4 });
     const c = config();
@@ -54,12 +54,8 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position, i) => {
       // Pixel size and bytes come from the loaded image (mocked here), not from config.json.
       expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo4/image-${i + 1}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
+      expect(c.panels[position].placement).toEqual({ mode: 'FILL', extendToBottom: true });
     });
-    expect(c.panels.FRONT.placement).toEqual({ mode: 'FILL', extendToBottom: false });
-    expect(c.panels.BACK.placement).toEqual({ mode: 'FILL', extendToBottom: false });
-    expect(c.panels.RIGHT.placement).toEqual({ mode: 'FILL', extendToBottom: false });
-    expect(c.panels.LEFT.placement).toMatchObject({ mode: 'CUSTOM', offsetX: 0, scale: 1, rotation: 0, extendToBottom: false });
-    expect(c.panels.LEFT.placement.mode === 'CUSTOM' && c.panels.LEFT.placement.offsetY).toBeCloseTo(0.738, 3);
   });
 
   it('Demo 2: gusseted bag 150 + 60 × 250, one whole-sheet layer image-1', async () => {
