@@ -7,9 +7,9 @@
     "depth": 200
   },
   "paper": {
-    "type": "KRAFT",
-    "color": "WHITE",
-    "grammage": 100,
+    "type": "RECYCLED",
+    "color": "BROWN",
+    "grammage": 80,
     "fscCertified": true,
     "moistureBarrier": false
   },
