@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { containPlacement, fillPlacement } from '../domain/artworkPlacement';
 import { buildDieline } from '../domain/dieline';
 import { createArtwork, createConfiguration } from '../domain/factories';
@@ -19,7 +20,7 @@ function scene(withArtwork = true) {
     configuration.panels.FRONT.placement = containPlacement();
     configuration.panels.BACK.artwork = { ...configuration.panels.FRONT.artwork, id: 'b', fileUrl: 'blob:back' };
   }
-  return buildDielineScene(buildDieline(configuration), configuration.panels, {
+  return buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), {
     label: (key) => `L:${key}`,
     dimension: (key, value) => `${key}=${value}`,
   });
@@ -97,7 +98,7 @@ describe('buildDielineSvg', () => {
       createArtwork({ fileName: 'a.png', fileUrl: url, mimeType: 'image/png', width: 100, height: 100, sizeBytes: 1 });
     configuration.panels.LEFT.artwork = art('blob:left');
     configuration.panels.BACK.artwork = art('blob:back');
-    const images = buildDielineScene(buildDieline(configuration), configuration.panels, {
+    const images = buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), {
       label: (key) => key,
       dimension: (key) => key,
     }).images;
@@ -128,7 +129,7 @@ describe('buildDielineSvg', () => {
         sizeBytes: 1,
       });
       configuration.panels.FRONT.placement = fillPlacement(extendToBottom);
-      const images = buildDielineScene(buildDieline(configuration), configuration.panels, {
+      const images = buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), {
         label: (key) => key,
         dimension: (key) => key,
       }).images;
@@ -143,7 +144,7 @@ describe('buildDielineSvg', () => {
     expect([Math.min(...ys(extended)), Math.max(...ys(extended))]).toEqual([0, 490]);
     expect(extended.clip).toMatchObject({ y: -3, height: 496 });
     expect(extended.area).toMatchObject({ x: 150, y: 0, width: 200, height: 490 });
-});  it('marks which bottom allowances carry artwork (printed) and which stay bare paper', () => {    const configuration = createConfiguration('BLOCK');    configuration.panels.FRONT.artwork = createArtwork({ fileName: 'f.png', fileUrl: 'blob:f', mimeType: 'image/png', width: 10, height: 10, sizeBytes: 1 });    configuration.panels.FRONT.placement = fillPlacement(true);    configuration.panels.BACK.artwork = { ...configuration.panels.FRONT.artwork, id: 'b', fileUrl: 'blob:b' };    const scene = buildDielineScene(buildDieline(configuration), configuration.panels, { label: (k) => k, dimension: (k) => k });    expect(scene.allowances.map((a) => [a.segment, a.printed])).toEqual([      ['LEFT', false],      ['FRONT', true],      ['RIGHT', false],      ['BACK', false],    ]);    expect(scene.allowances[1]).toMatchObject({ x: 150, y: 400, width: 200, height: 90 });    expect(scene.zones.some((z) => z.kind === 'BOTTOM_ALLOWANCE')).toBe(false);    const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('data-printed')).toBe('true');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('fill')).toBe('none');    expect(doc.querySelector('#allowance-BACK')?.getAttribute('fill')).toContain('rgba');
+});  it('marks which bottom allowances carry artwork (printed) and which stay bare paper', () => {    const configuration = createConfiguration('BLOCK');    configuration.panels.FRONT.artwork = createArtwork({ fileName: 'f.png', fileUrl: 'blob:f', mimeType: 'image/png', width: 10, height: 10, sizeBytes: 1 });    configuration.panels.FRONT.placement = fillPlacement(true);    configuration.panels.BACK.artwork = { ...configuration.panels.FRONT.artwork, id: 'b', fileUrl: 'blob:b' };    const scene = buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), { label: (k) => k, dimension: (k) => k });    expect(scene.allowances.map((a) => [a.segment, a.printed])).toEqual([      ['LEFT', false],      ['FRONT', true],      ['RIGHT', false],      ['BACK', false],    ]);    expect(scene.allowances[1]).toMatchObject({ x: 150, y: 400, width: 200, height: 90 });    expect(scene.zones.some((z) => z.kind === 'BOTTOM_ALLOWANCE')).toBe(false);    const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('data-printed')).toBe('true');    expect(doc.querySelector('#allowance-FRONT')?.getAttribute('fill')).toBe('none');    expect(doc.querySelector('#allowance-BACK')?.getAttribute('fill')).toContain('rgba');
   });
 
   it('can leave the artwork layer empty', () => {
@@ -161,7 +162,7 @@ describe('PDF text safety', () => {
 
 describe('dieline annotations (client feedback)', () => {
   const configuration = createConfiguration('BLOCK');
-  const scene = buildDielineScene(buildDieline(configuration), configuration.panels, {
+  const scene = buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), {
     label: (key) => key,
     dimension: (key) => key,
   });
@@ -194,5 +195,40 @@ describe('dieline annotations (client feedback)', () => {
 
   it('labels only the panels — no allowance / flap / glue flap descriptions', () => {
     expect(scene.labels.map((l) => l.text).sort()).toEqual(['BACK', 'FRONT', 'LEFT', 'RIGHT']);
+  });
+});
+
+describe('whole-bag (wrap) artwork on the dieline (SPEC §3a)', () => {
+  function wrapScene(extendToBottom = false) {
+    const configuration = createConfiguration('BLOCK'); // 200 × 400 × 150: wall row 700 mm, sheet 710 × 490
+    configuration.panels.FRONT.artwork = createArtwork({ fileName: 'kept.png', fileUrl: 'blob:kept', mimeType: 'image/png', width: 10, height: 10, sizeBytes: 1 });
+    configuration.artworkLayout = 'WRAP';
+    configuration.wrapArtwork = {
+      artwork: createArtwork({ fileName: 'wrap.png', fileUrl: 'blob:wrap', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 1 }),
+      placement: fillPlacement(extendToBottom),
+    };
+    return buildDielineScene(buildDieline(configuration), resolvePanelArtworks(configuration), { label: (k) => k, dimension: (k) => k });
+  }
+
+  it('draws ONE image spanning the wall row, clipped from the left bleed to the glue-flap hinge (+ overprint)', () => {
+    const scene = wrapScene();
+    expect(scene.images).toHaveLength(1);
+    const [image] = scene.images;
+    expect(image).toMatchObject({ id: 'artwork-WRAP', target: 'WRAP', segment: 'WRAP', href: 'blob:wrap' });
+    const xs = image.corners.map(([x]) => x);
+    const ys = image.corners.map(([, y]) => y);
+    expect([Math.min(...xs), Math.max(...xs)]).toEqual([0, 700]);
+    expect([Math.min(...ys), Math.max(...ys)]).toEqual([0, 400]); // SVG y: top edge 0, bottom line 400
+    expect(image.clip).toMatchObject({ x: -3, width: 705 }); // bleed 3 left, 2 mm overprint onto the glue flap
+    expect(image.area).toMatchObject({ x: 0, y: 0, width: 700, height: 400 });
+    expect(scene.allowances.every((a) => !a.printed)).toBe(true);
+    const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');
+    expect(doc.querySelectorAll('image')).toHaveLength(1);
+  });
+
+  it('extends over every bottom allowance and marks them all printed', () => {
+    const scene = wrapScene(true);
+    expect(scene.images[0].area).toMatchObject({ y: 0, height: 490 });
+    expect(scene.allowances.every((a) => a.printed)).toBe(true);
   });
 });

@@ -23,7 +23,7 @@
       "handle": "Griff",
       "print": "Druck & Verpackung",
       "construction": "Konstruktion & Bogen",
-      "artwork": "Druckmotive der Wände"
+      "artwork": "Druckmotive"
     },
     "param": {
       "productType": "Beuteltyp",
@@ -56,7 +56,8 @@
       "sheetHeight": "Bogenhöhe",
       "sheetArea": "Bogenfläche",
       "colorMergeTolerance": "Zusammenfassen ähnlicher Motivfarben (ΔE00)",
-      "colorMinAreaShare": "Minimale Farbfläche im Motiv (Anteil am Farbauftrag)"
+      "colorMinAreaShare": "Minimale Farbfläche im Motiv (Anteil am Farbauftrag)",
+      "artworkLayout": "Anordnung der Druckmotive"
     },
     "handleMaterial": {
       "KRAFT": "festes Kraftpapier"

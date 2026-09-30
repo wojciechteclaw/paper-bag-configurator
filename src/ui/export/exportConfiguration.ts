@@ -2,6 +2,7 @@
 // Loaded lazily from the Summary step; pulls jsPDF / svg2pdf / exceljs / the offscreen renderer only on demand.
 // Everything is computed from the BagConfiguration passed in (no store reads here).
 
+import { resolvePanelArtworks } from '../../domain/artworkLayout';
 import { buildDieline, type Dieline } from '../../domain/dieline';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import {
@@ -33,13 +34,14 @@ export type PrintAnalysis = { coverage: InkCoverageResult; palette: ArtworkPalet
 export const PDF_SNAPSHOT_OPTIONS = { width: 1000, height: 750, mimeType: 'image/jpeg', quality: 0.85 } as const;
 
 export async function computePrintAnalysisForExport(configuration: BagConfiguration, dieline: Dieline): Promise<PrintAnalysis> {
+  const artworks = resolvePanelArtworks(configuration);
   const entries = await Promise.all(
     PANEL_POSITIONS.map(async (position) => {
-      const { artwork, placement } = configuration.panels[position];
+      const { artwork, placement, area } = artworks[position];
       if (!artwork) return [position, null] as const;
       const sample = await loadArtworkSample(artwork);
       const input: CoveragePanelInput | null = sample
-        ? { imageSize: { width: artwork.width, height: artwork.height }, placement, sample }
+        ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, sample }
         : null;
       return [position, input] as const;
     }),
@@ -94,7 +96,7 @@ export async function exportProductSheetPdf(
   }
 
   onProgress?.({ phase: 'document' });
-  const scene = buildDielineScene(dieline, configuration.panels, {
+  const scene = buildDielineScene(dieline, resolvePanelArtworks(configuration), {
     label: (key) => t(`dieline.label.${key}`),
     dimension: (key, value) => t(`dieline.dimension.${key}`, { value: Math.round(value * 10) / 10 }),
   });

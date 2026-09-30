@@ -42,8 +42,20 @@ describe('buildProductSheetData (PL)', () => {
     expect(rowValue(data, 'printTechnology')?.value).toBe('Fleksografia');
     expect(rowValue(data, 'colorCount')?.value).toBe(2);
     expect(rowValue(data, 'packaging')?.value).toBe('Karton');
+    expect(rowValue(data, 'artworkLayout')?.value).toBe('Osobna grafika na każdą ściankę');
     expect(rowValue(data, 'artworkFRONT')?.value).toBe('przód.png');
     expect(rowValue(data, 'artworkLEFT')?.value).toBe('brak');
+    expect(rowValue(data, 'artworkWRAP')).toBeUndefined();
+  });
+
+  it('lists only the whole-bag artwork in the wrap layout (per-wall artwork kept but not printed)', () => {
+    const wrap = sampleConfiguration();
+    wrap.artworkLayout = 'WRAP';
+    wrap.wrapArtwork = { ...wrap.wrapArtwork, artwork: { ...wrap.panels.FRONT.artwork!, id: 'w', fileName: 'cała.png' } };
+    const wrapData = buildProductSheetData(wrap, null, dieline, exportContext('pl'), null);
+    expect(rowValue(wrapData, 'artworkLayout')?.value).toBe('Jedna grafika na całą torbę');
+    expect(rowValue(wrapData, 'artworkWRAP')).toMatchObject({ label: 'Cała torba', value: 'cała.png' });
+    expect(rowValue(wrapData, 'artworkFRONT')).toBeUndefined();
   });
 
   it('has no quantity anywhere', () => {

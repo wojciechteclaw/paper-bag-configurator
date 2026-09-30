@@ -1,4 +1,5 @@
 import type {
+  ArtworkLayout,
   BagType,
   Dimensions,
   Handle,
@@ -194,6 +195,13 @@ export const ARTWORK_RULES: ArtworkRules = {
   maxSizeBytes: 20 * 1024 * 1024,
   aspectRatioTolerance: 0.05,
 };
+
+/**
+ * Artwork layouts offered in the Graphics step (docs/SPEC.md §3a): one artwork per wall, or one wrap-around artwork
+ * for the whole bag. The first entry is the default of new configurations.
+ */
+export const ARTWORK_LAYOUTS: readonly ArtworkLayout[] = ['PER_PANEL', 'WRAP'];
+export const DEFAULT_ARTWORK_LAYOUT: ArtworkLayout = 'PER_PANEL';
 
 /** Max length of a single Pantone colour entry, e.g. "PMS 186 C". */
 export const PANTONE_CODE_MAX_LENGTH = 32;

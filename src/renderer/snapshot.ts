@@ -1,6 +1,7 @@
 import { advance, createRoot, type RootState } from '@react-three/fiber';
 import { createElement } from 'react';
 import { Vector3, type Material, type Mesh, type PerspectiveCamera } from 'three';
+import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration, PanelPosition } from '../domain/types';
 import { MM_TO_SCENE } from './constants';
@@ -56,7 +57,8 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Resolves with the artwork URLs that can actually be decoded (failed ones render as plain paper). */
 async function loadableArtworkPanels(configuration: BagConfiguration): Promise<PanelPosition[]> {
-  const entries = Object.values(configuration.panels).filter((panel) => panel.artwork);
+  // What the walls show under the active layout (a whole-bag wrap puts one image on all four walls).
+  const entries = Object.values(resolvePanelArtworks(configuration)).filter((panel) => panel.artwork);
   const results = await Promise.all(
     entries.map(
       (panel) =>

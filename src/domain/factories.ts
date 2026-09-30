@@ -1,7 +1,17 @@
 import { DEFAULT_PLACEMENT } from './artworkPlacement';
-import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, HANDLE_DEFAULTS } from './config/productCatalog';
+import { BAG_TYPES, COLOR_ANALYSIS_DEFAULTS, DEFAULT_ARTWORK_LAYOUT, HANDLE_DEFAULTS } from './config/productCatalog';
 import { getHandleVariantDefinition } from './handleVariants';
-import type { Artwork, BagConfiguration, BagPanel, BagPanels, BagType, Handle, HandleType, PanelPosition } from './types';
+import type {
+  Artwork,
+  BagConfiguration,
+  BagPanel,
+  BagPanels,
+  BagType,
+  Handle,
+  HandleType,
+  PanelPosition,
+  WrapArtwork,
+} from './types';
 
 export const PANEL_POSITIONS: PanelPosition[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT'];
 
@@ -9,6 +19,11 @@ const newId = () => crypto.randomUUID();
 
 export function createPanel(position: PanelPosition): BagPanel {
   return { id: newId(), position, artwork: null, placement: { ...DEFAULT_PLACEMENT } };
+}
+
+/** Empty whole-bag artwork slot (docs/SPEC.md §3a). */
+export function createWrapArtwork(): WrapArtwork {
+  return { artwork: null, placement: { ...DEFAULT_PLACEMENT } };
 }
 
 export function createHandle(type: HandleType): Handle {
@@ -33,6 +48,8 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     },
     handle: null,
     panels,
+    artworkLayout: DEFAULT_ARTWORK_LAYOUT,
+    wrapArtwork: createWrapArtwork(),
     print: { technology: 'FLEXO', pantoneColors: [], colorAnalysis: { ...COLOR_ANALYSIS_DEFAULTS } },
     packaging: 'CARTON',
   };

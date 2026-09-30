@@ -112,6 +112,18 @@
       "EMPTY_FILE": "The file is empty.",
       "FILE_TOO_LARGE": "The file is too large (max. {{maxMb}} MB).",
       "DECODE_FAILED": "The file could not be read as an image."
+    },
+    "WRAP": "Whole bag",
+    "dropZoneLabelWrap": "Whole bag: add artwork",
+    "fileInputLabelWrap": "Whole bag: artwork file",
+    "aspectMismatchWrap": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the bag's unfolded walls ({{panelRatio}}) — the artwork will be distorted.",
+    "layout": {
+      "label": "Artwork layout",
+      "PER_PANEL": "Separate artwork for each wall",
+      "WRAP": "One artwork for the whole bag",
+      "wrapNote": "The artwork is stretched across all walls in sheet order: {{order}} (starting at the seam; the glue flap stays unprinted). Set its position, scale and “Extend to bottom” in the Dieline view.",
+      "keptPanels": "The per-wall artwork is kept and comes back when you switch the layout; it is not printed in this layout.",
+      "keptWrap": "The whole-bag artwork is kept and comes back when you switch the layout; it is not printed in this layout."
     }
   },
   "paper": {

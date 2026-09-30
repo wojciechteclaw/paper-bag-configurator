@@ -1,5 +1,6 @@
 import { ContactShadows } from '@react-three/drei';
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
+import { resolvePanelArtworks } from '../domain/artworkLayout';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { BACKGROUND_COLOR } from './camera';
@@ -19,6 +20,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
     onCommit?.(foldProgress);
   }, [foldProgress, onCommit]);
   const { dimensions } = configuration;
+  const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
   const w = dimensions.width * MM_TO_SCENE;
   const h = dimensions.height * MM_TO_SCENE;
   const d = dimensions.depth * MM_TO_SCENE;
@@ -29,7 +31,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
       <BagModel
         dimensions={dimensions}
         paperColor={configuration.paper.color}
-        panels={configuration.panels}
+        artworks={artworks}
         handle={configuration.handle}
         foldProgress={foldProgress}
       />

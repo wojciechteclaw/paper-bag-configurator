@@ -3,12 +3,12 @@ import {
   alignPlacement,
   DEFAULT_PLACEMENT,
   fillPlacement,
-  getPanelArtworkArea,
   normalizePlacement,
   setPlacementExtendToBottom,
   type ArtworkAlignment,
 } from '../domain/artworkPlacement';
-import { BAG_TYPES } from '../domain/config/productCatalog';
+import { getArtworkLayout, getArtworkSlot, getArtworkTargetArea, getWrapArtwork } from '../domain/artworkLayout';
+import { ARTWORK_LAYOUTS, BAG_TYPES } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle } from '../domain/factories';
 import {
@@ -23,14 +23,15 @@ import { normalizeHex } from '../domain/printCoverage/color';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import type {
   Artwork,
+  ArtworkLayout,
   ArtworkPlacement,
+  ArtworkTarget,
   BagConfiguration,
   BagType,
   ColorAnalysisSettings,
   Dimensions,
   HandleType,
   PackagingType,
-  PanelPosition,
   PaperColor,
   PaperType,
 } from '../domain/types';
@@ -62,23 +63,29 @@ type ConfigurationState = {
    */
   setHandle: (type: HandleType | null) => PaperAdjustment[];
   /**
-   * Replaces or removes panel artwork; the previous object URL is revoked and the placement resets to FILL. New and
-   * removed artwork get `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`; a replaced image keeps the panel's "extend to bottom".
+   * Per-wall artwork or one whole-bag (wrap) artwork (docs/SPEC.md §3a). Switching keeps the artwork of the other
+   * layout (it is just not used), so switching back restores it. Unknown layouts are ignored.
    */
-  setPanelArtwork: (position: PanelPosition, artwork: Artwork | null) => void;
-  /** Sets how the artwork sits on the panel (normalized against its artwork area: scale limits, centre kept inside, 90° steps). */
-  setPanelPlacement: (position: PanelPosition, placement: ArtworkPlacement) => void;
-  /** Back to the default placement (`DEFAULT_PLACEMENT`: FILL, extension per `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`). */
-  resetPanelPlacement: (position: PanelPosition) => void;
-  /** FILL over the current artwork area (keeps "extend to bottom"). */
-  fillPanelPlacement: (position: PanelPosition) => void;
-  /** Aligns the artwork to an edge / the centre of its artwork area (FILL becomes contain first). Needs artwork. */
-  alignPanelArtwork: (position: PanelPosition, alignment: ArtworkAlignment) => void;
+  setArtworkLayout: (layout: ArtworkLayout) => void;
   /**
-   * "Rozciągnij na dno": extends the panel's artwork area by the bottom allowance (docs/SPEC.md §4f). A CUSTOM image
-   * stays where it is on the panel; FILL re-stretches over the new area.
+   * Replaces or removes the artwork of a wall or of the wrap (`'WRAP'`); the previous object URL is revoked and the
+   * placement resets to FILL. New and removed artwork get `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`; a replaced image keeps
+   * the target's "extend to bottom".
    */
-  setPanelExtendToBottom: (position: PanelPosition, extendToBottom: boolean) => void;
+  setPanelArtwork: (target: ArtworkTarget, artwork: Artwork | null) => void;
+  /** Sets how the artwork sits on its target (normalized against its artwork area: scale limits, centre kept inside, 90° steps). */
+  setPanelPlacement: (target: ArtworkTarget, placement: ArtworkPlacement) => void;
+  /** Back to the default placement (`DEFAULT_PLACEMENT`: FILL, extension per `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`). */
+  resetPanelPlacement: (target: ArtworkTarget) => void;
+  /** FILL over the current artwork area (keeps "extend to bottom"). */
+  fillPanelPlacement: (target: ArtworkTarget) => void;
+  /** Aligns the artwork to an edge / the centre of its artwork area (FILL becomes contain first). Needs artwork. */
+  alignPanelArtwork: (target: ArtworkTarget, alignment: ArtworkAlignment) => void;
+  /**
+   * "Rozciągnij na dno": extends the target's artwork area by the bottom allowance (docs/SPEC.md §4f; for the wrap:
+   * under all four walls). A CUSTOM image stays where it is; FILL re-stretches over the new area.
+   */
+  setPanelExtendToBottom: (target: ArtworkTarget, extendToBottom: boolean) => void;
   /**
    * Adds a Pantone entry with a preview colour (`hex`; when omitted, a suggestion for the code is used).
    * Returns the validation error, or null when the colour was added.
@@ -98,6 +105,17 @@ function revokeArtworkUrl(artwork: Artwork | null) {
   }
 }
 
+/** Configuration patch writing (part of) the artwork slot of a wall or of the whole-bag wrap. */
+function writeSlot(
+  configuration: BagConfiguration,
+  target: ArtworkTarget,
+  slot: Partial<{ artwork: Artwork | null; placement: ArtworkPlacement }>,
+): Partial<BagConfiguration> {
+  if (target === 'WRAP') return { wrapArtwork: { ...getWrapArtwork(configuration), ...slot } };
+  const { panels } = configuration;
+  return { panels: { ...panels, [target]: { ...panels[target], ...slot } } };
+}
+
 export const useConfigurationStore = create<ConfigurationState>((set, get) => {
   const update = (patch: (configuration: BagConfiguration) => Partial<BagConfiguration>) =>
     set(({ configuration }) => ({ configuration: { ...configuration, ...patch(configuration) } }));
@@ -112,6 +130,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       const { configuration } = get();
       if (type === configuration.productType || !BAG_TYPES[type].available) return;
       Object.values(configuration.panels).forEach((panel) => revokeArtworkUrl(panel.artwork));
+      revokeArtworkUrl(getWrapArtwork(configuration).artwork);
       set({ configuration: createConfiguration(type) });
     },
 
@@ -160,56 +179,50 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       return adjustments;
     },
 
-    setPanelArtwork: (position, artwork) => {
-      const previous = get().configuration.panels[position].artwork;
+    setArtworkLayout: (layout) =>
+      update((c) => (ARTWORK_LAYOUTS.includes(layout) && getArtworkLayout(c) !== layout ? { artworkLayout: layout } : {})),
+
+    setPanelArtwork: (target, artwork) => {
+      const { artwork: previous, placement: current } = getArtworkSlot(get().configuration, target);
       if (previous && previous.fileUrl !== artwork?.fileUrl) revokeArtworkUrl(previous);
-      const current = get().configuration.panels[position].placement;
       const placement = !artwork || !previous
         ? DEFAULT_PLACEMENT
         : artwork.id === previous?.id
           ? current
           : fillPlacement(current.extendToBottom === true);
-      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], artwork, placement } } }));
+      update((c) => writeSlot(c, target, { artwork, placement }));
     },
 
-    setPanelPlacement: (position, placement) =>
-      update(({ panels, dimensions }) => ({
-        panels: {
-          ...panels,
-          [position]: {
-            ...panels[position],
-            placement: normalizePlacement(placement, getPanelArtworkArea(position, dimensions, placement)),
-          },
-        },
-      })),
+    setPanelPlacement: (target, placement) =>
+      update((c) =>
+        writeSlot(c, target, {
+          placement: normalizePlacement(placement, getArtworkTargetArea(target, c.dimensions, placement)),
+        }),
+      ),
 
-    resetPanelPlacement: (position) =>
-      update(({ panels }) => ({ panels: { ...panels, [position]: { ...panels[position], placement: DEFAULT_PLACEMENT } } })),
+    resetPanelPlacement: (target) => update((c) => writeSlot(c, target, { placement: DEFAULT_PLACEMENT })),
 
-    fillPanelPlacement: (position) =>
-      update(({ panels }) => ({
-        panels: {
-          ...panels,
-          [position]: { ...panels[position], placement: fillPlacement(panels[position].placement.extendToBottom === true) },
-        },
-      })),
+    fillPanelPlacement: (target) =>
+      update((c) =>
+        writeSlot(c, target, { placement: fillPlacement(getArtworkSlot(c, target).placement.extendToBottom === true) }),
+      ),
 
-    alignPanelArtwork: (position, alignment) =>
-      update(({ panels, dimensions }) => {
-        const { artwork, placement } = panels[position];
+    alignPanelArtwork: (target, alignment) =>
+      update((c) => {
+        const { artwork, placement } = getArtworkSlot(c, target);
         if (!artwork) return {};
-        const area = getPanelArtworkArea(position, dimensions, placement);
-        return { panels: { ...panels, [position]: { ...panels[position], placement: alignPlacement(placement, alignment, area, artwork) } } };
+        const area = getArtworkTargetArea(target, c.dimensions, placement);
+        return writeSlot(c, target, { placement: alignPlacement(placement, alignment, area, artwork) });
       }),
 
-    setPanelExtendToBottom: (position, extendToBottom) =>
-      update(({ panels, dimensions }) => {
-        const { artwork, placement } = panels[position];
+    setPanelExtendToBottom: (target, extendToBottom) =>
+      update((c) => {
+        const { artwork, placement } = getArtworkSlot(c, target);
         if ((placement.extendToBottom === true) === extendToBottom) return {};
-        const from = getPanelArtworkArea(position, dimensions, placement);
-        const to = getPanelArtworkArea(position, dimensions, { extendToBottom });
+        const from = getArtworkTargetArea(target, c.dimensions, placement);
+        const to = getArtworkTargetArea(target, c.dimensions, { extendToBottom });
         const next = setPlacementExtendToBottom(placement, extendToBottom, from, to, artwork);
-        return { panels: { ...panels, [position]: { ...panels[position], placement: next } } };
+        return writeSlot(c, target, { placement: next });
       }),
 
     addPantoneColor: (code, hex) => {

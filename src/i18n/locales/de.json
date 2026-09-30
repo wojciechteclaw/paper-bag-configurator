@@ -112,6 +112,18 @@
       "EMPTY_FILE": "Die Datei ist leer.",
       "FILE_TOO_LARGE": "Die Datei ist zu groß (max. {{maxMb}} MB).",
       "DECODE_FAILED": "Die Datei konnte nicht als Bild gelesen werden."
+    },
+    "WRAP": "Ganze Tasche",
+    "dropZoneLabelWrap": "Ganze Tasche: Druckmotiv hinzufügen",
+    "fileInputLabelWrap": "Ganze Tasche: Druckmotiv-Datei",
+    "aspectMismatchWrap": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem der abgewickelten Taschenwände ({{panelRatio}}) ab — das Motiv wird verzerrt.",
+    "layout": {
+      "label": "Anordnung der Druckmotive",
+      "PER_PANEL": "Eigenes Motiv für jede Wand",
+      "WRAP": "Ein Motiv für die ganze Tasche",
+      "wrapNote": "Das Motiv wird über alle Wände in der Reihenfolge des Bogens gelegt: {{order}} (ab der Naht; die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ stellen Sie in der Ansicht Stanzkontur ein.",
+      "keptPanels": "Die Motive der einzelnen Wände bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt.",
+      "keptWrap": "Das Motiv der ganzen Tasche bleibt erhalten und kehrt beim Umschalten zurück; in dieser Anordnung wird es nicht gedruckt."
     }
   },
   "paper": {

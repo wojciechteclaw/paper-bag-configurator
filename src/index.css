@@ -193,6 +193,8 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 
 /* Artwork */
 .artwork-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+/* One whole-bag (wrap) uploader: full width, the thumbnail of a wide image stays readable. */
+.artwork-grid--wrap { grid-template-columns: minmax(0, 1fr); }
 .artwork-panel { min-width: 0; }
 .artwork-panel__header { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; margin-bottom: 4px; }
 .artwork-panel__header h3 { font: 700 14px/1.3 var(--font-display); margin: 0; }

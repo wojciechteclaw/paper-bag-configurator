@@ -5,7 +5,7 @@ import { BAG_TYPES } from '../domain/config/productCatalog';
 import { getHandlePatchSize, type Dieline } from '../domain/dieline';
 import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../domain/geometry/handles';
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
-import { PANEL_POSITIONS } from '../domain/factories';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot } from '../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import type { BagConfiguration } from '../domain/types';
 import type { Translate } from './format';
@@ -25,7 +25,7 @@ export type ParameterSectionId = 'product' | 'paper' | 'handle' | 'print' | 'con
 export type ParameterSection = { id: ParameterSectionId; title: string; rows: ParameterRow[] };
 
 export function buildParameterSections(configuration: BagConfiguration, dieline: Dieline, t: Translate): ParameterSection[] {
-  const { dimensions, paper, handle, print, panels } = configuration;
+  const { dimensions, paper, handle, print } = configuration;
   const yesNo = (value: boolean) => t(value ? 'summary.yes' : 'summary.no');
   const mm = t('dimensions.unit');
   const row = (id: string, value: ParameterValue, unit?: string): ParameterRow => ({
@@ -96,11 +96,16 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     row('sheetArea', (dieline.sheet.width * dieline.sheet.height) / 100, t('export.unit.cm2')),
   ];
 
-  const artwork: ParameterRow[] = PANEL_POSITIONS.map((position) => ({
-    id: `artwork${position}`,
-    label: t(`artwork.${position}`),
-    value: panels[position].artwork?.fileName ?? t('summary.noArtwork'),
-  }));
+  // Layout first, then the artwork of the active layout only (kept artwork of the other layout is not printed).
+  const layout = getArtworkLayout(configuration);
+  const artwork: ParameterRow[] = [
+    { id: 'artworkLayout', label: t('export.param.artworkLayout'), value: t(`artwork.layout.${layout}`) },
+    ...getActiveArtworkTargets(configuration).map((target) => ({
+      id: `artwork${target}`,
+      label: t(`artwork.${target}`),
+      value: getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork'),
+    })),
+  ];
 
   const section = (id: ParameterSectionId, rows: ParameterRow[]): ParameterSection => ({
     id,

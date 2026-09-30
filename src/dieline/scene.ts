@@ -1,7 +1,8 @@
 // Adapter: domain Dieline (+ artwork placements) → SVG-space primitives (mm, y down).
 // Shared by the interactive DielineView and the SVG/PDF export so all three draw exactly the same thing.
 
-import { computePanelUvTransform, getPanelArtworkArea, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
+import type { ResolvedPanelArtworks } from '../domain/artworkLayout';
+import { computePanelUvTransform, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
 import { getArtworkClipRect } from '../domain/dieline';
 import type {
   CreaseFold,
@@ -13,7 +14,7 @@ import type {
   Point2,
 } from '../domain/dieline';
 import { getPanelSize } from '../domain/panels';
-import type { BagPanels, PanelPosition } from '../domain/types';
+import type { ArtworkTarget, PanelPosition } from '../domain/types';
 
 /** A crease line; `kind` = fold direction seen from the print side (valley / mountain, docs/PRODUCTION.md §9.3). */
 export type SceneLine = { id: string; code: string; kind: CreaseFold; x1: number; y1: number; x2: number; y2: number };
@@ -40,13 +41,17 @@ export type SceneDimension = {
 export type SceneAllowance = SceneRect & { panel: PanelPosition; segment: DielineSegmentId; printed: boolean };
 export type SceneImage = {
   id: string;
+  /** Wall of the column; for the whole-bag wrap the first wall of the row (LEFT). */
   panel: PanelPosition;
-  segment: DielineSegmentId;
+  /** What editing this image changes: its wall, or the whole-bag wrap (`'WRAP'`). */
+  target: ArtworkTarget;
+  /** Sheet column, or `'WRAP'` for the one image spanning the whole wall row. */
+  segment: DielineSegmentId | 'WRAP';
   href: string;
   /** Maps the unit square (SVG `<image x=0 y=0 width=1 height=1 preserveAspectRatio="none">`) into the sheet. */
   matrix: Affine2;
   clip: SceneRect;
-  /** Artwork area of the panel (wall, or wall + bottom allowance when extended), SVG space. */
+  /** Artwork area (wall, or wall + bottom allowance when extended; the whole wall row for the wrap), SVG space. */
   area: SceneRect;
   extendToBottom: boolean;
   /** Image outline (4 corners, SVG space) — selection frame and handles. */
@@ -105,7 +110,11 @@ const PANEL_LABEL_KEYS: ReadonlySet<string> = new Set(['FRONT', 'BACK', 'LEFT', 
 
 const fmt = (value: number) => Math.round(value * 1000) / 1000;
 
-export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: SceneTexts): DielineScene {
+/**
+ * `artworks` = what every wall shows (`resolvePanelArtworks`): per-wall artwork, or the whole-bag wrap expressed per
+ * wall (docs/SPEC.md §3a). A wrap yields one image per column with the same sheet matrix, each clipped to its column.
+ */
+export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtworks, texts: SceneTexts): DielineScene {
   const H = dieline.sheet.height;
   const pt = (point: Point2): [number, number] => [fmt(point.x), fmt(H - point.y)];
   const svgRect = (id: string, r: { x: number; y: number; width: number; height: number }): SceneRect => ({
@@ -131,7 +140,7 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
       ...(zone.face ? { face: zone.face } : {}),
     }));
   const allowances = dieline.segments.map((segment): SceneAllowance => {
-    const { artwork, placement } = panels[segment.panel];
+    const { artwork, placement } = artworks[segment.panel];
     return {
       ...svgRect(`allowance-${segment.id}`, segment.allowance),
       panel: segment.panel,
@@ -175,15 +184,14 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
     };
   });
 
-  const images: SceneImage[] = [];
+  const columnImages: SceneImage[] = [];
   for (const segment of dieline.segments) {
-    const panel = panels[segment.panel];
-    const artwork = panel.artwork;
+    const { artwork, placement, area, source } = artworks[segment.panel];
     if (!artwork || segment.x1 - segment.x0 <= 0) continue;
     const panelSize = getPanelSize(segment.panel, dieline.dimensions);
-    // The artwork area (wall, or wall + bottom allowance with extendToBottom) drives both the mapping and the clip.
-    const area = getPanelArtworkArea(segment.panel, dieline.dimensions, panel.placement);
-    const uv = computePanelUvTransform(panelSize, artwork, panel.placement, area);
+    // The artwork area (wall, or wall + bottom allowance with extendToBottom; for a wrap the whole wall row in this
+    // panel's coordinates) drives the mapping; the clip stays per column.
+    const uv = computePanelUvTransform(panelSize, artwork, placement, area);
     const p = uvTransformToPanelMatrix(panelSize, uv);
     // texture t = (ix, 1 − iy) for image unit-square point (ix, iy); sheet = panel + shift; SVG y = H − sheet y.
     const shiftX = segment.x0 - segment.localX0;
@@ -205,18 +213,20 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
       fmt(matrix.a * ix + matrix.c * iy + matrix.e),
       fmt(matrix.b * ix + matrix.d * iy + matrix.f),
     ]);
-    images.push({
+    columnImages.push({
       id: `artwork-${segment.id}`,
       panel: segment.panel,
+      target: source,
       segment: segment.id,
       href: artwork.fileUrl,
       matrix,
-      clip: svgRect(`clip-${segment.id}`, getArtworkClipRect(dieline, segment, panel.placement.extendToBottom)),
+      clip: svgRect(`clip-${segment.id}`, getArtworkClipRect(dieline, segment, placement.extendToBottom)),
       area: svgRect(`area-${segment.id}`, { ...area, x: area.x + shiftX, y: area.y + shiftY }),
-      extendToBottom: panel.placement.extendToBottom,
+      extendToBottom: placement.extendToBottom,
       corners,
     });
   }
+  const images = mergeWrapImages(columnImages);
 
   return {
     sheet: { ...dieline.sheet },
@@ -239,7 +249,27 @@ export function buildDielineScene(dieline: Dieline, panels: BagPanels, texts: Sc
   };
 }
 
-export const matrixAttr = (m: Affine2) => `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`;
+/**
+ * The wrap maps to the same sheet matrix in every column (its area is the whole wall row), and the column clips are
+ * adjacent (each overlaps its neighbour by the crease overprint) with equal vertical extent, so their union is one
+ * rectangle. One image instead of four keeps the exported SVG / PDF from embedding the same picture four times.
+ */
+function mergeWrapImages(images: SceneImage[]): SceneImage[] {
+  const wrap = images.filter((image) => image.target === 'WRAP');
+  if (wrap.length === 0) return images;
+  const minX = Math.min(...wrap.map((image) => image.clip.x));
+  const maxX = Math.max(...wrap.map((image) => image.clip.x + image.clip.width));
+  const merged: SceneImage = {
+    ...wrap[0],
+    id: 'artwork-WRAP',
+    segment: 'WRAP',
+    clip: { ...wrap[0].clip, id: 'clip-WRAP', x: fmt(minX), width: fmt(maxX - minX) },
+    area: { ...wrap[0].area, id: 'area-WRAP' },
+  };
+  return [...images.filter((image) => image.target !== 'WRAP'), merged];
+}
+
+export const matrixAttr =(m: Affine2) => `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`;
 
 /** Drawing style shared by the view and the export (stroke widths in mm). */
 export const DIELINE_STYLE = {

@@ -59,7 +59,8 @@
       "FRONT": "Front",
       "BACK": "Back",
       "LEFT": "Left side",
-      "RIGHT": "Right side"
+      "RIGHT": "Right side",
+      "WRAP": "Whole bag"
     },
     "edit": {
       "artworkLabel": "Artwork: {{panel}}. Click to edit; arrow keys move, + and − scale, R rotates, 0 resets.",
