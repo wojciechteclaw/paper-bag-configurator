@@ -156,3 +156,17 @@ describe('sanitizeConfiguration', () => {
     expect(sanitize(raw).configuration.id).toEqual(expect.any(String));
   });
 });
+
+describe('sanitizeConfiguration: glue flap width', () => {
+  it('keeps a valid width, clamps an out-of-range one and fills in the default for older data', () => {
+    const base = createConfiguration('BLOCK');
+    const ok = sanitizeConfiguration({ ...base, glueFlapWidth: 14 });
+    expect(ok.ok && ok.configuration.glueFlapWidth).toBe(14);
+    const clamped = sanitizeConfiguration({ ...base, glueFlapWidth: 40 });
+    expect(clamped.ok && clamped.configuration.glueFlapWidth).toBe(20);
+    expect(clamped.ok && clamped.adjustments).toContainEqual({ section: 'dimensions', field: 'glueFlapWidth' });
+    const { glueFlapWidth: _omit, ...legacy } = base;
+    const old = sanitizeConfiguration(legacy);
+    expect(old.ok && old.configuration.glueFlapWidth).toBe(10);
+  });
+});

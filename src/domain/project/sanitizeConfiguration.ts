@@ -12,6 +12,7 @@ import { getPanelArtworkArea, normalizePlacement, DEFAULT_PLACEMENT, type Size2 
 import { ARTWORK_RULES, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, type BagTypeDefinition } from '../config/productCatalog';
 import { constrainDimensions } from '../constraints';
 import { createConfiguration, createHandle, createPanel, PANEL_POSITIONS } from '../factories';
+import { constrainGlueFlapWidth } from '../glueFlap';
 import { constrainPaperToVariant, getHandleVariantDefinition, getSupportedHandleTypes } from '../handleVariants';
 import { suggestPantonePreviewHex } from '../printColors';
 import { normalizeHex } from '../printCoverage/color';
@@ -264,6 +265,11 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     ? (raw.packaging as BagConfiguration['packaging'])
     : defaults.packaging;
   if (packaging !== raw.packaging) noter('packaging')('packaging');
+  const glueFlapWidth =
+    raw.glueFlapWidth === undefined
+      ? defaults.glueFlapWidth
+      : constrainGlueFlapWidth(Number(raw.glueFlapWidth), productType, defaults.glueFlapWidth);
+  if (raw.glueFlapWidth !== undefined && glueFlapWidth !== raw.glueFlapWidth) noter('dimensions')('glueFlapWidth');
 
   const { wrapArtwork: _legacy, ...rest } = raw;
   const configuration = {
@@ -278,6 +284,7 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     wrapLayers,
     print,
     packaging,
+    glueFlapWidth,
   } as BagConfiguration;
   return { ok: true, configuration, adjustments };
 }
