@@ -189,7 +189,7 @@ describe('computeInkCoverage', () => {
   describe('whole-bag artwork layers (SPEC §3a, §3b)', () => {
     type LayerSpec = { rows: Rgba[][]; placement?: ArtworkPlacement };
     /**
-     * Layers (bottom → top) around the bag FRONT | RIGHT | BACK | LEFT (700 mm, from FRONT's left edge), fed per wall
+     * Layers (bottom → top) around the bag LEFT | FRONT | RIGHT | BACK (700 mm, from LEFT's free edge), fed per wall
      * with their resolved areas — exactly what the UI passes.
      */
     const wrapInputs = (layers: LayerSpec[]) => {
@@ -226,13 +226,13 @@ describe('computeInkCoverage', () => {
       ) as Record<PanelPosition, CoveragePanelInput[]>;
     };
 
-    it('samples one continuous image around the bag: the first half of the wrap is FRONT + RIGHT', () => {
-      // 2 px: red | transparent → ink on wrap x ∈ [0, 350) = FRONT (200) + RIGHT (150); BACK and LEFT stay bare.
+    it('samples one continuous image around the bag: the first half of the wrap is LEFT + FRONT', () => {
+      // 2 px: red | transparent → ink on wrap x ∈ [0, 350) = LEFT (150) + FRONT (200); RIGHT and BACK stay bare.
       const result = computeInkCoverage({ dieline, panels: wrapInputs([{ rows: [[RED, CLEAR]] }]), paperColor: 'WHITE', pantoneColors: palette });
       expect(result.panels.FRONT?.inkArea).toBeCloseTo(FRONT_AREA, 6);
-      expect(result.panels.RIGHT?.inkArea).toBeCloseTo(150 * 400, 6);
+      expect(result.panels.LEFT?.inkArea).toBeCloseTo(150 * 400, 6);
       expect(result.panels.BACK?.inkArea).toBe(0);
-      expect(result.panels.LEFT?.inkArea).toBe(0);
+      expect(result.panels.RIGHT?.inkArea).toBe(0);
       expect(result.colors[0].area).toBeCloseTo(350 * 400, 6);
     });
 
@@ -290,13 +290,13 @@ describe('computeInkCoverage', () => {
     });
 
     it('counts an image straddling the LEFT | FRONT corner on both walls, once (cyclic wrap)', () => {
-      // 100 × 100 mm red square centred on FRONT's left edge (wrap x 0 ≡ 700), y 150…250.
+      // 100 × 100 mm red square centred on the LEFT | FRONT corner (wrap x 150), y 150…250.
       const result = computeInkCoverage({
         dieline,
         panels: wrapInputs([
           {
             rows: [[RED]],
-            placement: { mode: 'CUSTOM', offsetX: -350, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false },
+            placement: { mode: 'CUSTOM', offsetX: -200, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false },
           },
         ]),
         paperColor: 'WHITE',

@@ -308,13 +308,13 @@ function overlaps(corners: [number, number][], clip: SceneRect): boolean {
 }
 
 /**
- * Merges the column images of each whole-bag layer. The wrap is cyclic and starts at FRONT's left edge, while the sheet
- * columns run LEFT | FRONT | RIGHT | BACK: columns whose copies sit at the same sheet position share one matrix and
- * their clips are adjacent (each overlaps its neighbour by the crease overprint) with equal vertical extent, so their
- * union is one rectangle. Typically:
- * - FRONT…BACK (and LEFT, for an image crossing the LEFT | FRONT corner — LEFT lies directly left of FRONT on the sheet)
- *   → one image (`artwork-WRAP-<id>`, the group containing FRONT);
- * - the LEFT column showing the END of the wrap (the same image shifted by the wrap width) → `artwork-WRAP-<id>-LEFT`;
+ * Merges the column images of each whole-bag layer. The wrap is cyclic and starts at LEFT's free edge, in the sheet
+ * order of the columns LEFT | FRONT | RIGHT | BACK, so a copy lies 1:1 on the columns: columns whose copies sit at the
+ * same sheet position share one matrix and their clips are adjacent (each overlaps its neighbour by the crease
+ * overprint) with equal vertical extent, so their union is one rectangle. Typically:
+ * - one image over all the columns it reaches (`artwork-WRAP-<id>` when it includes FRONT);
+ * - an image crossing the BACK | LEFT seam (the wrap ends) is split between the sheet ends: the part at the BACK end and
+ *   the part at the LEFT start are the same image shifted by the wrap width → `artwork-WRAP-<id>-BACK` / `-LEFT`;
  * - other groups → `artwork-WRAP-<id>-<first wall>`.
  * All images of a layer are edited as one (same target) and keep the layer order (bottom → top), after wall images.
  * `row` = sheet x extent of the wall columns: the selection area of a whole-bag layer (it covers every wall).

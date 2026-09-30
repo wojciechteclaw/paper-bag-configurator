@@ -16,7 +16,8 @@ function layeredFront() {
   configuration.artworkLayout = 'WRAP';
   configuration.wrapLayers = [
     createWrapLayer(image('bg', 1400, 980), fillPlacement(true)),
-    createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -250, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
+    // Logo centred at wrap x 250 = FRONT's centre (FRONT spans wrap x 150…350).
+    createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -100, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
   ];
   const resolved = resolvePanelArtwork(configuration, 'FRONT');
   return { configuration, panelSize: getPanelSize('FRONT', configuration.dimensions), layers: resolved.layers };
@@ -45,11 +46,11 @@ describe('planArtworkComposite', () => {
     const { panelSize, layers } = layeredFront();
     const plan = planArtworkComposite(panelSize, layers, { maxLongSidePx: 490 }); // 1 px per mm
     const [bg, logo] = plan.layers;
-    // Background FILL over the extended wrap (x ∈ [0, 700], y ∈ [−90, 400]): its top-left pixel at the frame's
-    // top-left, its bottom-right pixel 700 mm to the right (outside this wall) at the frame bottom.
-    expect(apply(bg.matrix, 0, 0).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([0, 0]);
-    expect(apply(bg.matrix, 1400, 980).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([700, 490]);
-    // Logo 100 × 100 mm centred at wrap (350 − 250, 200) = (100, 200): canvas x 50…150, y (400 − 250)…(400 − 150) + 0.
+    // Background FILL over the extended wrap (FRONT-local x ∈ [−150, 550], y ∈ [−90, 400]): its top-left pixel 150 mm
+    // left of the frame (on LEFT), its bottom-right pixel 550 mm to the right (outside this wall) at the frame bottom.
+    expect(apply(bg.matrix, 0, 0).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-150, 0]);
+    expect(apply(bg.matrix, 1400, 980).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([550, 490]);
+    // Logo 100 × 100 mm centred at FRONT-local (100, 200): canvas x 50…150, y (400 − 250)…(400 − 150).
     expect(apply(logo.matrix, 0, 0).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([50, 150]);
     expect(apply(logo.matrix, 100, 100).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([150, 250]);
   });
@@ -58,7 +59,7 @@ describe('planArtworkComposite', () => {
     const { panelSize, layers } = layeredFront();
     const plan = planArtworkComposite(panelSize, layers, { maxLongSidePx: 490 });
     expect(plan.layers[0].clip).toEqual({ x: 0, y: 0, width: 200, height: 490 });
-    // The logo copy spans wrap x 50…150 only; without extension it never reaches below the bottom line.
+    // The logo spans FRONT x 50…150 only; without extension it never reaches below the bottom line.
     expect(plan.layers[1].clip).toEqual({ x: 50, y: 0, width: 100, height: 400 });
   });
 
@@ -100,13 +101,13 @@ describe('planArtworkComposite', () => {
     expect(plan.pixelsPerMm).toBeCloseTo(1);
   });
 
-  it('draws a logo straddling the LEFT | FRONT corner on both walls (cyclic wrap)', () => {
+  it('draws a logo straddling the LEFT | FRONT corner on both walls', () => {
     const configuration = createConfiguration('BLOCK');
     configuration.artworkLayout = 'WRAP';
     configuration.wrapLayers = [
       createWrapLayer(image('bg', 1400, 800), fillPlacement()),
-      // 100 mm logo centred on FRONT's left edge (wrap x 0 ≡ 700).
-      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -350, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
+      // 100 mm logo centred on the LEFT | FRONT corner (wrap x 150).
+      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -200, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
     ];
     const plan = (position: 'FRONT' | 'LEFT') =>
       planArtworkComposite(getPanelSize(position, configuration.dimensions), resolvePanelArtwork(configuration, position).layers, {

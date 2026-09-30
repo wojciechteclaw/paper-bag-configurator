@@ -5,18 +5,18 @@
 // AREA that placement refers to, in that wall's panel-local mm. Per wall there is at most one layer (the wall's own
 // artwork); in the WRAP layout every whole-bag layer is expressed per wall as the whole wrap area shifted left by
 // the wall's position around the bag. Panel-local x of every wall runs left → right seen from outside, so each layer
-// lands contiguously on FRONT | RIGHT | BACK | LEFT — in 3D (incl. the bottom pieces, which live in the UV space of
+// lands contiguously on LEFT | FRONT | RIGHT | BACK — in 3D (incl. the bottom pieces, which live in the UV space of
 // their wall), on the dieline and in the coverage sampling — through the existing
 // `computePanelUvTransform(panelSize, image, placement, area)` without any consumer knowing about the wrap.
 //
-// Wrap coordinates (client decision [K] 30.09.2026): x starts at the LEFT EDGE OF THE FRONT wall and runs around the
-// bag — FRONT [0, W], RIGHT [W, W + D], BACK [W + D, 2W + D], LEFT [2W + D, 2W + 2D] — ending at the same FRONT/LEFT
-// corner; y from the bottom line (y = 0) up to the top edge (y = H); with `extendToBottom` a layer's area also covers
-// the bottom allowance, y ∈ [−a, H], exactly like a single wall (§4f). Each layer has its own placement and its own
-// "extend to bottom". On the sheet (columns LEFT | FRONT | RIGHT | BACK | glue flap) the LEFT column comes first, so it
-// shows the END of the image; the glue flap is never printed [K].
+// Wrap coordinates (client decision [K] 30.09.2026, "tak jak wykrój" — like the dieline): x starts at the LEFT
+// wall's free edge (the seam) and runs in sheet order — LEFT [0, D], FRONT [D, D + W], RIGHT [D + W, 2D + W], BACK
+// [2D + W, 2W + 2D] — ending at the BACK/LEFT seam (the glue-flap hinge); y from the bottom line (y = 0) up to the top
+// edge (y = H); with `extendToBottom` a layer's area also covers the bottom allowance, y ∈ [−a, H], exactly like a
+// single wall (§4f). Each layer has its own placement and its own "extend to bottom". On the sheet (columns LEFT |
+// FRONT | RIGHT | BACK | glue flap) the wrap lies 1:1 on the wall columns; the glue flap is never printed [K].
 //
-// The wrap is CYCLIC (client bug report 30.09.2026: an image must move naturally across the LEFT | FRONT corner): the
+// The wrap is CYCLIC (client bug report 30.09.2026: an image must move naturally across every corner): the
 // image of a layer repeats at x + k·P (P = 2W + 2D), each copy limited to one period around the image centre
 // (`getWrapImageExtent`). The wrap area is only the reference for FILL / fit / align / centring and the vertical clip;
 // horizontally a copy is clipped to the wall and its `clipX`. `offsetX` wraps into one period (`periodicX`) instead
@@ -39,8 +39,8 @@ import type {
   WrapLayerTarget,
 } from './types';
 
-/** Walls in the order the whole-bag artwork runs around the bag, from FRONT's left edge (client decision [K]). */
-export const WRAP_PANEL_ORDER: readonly PanelPosition[] = ['FRONT', 'RIGHT', 'BACK', 'LEFT'];
+/** Walls in the order the whole-bag artwork runs around the bag: sheet order from LEFT's free edge (client decision [K]). */
+export const WRAP_PANEL_ORDER: readonly PanelPosition[] = ['LEFT', 'FRONT', 'RIGHT', 'BACK'];
 
 /** Walls in the sheet order of the dieline columns (§4b) — the listing order of per-wall artwork. */
 export const SHEET_PANEL_ORDER: readonly PanelPosition[] = ['LEFT', 'FRONT', 'RIGHT', 'BACK'];
@@ -174,7 +174,7 @@ export function getWrapLayer(
 
 // ——— Geometry ———
 
-/** x of the wall's left edge (seen from outside) in wrap coordinates: FRONT 0, RIGHT W, BACK W + D, LEFT 2W + D. */
+/** x of the wall's left edge (seen from outside) in wrap coordinates: LEFT 0, FRONT D, RIGHT D + W, BACK 2D + W. */
 export function getWrapPanelOffset(position: PanelPosition, dimensions: Dimensions): number {
   let offset = 0;
   for (const wall of WRAP_PANEL_ORDER) {
@@ -301,8 +301,8 @@ export function resolvePanelArtwork(configuration: ArtworkSource, position: Pane
   let layers: ResolvedArtworkLayer[];
   if (getArtworkLayout(configuration) === 'WRAP') {
     // The wrap is cyclic with period P = 2W + 2D (it runs around the bag): a layer's image shows at x + k·P. Every
-    // copy that reaches this wall becomes an entry (usually one; two when the image crosses FRONT's left edge — the
-    // LEFT | FRONT corner — seen from LEFT's side, or when it is wider than the wall's neighbours allow).
+    // copy that reaches this wall becomes an entry (usually one; two when the image crosses the wrap ends — the
+    // BACK | LEFT seam — or when it is wider than the wall's neighbours allow).
     const wallX0 = getWrapPanelOffset(position, dimensions);
     const wallX1 = wallX0 + getPanelSize(position, dimensions).width;
     layers = [];

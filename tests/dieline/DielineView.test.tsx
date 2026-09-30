@@ -144,9 +144,9 @@ describe('DielineView', () => {
         createArtwork({ fileName: 'logo.png', fileUrl: 'blob:logo', mimeType: 'image/png', width: 100, height: 100, sizeBytes: 10 }),
       )!;
     });
-    // Background: FRONT…BACK part + LEFT part (the end of the wrap); logo: on FRONT only. Drawn bottom → top.
+    // Background: one image lying 1:1 on the wall columns (the wrap starts at LEFT's free edge); logo: on FRONT only.
     const images = [...container.querySelectorAll('[data-layer="artwork"] image')].map((el) => el.getAttribute('href'));
-    expect(images).toEqual(['blob:bg', 'blob:bg', 'blob:logo']);
+    expect(images).toEqual(['blob:bg', 'blob:logo']);
     expect(screen.queryByRole('button', { name: /Grafika: Przód/ })).not.toBeInTheDocument();
 
     const logoButton = screen.getByRole('button', { name: /Grafika: Cała torba, warstwa 2: logo\.png/ });
@@ -175,18 +175,18 @@ describe('DielineView', () => {
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
-  it('nudges a whole-bag layer across the LEFT | FRONT corner without stopping (cyclic wrap)', () => {
+  it('nudges a whole-bag layer across the BACK | LEFT seam (the wrap ends) without stopping (cyclic wrap)', () => {
     render(<DielineView />);
     act(() => {
       store().setArtworkLayout('WRAP');
       const id = store().addWrapLayer(
         createArtwork({ fileName: 'bg.png', fileUrl: 'blob:bg', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 10 }),
       )!;
-      // Centre 5 mm right of FRONT's left edge (wrap x 5 of 700).
+      // Centre 5 mm right of LEFT's free edge (wrap x 5 of 700).
       store().setPanelPlacement(wrapLayerTarget(id), { mode: 'CUSTOM', offsetX: -345, offsetY: 0, scale: 0.1, rotation: 0, extendToBottom: false });
     });
     const button = screen.getByRole('button', { name: /Grafika: Cała torba, warstwa 1/ });
-    fireEvent.keyDown(button, { key: 'ArrowLeft', shiftKey: true }); // −10 mm → wrap x −5 ≡ 695 (end of LEFT)
+    fireEvent.keyDown(button, { key: 'ArrowLeft', shiftKey: true }); // −10 mm → wrap x −5 ≡ 695 (end of BACK)
     expect(store().configuration.wrapLayers[0].placement).toMatchObject({ offsetX: 345 });
     fireEvent.keyDown(button, { key: 'ArrowRight', shiftKey: true });
     expect(store().configuration.wrapLayers[0].placement).toMatchObject({ offsetX: -345 });

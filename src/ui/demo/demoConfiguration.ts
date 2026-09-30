@@ -10,7 +10,7 @@ import { useConfigurationStore } from '../../state/configurationStore';
 //   the bottom (SPEC §4f).
 // - FOLDED (client configuration 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, glue flap
 //   15 mm, one whole-bag (WRAP) artwork layer public/gusseted-bag/gussted.webp (5040 × 3000 px = the 420 × 250 mm wrap)
-//   placed 1:1 and shifted left by the gusset depth, so the image starts at the LEFT gusset's edge (sheet order).
+//   stretched (FILL) over the wrap, which starts at the LEFT gusset's free edge in sheet order.
 // Missing images are skipped: the configuration still loads.
 
 export type DemoConfiguration = {
@@ -55,11 +55,11 @@ export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> =
     grammage: 40,
     artwork: {},
     glueFlapWidth: 15,
-    // 1:1 over the wrap 2W + 2F = 420 × H 250 mm (image aspect 1.68 = wrap aspect), moved left by F = 60 mm.
+    // FILL over the wrap 2W + 2F = 420 × H 250 mm from LEFT's free edge (image aspect 1.68 = wrap aspect: 1:1).
     wrapLayers: [
       {
         path: 'gusseted-bag/gussted.webp',
-        placement: { mode: 'CUSTOM', offsetX: -60, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false },
+        placement: { mode: 'FILL', extendToBottom: false },
       },
     ],
     extendToBottom: false,
