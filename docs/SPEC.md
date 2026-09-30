@@ -546,13 +546,17 @@ grafika / warstwa) **jest** zapisywany w pliku (decyzja klienta [K] 30.09.2026) 
 ### 4j. Telefon i tablet (prośba klienta 30.09.2026: „zrób to na telefon”)
 
 - **Desktop (> 900 px) bez zmian:** konfiguracja po lewej (440 px), podgląd przyklejony po prawej.
-- **≤ 900 px (tablet pionowo, telefon):** podgląd **na górze, przyklejony** (48 % wysokości ekranu, 62 % w wykroju 2D —
-  więcej miejsca na paski narzędzi; jednostki `svh`, więc płótno nie skacze przy chowaniu pasków przeglądarki),
-  pod nim konfiguracja krok po kroku z przyklejonym paskiem „Wstecz / Dalej” na dole. Przewijanie strony — z obszaru
-  konfiguracji; płótno 3D i wykrój przejmują dotyk (3D: jeden palec obraca, dwa palce przybliżają / przesuwają;
-  wykrój: jeden palec przesuwa arkusz lub grafikę, dwa palce — zoom i przesuwanie).
-- **Telefon poziomo (≤ 900 × ≤ 560 px):** konfiguracja i podgląd obok siebie (45 / 55 %), podgląd przyklejony na
-  pełną wysokość pod nagłówkiem.
+- **≤ 900 px (tablet pionowo, telefon):** górny pasek **przyklejony** (52 px, menu ☰ zawsze dostępne), pod nim podgląd
+  **przyklejony** (48 % pozostałej wysokości ekranu, 62 % w wykroju 2D — więcej miejsca na paski narzędzi; jednostki
+  `svh`, więc płótno nie skacze przy chowaniu pasków przeglądarki), pod nim konfiguracja krok po kroku z przyklejonym
+  paskiem „Wstecz / Dalej” na dole. Przewijanie strony — z obszaru konfiguracji; płótno 3D i wykrój przejmują dotyk (3D:
+  jeden palec obraca, dwa palce przybliżają / przesuwają; wykrój: jeden palec przesuwa arkusz lub grafikę, dwa palce —
+  zoom i przesuwanie).
+- **Zwijanie podglądu (pionowo, 01.10.2026):** okrągły przycisk ▴ w prawym dolnym rogu podglądu zwija go do paska
+  „Rozwiń podgląd” (więcej miejsca na formularz; zatrzymuje odtwarzanie i obrót 360°). Domyślnie rozwinięty; stan widoku
+  (`previewStore.collapsed`), niezapisywany w projekcie; w poziomie i na desktopie niedostępny i ignorowany.
+- **Telefon poziomo (≤ 900 × ≤ 560 px):** konfiguracja i podgląd obok siebie (45 / 55 %), pasek przyklejony, podgląd
+  przyklejony pod nim na pozostałą wysokość; kroki w wersji kompaktowej (numery, bieżący z nazwą).
 - **Górny pasek (≤ 900 px, prośba klienta [K] 30.09.2026: „menu nawigacyjne … albo plik rozwijany demo”):** jeden
   rząd — tytuł, język, przycisk menu ☰ (44 × 44 px; od 421 px z napisem „Menu”). Menu rozwijane pod paskiem: sekcja
   „Projekt” („Zapisz projekt”, „Wczytaj projekt” — zamykają menu) i „Przykłady (demo)” — Demo 1…N z krótkim opisem
@@ -632,8 +636,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
   „Rozciągnij” / dopasowanie? ~~Demo 1: przesunięcie X 1,83 mm zostaje czy zero?~~ — rozstrzygnięte [K] (30.09.2026):
   Demo 1 ustawione przez klienta na nowym obszarze — X 0, Y 36,37 mm, skala 1 (obraz dokładnie na ściankach, 1080 mm).
 
-- **Telefon (§4j):** czy podgląd na 48 % wysokości ekranu jest dobrym kompromisem, czy dodać przycisk zwijania /
-  powiększania podglądu? Czy „Demo 1–4” mają być w wersji produkcyjnej na telefonie widoczne w górnym pasku?
+- **Telefon (§4j):** ~~przycisk zwijania podglądu?~~ — dodany (01.10.2026, domyślnie rozwinięty). Czy „Demo 1–4” mają
+  zostać w menu w wersji produkcyjnej?
 - **Obrót 360° (§4c):** czy obrót ma się kończyć po jednym okrążeniu (zamiast trwać do zatrzymania) i czy tempo 14 s
   na okrążenie jest dobre?
 

@@ -390,6 +390,8 @@
     "play": "Odtwórz składanie",
     "pause": "Wstrzymaj",
     "previousStage": "Poprzedni etap",
+    "collapse": "Zwiń podgląd",
+    "expand": "Rozwiń podgląd",
     "orbit": "Obracaj wokół torby: 360° oraz od 45° z góry do 45° od dołu",
     "orbitStop": "Zatrzymaj obracanie",
     "nextStage": "Następny etap",

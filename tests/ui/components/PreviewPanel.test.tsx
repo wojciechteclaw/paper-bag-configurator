@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePreviewStore } from '../../../src/state/previewStore';
 import { PreviewPanel } from '../../../src/ui/components/PreviewPanel';
 
@@ -24,7 +24,46 @@ vi.mock('../../../src/renderer/BagPreview3D', () => ({
 }));
 vi.mock('../../../src/dieline/DielineView', () => ({ DielineView: () => <div data-testid="dieline" /> }));
 
-beforeEach(() => usePreviewStore.setState({ viewMode: 'BOX', progress: 0.4, playing: false, orbiting: false }));
+beforeEach(() => usePreviewStore.setState({ viewMode: 'BOX', progress: 0.4, playing: false, orbiting: false, collapsed: false }));
+
+/** Makes `matchMedia` report the portrait phone / tablet layout (true) or desktop / landscape (false). */
+function stubPortraitLayout(matches: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
+
+describe('PreviewPanel collapse (phones and tablets in portrait)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('collapses the preview to a bar and expands it again; collapsing stops playback and the orbit', () => {
+    stubPortraitLayout(true);
+    usePreviewStore.setState({ playing: true, orbiting: true });
+    render(<PreviewPanel />);
+    const collapse = screen.getByRole('button', { name: 'Zwiń podgląd' });
+    expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(collapse);
+    expect(screen.queryByTestId('bag-3d')).not.toBeInTheDocument();
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(usePreviewStore.getState()).toMatchObject({ collapsed: true, playing: false, orbiting: false });
+    const expand = screen.getByRole('button', { name: /Rozwiń podgląd/ });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(expand);
+    expect(screen.getByTestId('bag-3d')).toBeInTheDocument();
+    expect(usePreviewStore.getState().collapsed).toBe(false);
+  });
+
+  it('offers no collapse on desktop or in landscape, and ignores a collapsed state there', () => {
+    stubPortraitLayout(false);
+    usePreviewStore.setState({ collapsed: true });
+    render(<PreviewPanel />);
+    expect(screen.getByTestId('bag-3d')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Zwiń podgląd|Rozwiń podgląd/ })).not.toBeInTheDocument();
+  });
+});
 
 describe('PreviewPanel camera orbit', () => {
   it('toggles the automatic orbit of the 3D camera and stops when the user takes over', () => {

@@ -388,6 +388,8 @@
     "play": "Aufbau abspielen",
     "pause": "Pause",
     "previousStage": "Vorherige Phase",
+    "collapse": "Vorschau einklappen",
+    "expand": "Vorschau ausklappen",
     "orbit": "Um den Beutel kreisen: 360° rundum und von 45° oben bis 45° unten",
     "orbitStop": "Kreisen anhalten",
     "nextStage": "Nächste Phase",

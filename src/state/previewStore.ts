@@ -201,6 +201,10 @@ type PreviewState = {
   toggleOrbiting: () => void;
   /** Stops the camera orbit (the user took over the camera, or the 3D view closed). */
   stopOrbiting: () => void;
+  /** Phones / tablets in portrait: the preview is collapsed to a bar to give the form more room (default expanded). */
+  collapsed: boolean;
+  /** Collapses / expands the preview; collapsing also stops the timeline playback and the camera orbit. */
+  toggleCollapsed: () => void;
   /**
    * Selects a mode; 3D modes also move the timeline to their preset for the current bag type (the model animates
    * there) and stop playback.
@@ -237,6 +241,8 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
   orbiting: false,
   toggleOrbiting: () => set({ orbiting: !get().orbiting }),
   stopOrbiting: () => set({ orbiting: false }),
+  collapsed: false,
+  toggleCollapsed: () => set(get().collapsed ? { collapsed: false } : { collapsed: true, playing: false, orbiting: false }),
   setViewMode: (mode) => {
     // The 2D dieline has no camera: leaving 3D also ends the orbit.
     if (mode === 'DIELINE') set({ viewMode: mode, playing: false, orbiting: false });

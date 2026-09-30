@@ -388,6 +388,8 @@
     "play": "Play assembly",
     "pause": "Pause",
     "previousStage": "Previous stage",
+    "collapse": "Collapse preview",
+    "expand": "Expand preview",
     "orbit": "Orbit the bag: 360° around and from 45° above to 45° below",
     "orbitStop": "Stop orbiting",
     "nextStage": "Next stage",

@@ -135,7 +135,9 @@ h1, h2, h3, legend, .subheading { color: var(--heading); }
 .dialog__body p { margin: 0 0 16px; }
 .dialog__actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.app-layout { flex: 1; display: grid; grid-template-columns: 440px 1fr; min-height: 0; }
+/* minmax(0, …): the preview column may shrink below the canvas's current pixel width (e.g. when a vertical scrollbar
+   appears), instead of pushing the page into horizontal scrolling. */
+.app-layout { flex: 1; display: grid; grid-template-columns: 440px minmax(0, 1fr); min-height: 0; }
 .config-panel { padding: 20px 24px; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface); }
 .preview-panel { position: sticky; top: 0; height: calc(100vh - 62px); background: var(--bg); }
 
@@ -464,22 +466,31 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 
 /*
  * ———— Tablets and phones (≤ 900 px) ————
- * Preview on top, sticky (--preview-h of the viewport, small-viewport units so the canvas does not resize when the
- * browser bars show / hide); the configuration scrolls below it with a sticky Back / Next bar. The 3D canvas and the
- * dieline take all touches on themselves (orbit / pinch), so the page scrolls from the configuration area.
+ * Sticky header (--header-h, the ☰ menu always reachable), under it the sticky preview (--preview-h: 48 % of the
+ * remaining height, 62 % in the 2D dieline; small-viewport units so the canvas does not resize when the browser bars
+ * show / hide); the configuration scrolls below it with a sticky Back / Next bar. The 3D canvas and the dieline take
+ * all touches on themselves (orbit / pinch), so the page scrolls from the configuration area.
  */
 @media (max-width: 900px) {
-  :root { --preview-h: 48vh; --gutter: 16px; }
+  :root { --header-h: 52px; --preview-h: calc((100vh - var(--header-h)) * 0.48); --gutter: 16px; }
   /* The 2D editor needs room for its toolbars: a taller preview while it is shown. */
-  :root:has(.preview-panel .dieline-view) { --preview-h: 62vh; }
+  :root:has(.preview-panel .dieline-view) { --preview-h: calc((100vh - var(--header-h)) * 0.62); }
   @supports (height: 1svh) {
-    :root { --preview-h: 48svh; }
-    :root:has(.preview-panel .dieline-view) { --preview-h: 62svh; }
+    :root { --preview-h: calc((100svh - var(--header-h)) * 0.48); }
+    :root:has(.preview-panel .dieline-view) { --preview-h: calc((100svh - var(--header-h)) * 0.62); }
   }
+  /* Collapsed preview (portrait): only its bar with the "expand" button. After the rules above so it wins. */
+  :root:has(.preview-stage.is-collapsed) { --preview-h: 52px; }
 
-  /* Top bar in one row: title, language switcher and the ☰ menu (client [K] 30.09.2026). */
-  .app-header { z-index: 4; flex-wrap: nowrap; gap: 8px; padding: 4px var(--gutter); }
-  .app-header h1 { flex: 1 1 0; min-width: 0; margin-right: 0; font-size: 16px; overflow-wrap: anywhere; hyphens: auto; }
+  /* Top bar in one row, sticky: title, language switcher and the ☰ menu (client [K] 30.09.2026). */
+  .app-header {
+    position: sticky; top: 0; z-index: 4; height: var(--header-h);
+    flex-wrap: nowrap; gap: 8px; padding: 4px var(--gutter);
+  }
+  .app-header h1 {
+    flex: 1 1 0; min-width: 0; margin-right: 0; padding-bottom: 4px;
+    font-size: 16px; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto;
+  }
   .lang-switcher { order: 1; flex: none; }
   .lang-switcher button { min-width: 40px; min-height: 44px; padding: 4px 6px; }
   .header-menu { order: 2; flex: none; }
@@ -504,12 +515,12 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .header-menu__panel {
     position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 16px;
-    max-height: calc(100vh - 56px); overflow-y: auto; overscroll-behavior: contain;
+    max-height: calc(100vh - var(--header-h)); overflow-y: auto; overscroll-behavior: contain;
     padding: 12px var(--gutter) 16px; background: var(--surface);
     border-top: 1px solid var(--border); box-shadow: 0 8px 16px rgb(0 0 0 / 14%);
   }
   @supports (height: 1svh) {
-    .header-menu__panel { max-height: calc(100svh - 56px); }
+    .header-menu__panel { max-height: calc(100svh - var(--header-h)); }
   }
   /* Closed: hidden but mounted (buttons keep their state); the save / load toast and the confirmation dialog inside
      the menu stay visible on their own. */
@@ -541,13 +552,13 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   /* Layout: sticky preview first, configuration below. */
   .app-layout { display: flex; flex-direction: column; }
   .preview-panel {
-    order: -1; position: sticky; top: 0; z-index: 3; height: var(--preview-h);
+    order: -1; position: sticky; top: var(--header-h); z-index: 3; height: var(--preview-h);
     border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
   }
   .config-panel { overflow: visible; border-right: none; padding: 16px var(--gutter) 0; }
-  /* Focused fields and the step heading scroll clear of the sticky preview and the sticky nav bar. */
+  /* Focused fields and the step heading scroll clear of the sticky header + preview and the sticky nav bar. */
   .config-panel :is(input, select, textarea, button, summary, h2, [tabindex]) {
-    scroll-margin-top: calc(var(--preview-h) + 12px); scroll-margin-bottom: 80px;
+    scroll-margin-top: calc(var(--header-h) + var(--preview-h) + 12px); scroll-margin-bottom: 80px;
   }
 
   /* Wizard: sticky Back / Next bar with large buttons. */
@@ -570,6 +581,10 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .swatch-suggestions__add, .json-actions button, .pantone-form button, .swatch-library__actions button {
     min-height: 44px; padding-left: 12px; padding-right: 12px;
   }
+  .wrap-layer__actions button { min-width: 44px; }
+  /* Disclosure summaries and range sliders: a comfortable touch height. */
+  .coverage__palette > summary { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+  .coverage__merge-slider input[type='range'] { height: 40px; }
   .pantone-list li { min-height: 36px; }
   .pantone-list button { min-width: 36px; min-height: 36px; }
   .infotip__bubble { max-width: min(260px, calc(100vw - 48px)); font-size: 13px; }
@@ -586,6 +601,17 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .preview-stage__view > .dieline-view { padding: 6px 8px 8px; overflow-y: auto; overscroll-behavior: contain; }
   .preview-stage__overlay { position: static; transform: none; max-width: none; padding: 0 8px 6px; }
   .preview-orbit { top: 8px; right: 8px; min-height: 44px; box-shadow: none; }
+  /* Collapse / expand the preview (portrait only; rendered by PreviewPanel where COLLAPSIBLE_PREVIEW_QUERY matches). */
+  .preview-collapse {
+    position: absolute; right: 8px; bottom: 8px; z-index: 1; display: grid; place-items: center;
+    width: 44px; height: 44px; padding: 0; border: 2px solid var(--accent); border-radius: 50%;
+    background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--accent); font-size: 22px; line-height: 1;
+  }
+  .preview-stage.is-collapsed { display: flex; flex-direction: row; align-items: center; padding: 4px 8px; }
+  .preview-expand {
+    flex: 1; min-height: 44px; border: 2px solid var(--accent); color: var(--accent); background: var(--surface);
+    font: 700 13px/1.2 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase;
+  }
   .fold-slider { gap: 4px 8px; padding: 4px 8px; box-shadow: none; }
   .fold-slider__play { width: 44px; height: 44px; font-size: 14px; }
   .fold-slider__skip { width: 40px; height: 40px; font-size: 13px; }
@@ -641,27 +667,33 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
      would be dropped entirely by browsers without :has().) */
   :root { --preview-h: 0px; }
   :root:has(.preview-panel .dieline-view) { --preview-h: 0px; }
+  :root:has(.preview-stage.is-collapsed) { --preview-h: 0px; }
   @supports (height: 1svh) {
     :root { --preview-h: 0px; }
     :root:has(.preview-panel .dieline-view) { --preview-h: 0px; }
+    :root:has(.preview-stage.is-collapsed) { --preview-h: 0px; }
   }
   .app-layout { display: grid; grid-template-columns: minmax(0, 9fr) minmax(0, 11fr); align-items: start; }
-  /* Like desktop: the full height minus the (non-sticky) header, so the fold slider is visible before scrolling. */
+  /* Pinned under the sticky header at the remaining height, so the fold slider is always visible. */
   .preview-panel {
-    grid-column: 2; grid-row: 1; height: calc(100vh - 52px);
+    grid-column: 2; grid-row: 1; height: calc(100vh - var(--header-h));
     border-bottom: none; border-left: 1px solid var(--border); box-shadow: none;
   }
   @supports (height: 1svh) {
-    .preview-panel { height: calc(100svh - 52px); }
+    .preview-panel { height: calc(100svh - var(--header-h)); }
   }
-  .config-panel { grid-column: 1; grid-row: 1; }
-  /* One header row of 52 px (subtracted from the preview height); the menu opens below it. */
-  .app-header { height: 52px; padding-block: 0; }
-  .app-header h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .header-menu__panel { max-height: calc(100vh - 52px); }
-  @supports (height: 1svh) {
-    .header-menu__panel { max-height: calc(100svh - 52px); }
+  .config-panel { grid-column: 1; grid-row: 1; padding-top: 10px; }
+  /* Little height: compact step tabs as on phones (numbers; the current step with its label). */
+  .stepper { display: flex; gap: 4px; margin-bottom: 10px; }
+  .stepper li { flex: 0 0 44px; }
+  .stepper li.is-current { flex: 1 1 auto; min-width: 0; }
+  .stepper li.is-current .stepper__step { flex-direction: row; justify-content: center; gap: 8px; }
+  .stepper li:not(.is-current) .stepper__label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
+  .stepper__step { justify-content: center; min-height: 44px; }
+  .app-header { padding-block: 0; }
+  .app-header h1 { padding-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .preview-modes__option { padding: 4px 5px; font-size: 11px; letter-spacing: 0.01em; }
   .fold-slider label {
     position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
