@@ -116,7 +116,8 @@ function WindowDetails({ window, dimensions, drafts, setDrafts, idPrefix, format
   const opening = getWindowOpening(window, dimensions);
   const film = getWindowFilm(window, dimensions);
   const warnings = getWindowWarnings(window, dimensions);
-  const fields: WindowField[] = window.type === 'RECTANGLE' ? ['width', 'height', 'bottomOffset', 'filmOverlap'] : ['width', 'filmOverlap'];
+  const fields: WindowField[] =
+    window.type === 'RECTANGLE' ? ['width', 'height', 'bottomOffset', 'filmOverlap'] : ['width', 'bottomOffset', 'filmOverlap'];
   const materialId = `${idPrefix}-material`;
 
   const clearDraft = (field: WindowField) =>

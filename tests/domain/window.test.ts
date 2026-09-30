@@ -54,7 +54,8 @@ describe('window geometry (FRONT panel-local mm)', () => {
     expect(getWindowLimits(panoramic, dims)).toEqual({
       width: { min: 20, max: 110 },
       height: { min: 330, max: 330 },
-      bottomOffset: { min: 40, max: 40 },
+      // The strip may start anywhere from d + m = 40 up to the minimum opening below the mouth (370 − 20).
+      bottomOffset: { min: 40, max: 350 },
       filmOverlap: { min: 5, max: 20 },
     });
     // Rectangle: height ≤ H − d − 2m = 315; bottom offset d + m … H − m − height.
@@ -78,7 +79,7 @@ describe('window geometry (FRONT panel-local mm)', () => {
 describe('createWindow / constrainWindow', () => {
   it('creates valid defaults [Z] for both types', () => {
     const p = createWindow('PANORAMIC', dims);
-    expect(p).toEqual({ type: 'PANORAMIC', material: 'PP', width: 40, filmOverlap: 10 });
+    expect(p).toEqual({ type: 'PANORAMIC', material: 'PP', width: 40, bottomOffset: 40, filmOverlap: 10 });
     const r = createWindow('RECTANGLE', dims);
     expect(r).toEqual({ type: 'RECTANGLE', material: 'PP', width: 55, height: 110, bottomOffset: 145, filmOverlap: 10 });
     expect(validateWindow(p, dims)).toEqual([]);
@@ -140,5 +141,19 @@ describe('validation', () => {
     expect(windowsEqual(rectangle, { ...rectangle, bottomOffset: 151 })).toBe(false);
     expect(windowsEqual(null, null)).toBe(true);
     expect(windowsEqual(panoramic, null)).toBe(false);
+  });
+});
+
+describe('panoramic strip start (client [K], 30.09.2026)', () => {
+  it('starts where bottomOffset says, runs to the mouth, and clamps the start into its range', () => {
+    const strip: BagWindow = { type: 'PANORAMIC', material: 'PP', width: 40, bottomOffset: 120, filmOverlap: 10 };
+    expect(getWindowOpening(strip, dims)).toEqual({ x: 50, y: 120, width: 40, height: 250, openAtTop: true });
+    expect(getWindowLimits(strip, dims).height).toEqual({ min: 250, max: 250 });
+    expect(constrainWindow({ ...strip, bottomOffset: 10 }, dims)).toMatchObject({ bottomOffset: 40 });
+    expect(constrainWindow({ ...strip, bottomOffset: 369 }, dims)).toMatchObject({ bottomOffset: 350 });
+    // Older data without the start: the lowest position.
+    const { bottomOffset: _omit, ...legacy } = strip;
+    expect(getWindowOpening(legacy as BagWindow, dims).y).toBe(40);
+    expect(constrainWindow(legacy as BagWindow, dims)).toMatchObject({ bottomOffset: 40 });
   });
 });

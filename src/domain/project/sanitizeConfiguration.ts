@@ -267,9 +267,15 @@ function sanitizeWindow(
     width: numberOrNaN(stored.width),
     filmOverlap: numberOrNaN(stored.filmOverlap),
     ...(stored.type === 'RECTANGLE' ? { height: numberOrNaN(stored.height), bottomOffset: numberOrNaN(stored.bottomOffset) } : {}),
+    ...(stored.type === 'PANORAMIC' && stored.bottomOffset !== undefined ? { bottomOffset: numberOrNaN(stored.bottomOffset) } : {}),
   } as BagWindow;
   const window = constrainWindow(requested, dimensions);
-  if (!windowsEqual(window, requested)) note('window');
+  // A panoramic strip saved before its start became a parameter starts at the lowest position: not an adjustment.
+  const expected =
+    requested.type === 'PANORAMIC' && requested.bottomOffset === undefined && window.type === 'PANORAMIC'
+      ? { ...requested, bottomOffset: window.bottomOffset }
+      : requested;
+  if (!windowsEqual(window, expected)) note('window');
   return window;
 }
 

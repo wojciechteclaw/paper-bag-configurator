@@ -19,7 +19,7 @@ export type WindowRect = { x: number; y: number; width: number; height: number }
 /** The opening cut from the paper; `openAtTop` = it runs through the mouth edge (panoramic strip, y + height = H). */
 export type WindowOpening = WindowRect & { openAtTop: boolean };
 
-/** Editable numeric fields of a window (`height` / `bottomOffset` only for the rectangle). */
+/** Editable numeric fields of a window (`height` only for the rectangle; `bottomOffset` = start of either window). */
 export type WindowField = 'width' | 'height' | 'bottomOffset' | 'filmOverlap';
 
 export type WindowValueError = 'NOT_A_NUMBER' | 'NOT_INTEGER' | 'BELOW_MIN' | 'ABOVE_MAX';
@@ -52,7 +52,8 @@ const roundTo = (value: number, step: number) => Math.round(value / step) * step
 export function windowsEqual(a: BagWindow | null, b: BagWindow | null): boolean {
   if (a === null || b === null) return a === b;
   if (a.type !== b.type || a.material !== b.material || a.width !== b.width || a.filmOverlap !== b.filmOverlap) return false;
-  return a.type === 'PANORAMIC' || (b.type === 'RECTANGLE' && a.height === b.height && a.bottomOffset === b.bottomOffset);
+  if (a.type === 'PANORAMIC') return b.type === 'PANORAMIC' && a.bottomOffset === b.bottomOffset;
+  return b.type === 'RECTANGLE' && a.height === b.height && a.bottomOffset === b.bottomOffset;
 }
 
 /** Minimum paper between the opening edge and a crease / the bottom strip / the mouth: overlap + safety margin, mm. */
@@ -78,11 +79,14 @@ export function getWindowLimits(window: BagWindow, dimensions: WindowDimensions)
   const filmOverlap = { min: WINDOW_RULES.filmOverlap.min, max: WINDOW_RULES.filmOverlap.max };
   const width = { min: WINDOW_RULES.minOpening, max: Math.floor(W - 2 * m) };
   if (window.type === 'PANORAMIC') {
-    const bottom = panoramicBottom(dimensions, overlap);
+    // The strip starts anywhere from just above the bottom strip up to the minimum opening below the mouth.
+    const lowest = Math.ceil(panoramicBottom(dimensions, overlap));
+    const bottomOffset = { min: lowest, max: Math.floor(H - WINDOW_RULES.minOpening) };
+    const start = clamp(window.bottomOffset ?? lowest, bottomOffset.min, Math.max(bottomOffset.min, bottomOffset.max));
     return {
       width,
-      height: { min: H - bottom, max: H - bottom },
-      bottomOffset: { min: bottom, max: bottom },
+      height: { min: H - start, max: H - start },
+      bottomOffset,
       filmOverlap,
     };
   }
@@ -96,7 +100,7 @@ export function getWindowLimits(window: BagWindow, dimensions: WindowDimensions)
 export function getWindowOpening(window: BagWindow, dimensions: WindowDimensions): WindowOpening {
   const x = (dimensions.width - window.width) / 2;
   if (window.type === 'PANORAMIC') {
-    const y = panoramicBottom(dimensions, window.filmOverlap);
+    const y = window.bottomOffset ?? panoramicBottom(dimensions, window.filmOverlap);
     return { x, y, width: window.width, height: Math.max(0, dimensions.height - y), openAtTop: true };
   }
   return { x, y: window.bottomOffset, width: window.width, height: window.height, openAtTop: false };
@@ -145,7 +149,11 @@ export function constrainWindow(window: BagWindow, dimensions: WindowDimensions)
   const base = { ...window, material, filmOverlap: overlap };
   const limits = getWindowLimits(base, dimensions);
   const width = fit(window.width, limits.width, defaults.width);
-  if (window.type === 'PANORAMIC') return { type: 'PANORAMIC', material, width, filmOverlap: overlap };
+  if (window.type === 'PANORAMIC') {
+    const start = limits.bottomOffset;
+    const bottomOffset = fit(window.bottomOffset ?? start.min, start, start.min);
+    return { type: 'PANORAMIC', material, width, bottomOffset, filmOverlap: overlap };
+  }
   const height = fit(window.height, limits.height, defaults.height);
   const bottomLimits = getWindowLimits({ ...base, type: 'RECTANGLE', width, height, bottomOffset: 0 }, dimensions).bottomOffset;
   const bottomOffset = fit(window.bottomOffset, bottomLimits, defaults.bottomOffset);
@@ -200,7 +208,8 @@ export function validateWindowValue(
 
 /** Every field of a stored window that is out of its limits (empty = valid). */
 export function validateWindow(window: BagWindow, dimensions: WindowDimensions): WindowError[] {
-  const fields: WindowField[] = window.type === 'PANORAMIC' ? ['filmOverlap', 'width'] : ['filmOverlap', 'width', 'height', 'bottomOffset'];
+  const fields: WindowField[] =
+    window.type === 'PANORAMIC' ? ['filmOverlap', 'width', 'bottomOffset'] : ['filmOverlap', 'width', 'height', 'bottomOffset'];
   const limits = getWindowLimits(window, dimensions);
   const errors: WindowError[] = [];
   for (const field of fields) {

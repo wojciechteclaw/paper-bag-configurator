@@ -206,7 +206,17 @@ export type WindowMaterial = 'PP' | 'PP_PERFORATED' | 'CELLULOSE';
 
 /** All lengths in whole millimetres. */
 export type BagWindow =
-  | { type: 'PANORAMIC'; material: WindowMaterial; width: number; filmOverlap: number }
+  | {
+      type: 'PANORAMIC';
+      material: WindowMaterial;
+      width: number;
+      /**
+       * Where the strip starts: distance from the bottom fold line to the strip's lower edge (client [K], 30.09.2026).
+       * Missing in older data = the lowest allowed start (just above the bottom strip d, overlap and margin).
+       */
+      bottomOffset?: number;
+      filmOverlap: number;
+    }
   | {
       type: 'RECTANGLE';
       material: WindowMaterial;

@@ -43,7 +43,7 @@ describe('sanitizeConfiguration: window (docs/SPEC.md §2b)', () => {
 });
 
 describe('project file round trip with a window', () => {
-  it.each<BagWindow>([window, { type: 'PANORAMIC', material: 'PP_PERFORATED', width: 50, filmOverlap: 15 }])('restores %o', (w) => {
+  it.each<BagWindow>([window, { type: 'PANORAMIC', material: 'PP_PERFORATED', width: 50, bottomOffset: 60, filmOverlap: 15 }])('restores %o', (w) => {
     const configuration = { ...createConfiguration('FOLDED'), window: w };
     const bytes = serializeProject({ configuration, files: new Map(), exportedAt: new Date('2026-09-30T10:00:00Z'), appVersion: '1.0.0' });
     const project = parseProject(bytes);

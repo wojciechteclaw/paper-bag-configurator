@@ -13,7 +13,7 @@ beforeEach(() => {
 describe('window actions (docs/SPEC.md §2b)', () => {
   it('adds, switches and removes the window', () => {
     store().setWindowType('PANORAMIC');
-    expect(config().window).toEqual({ type: 'PANORAMIC', material: 'PP', width: 40, filmOverlap: 10 });
+    expect(config().window).toEqual({ type: 'PANORAMIC', material: 'PP', width: 40, bottomOffset: 40, filmOverlap: 10 });
     store().setWindowMaterial('CELLULOSE');
     store().setWindowType('RECTANGLE');
     expect(config().window).toMatchObject({ type: 'RECTANGLE', material: 'CELLULOSE', width: 40, height: 110, bottomOffset: 145 });
