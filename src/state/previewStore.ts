@@ -6,13 +6,26 @@ import {
   splitPreviewTimeline,
   type AssemblyPhaseId,
 } from '../domain/geometry/assemblyKinematics';
+import {
+  getGussetedPhase,
+  GUSSETED_PHASES,
+  GUSSETED_TIMELINE_SHARE,
+  splitGussetedTimeline,
+  type GussetedPhaseId,
+} from '../domain/geometry/gussetedAssembly';
 import type { BagType } from '../domain/types';
+import { useConfigurationStore } from './configurationStore';
 
-// View state of the preview (docs/SPEC.md §4a, §4c). Deliberately NOT part of BagConfiguration.
+// View state of the preview (docs/SPEC.md §4a, §4c, §4i). Deliberately NOT part of BagConfiguration.
 //
-// One continuous 3D timeline on the fold slider (client decision): flat sheet (0) → tube → side triangles in → front
-// flap → back flap on top → formed open bag (BOX, ASSEMBLY_TIMELINE_SHARE = 0.4) → standing → folded flat (1).
-// The 3D mode buttons are presets on that timeline; the 2D dieline is a separate view.
+// One continuous 3D timeline 0..1 on the fold slider, mapped PER BAG TYPE (explicit table `TIMELINE_DEFINITIONS`):
+// - BLOCK (client decision 29.09.2026): flat sheet (0) → tube → side triangles in → front flap → back flap on top →
+//   formed open bag (BOX, ASSEMBLY_TIMELINE_SHARE = 0.4) → standing → folded flat (1).
+// - FOLDED (client [K] 30.09.2026): flat sheet (0) → gussets tucked → BACK wrapped, seam closed (15 %) → bottom strip
+//   folded to the back (30 %) → opening (45 %) → open bag (BOX, GUSSETED_TIMELINE_SHARE = 0.6, the gusseted model's
+//   open state) → its fold: STANDING 0.75 (client [K]) → folded flat (FLAT, 1).
+// The 3D mode buttons are presets on that timeline; the 2D dieline is a separate view. The store reads the current
+// bag type from the configuration store (it never copies it) and keeps a selected preset when the type changes.
 
 /** Preview modes: 2D dieline, and the 3D presets flat sheet / open box / naturally standing / folded flat. */
 export type PreviewViewMode = 'DIELINE' | 'SHEET' | 'BOX' | 'STANDING' | 'FLAT';
@@ -27,8 +40,8 @@ export const TIMELINE_SLIDER_STEP = 0.01;
 export const TIMELINE_PLAY_DURATION_S = 14;
 
 /**
- * Timeline value of each 3D preset. SHEET = 0, BOX = end of the assembly (0.4), FLAT = 1. STANDING = 0.45 (client
- * [K], 30.09.2026: fold p = 1/12, just after the bag starts to fold; was the 45° side-triangle pose at 0.55).
+ * Block bottom: timeline value of each 3D preset. SHEET = 0, BOX = end of the assembly (0.4), FLAT = 1. STANDING =
+ * 0.45 (client [K], 30.09.2026: fold p = 1/12, just after the bag starts to fold; was the 45° side-triangle pose at 0.55).
  */
 export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
   SHEET: 0,
@@ -37,55 +50,67 @@ export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
   FLAT: 1,
 };
 
+/**
+ * Gusseted bag (client [K] 30.09.2026): SHEET = 0, BOX = the formed open bag (0.6), STANDING = 0.75 (client [K]), FLAT
+ * = folded flat (1).
+ */
+export const GUSSETED_TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
+  SHEET: 0,
+  BOX: GUSSETED_TIMELINE_SHARE,
+  STANDING: 0.75,
+  FLAT: 1,
+};
+
 const PRESET_TOLERANCE = 1e-9;
 
-const toSliderStep = (t: number) => Math.round(t / TIMELINE_SLIDER_STEP) * TIMELINE_SLIDER_STEP;
+const toSliderStep = (t: number) => Number((Math.round(t / TIMELINE_SLIDER_STEP) * TIMELINE_SLIDER_STEP).toFixed(2));
+
+const stopsOf = (phaseStarts: readonly number[], presets: Readonly<Record<TimelineViewMode, number>>) =>
+  [...new Set([...phaseStarts, ...Object.values(presets)].map(toSliderStep))].sort((a, b) => a - b);
 
 /**
- * Chapter stops of the timeline for the skip buttons (like a remote's previous / next chapter), ascending: the start
- * of every assembly phase (sheet 0, sides 16 %, front flap 24 %, back flap 32 %) and every 3D preset (formed 40 %,
- * after the fold 45 %, flat 100 %). On the 1 % slider grid.
+ * Block bottom chapter stops for the skip buttons (like a remote's previous / next chapter), ascending: the start of
+ * every assembly phase (sheet 0, sides 16 %, front flap 24 %, back flap 32 %) and every 3D preset (formed 40 %, after
+ * the fold 45 %, flat 100 %). On the 1 % slider grid.
  */
-export const TIMELINE_STOPS: readonly number[] = [
-  ...new Set(
-    [
-      ...Object.values(ASSEMBLY_PHASES).map(([start]) => start * ASSEMBLY_TIMELINE_SHARE),
-      ...Object.values(TIMELINE_PRESETS),
-    ].map((t) => Number(toSliderStep(t).toFixed(2))),
-  ),
-].sort((a, b) => a - b);
+export const TIMELINE_STOPS: readonly number[] = stopsOf(
+  Object.values(ASSEMBLY_PHASES).map(([start]) => start * ASSEMBLY_TIMELINE_SHARE),
+  TIMELINE_PRESETS,
+);
 
 /**
- * The next stop after `progress` (direction 1) or the previous one before it (−1); null at the end. Only stops from
- * `timelineStart` on count (the gusseted bag's timeline starts at BOX: no assembly stops).
+ * Gusseted chapter stops: forming phase starts (sheet 0, BACK wrap 15 %, bottom 30 %, opening 45 %) and presets (open
+ * bag 60 %, 75 %, flat 100 %).
  */
-export function getTimelineStop(progress: number, direction: 1 | -1, timelineStart = 0): number | null {
-  const stops = TIMELINE_STOPS.filter((stop) => stop >= timelineStart - PRESET_TOLERANCE);
-  if (direction > 0) return stops.find((stop) => stop > progress + PRESET_TOLERANCE) ?? null;
-  return [...stops].reverse().find((stop) => stop < progress - PRESET_TOLERANCE) ?? null;
-}
-
-/** The 3D preset that equals `progress` exactly (within float noise), or null. */
-export function findTimelinePreset(progress: number): TimelineViewMode | null {
-  const modes = Object.keys(TIMELINE_PRESETS) as TimelineViewMode[];
-  return modes.find((m) => Math.abs(TIMELINE_PRESETS[m] - progress) < PRESET_TOLERANCE) ?? null;
-}
+export const GUSSETED_TIMELINE_STOPS: readonly number[] = stopsOf(
+  Object.values(GUSSETED_PHASES).map(([start]) => start * GUSSETED_TIMELINE_SHARE),
+  GUSSETED_TIMELINE_PRESETS,
+);
 
 /**
- * Stage shown next to the slider: the flat sheet, an assembly phase (A, B, C1, C2), the formed open bag (exactly the
- * BOX preset) or the fold towards flat.
+ * Stage shown next to the slider. Block bottom: the flat sheet, an assembly phase (A, B, C1, C2), the formed open bag
+ * (exactly the BOX preset) or the fold towards flat. Gusseted bag: the flat sheet, a forming phase (gussets, wrap +
+ * seam, bottom, opening), then FORMED / FOLD like the block bottom.
  */
-export type TimelinePhase = 'SHEET' | AssemblyPhaseId | 'FORMED' | 'FOLD';
+export type TimelinePhase =
+  | 'SHEET'
+  | AssemblyPhaseId
+  | 'FORMED'
+  | 'FOLD'
+  | 'GUSSET_TUCK'
+  | 'GUSSET_WRAP'
+  | 'GUSSET_BOTTOM'
+  | 'GUSSET_OPEN';
 
 export type TimelineState = {
-  /** Sheet → formed bag, 0..1 (`assemblyKinematics.ts`). */
+  /** Sheet → formed open bag, 0..1 (block: `assemblyKinematics.ts`, gusseted: `gussetedAssembly.ts`). */
   assemblyProgress: number;
-  /** Formed open bag → folded flat, 0..1 (`foldKinematics.ts`). */
+  /** Formed open bag → folded flat, 0..1 (block: `foldKinematics.ts`, gusseted: `gussetedBag.ts`). */
   foldProgress: number;
   phase: TimelinePhase;
 };
 
-/** Derived view of a timeline value (pure). */
+/** Derived view of a block-bottom timeline value (pure). */
 export function getTimelineState(progress: number): TimelineState {
   const { assemblyProgress, foldProgress } = splitPreviewTimeline(progress);
   const phase: TimelinePhase =
@@ -99,90 +124,135 @@ export function getTimelineState(progress: number): TimelineState {
   return { assemblyProgress, foldProgress, phase };
 }
 
-// ——— Gusseted bag (FOLDED, docs/SPEC.md §4i) ———
-// It is not assembled from the sheet in the MVP: the timeline part before the formed bag (0 … BOX) shows the open bag,
-// the rest (BOX … 1) closes the gussets until the bag lies flat. So the SHEET preset is not offered and playback
-// starts at BOX.
+const GUSSETED_PHASE_LABEL: Readonly<Record<GussetedPhaseId, TimelinePhase>> = {
+  TUCK: 'GUSSET_TUCK',
+  WRAP: 'GUSSET_WRAP',
+  BOTTOM: 'GUSSET_BOTTOM',
+  OPEN: 'GUSSET_OPEN',
+};
 
-/** Where the timeline of `productType` starts (playback restarts here). */
-export function getTimelineStart(productType: BagType): number {
-  return productType === 'FOLDED' ? TIMELINE_PRESETS.BOX : 0;
+/** Derived view of a gusseted timeline value (pure; `gussetedAssembly.ts`). */
+export function getGussetedTimelineState(progress: number): TimelineState {
+  const { assemblyProgress, foldProgress } = splitGussetedTimeline(progress);
+  const phase: TimelinePhase =
+    assemblyProgress <= 0
+      ? 'SHEET'
+      : assemblyProgress < 1
+        ? GUSSETED_PHASE_LABEL[getGussetedPhase(assemblyProgress)]
+        : foldProgress <= 0
+          ? 'FORMED'
+          : 'FOLD';
+  return { assemblyProgress, foldProgress, phase };
 }
 
-/** Preview modes offered for `productType`: the gusseted-bag bag has no flat-sheet assembly (no SHEET preset). */
-export function getPreviewViewModes(productType: BagType): readonly PreviewViewMode[] {
-  return productType === 'FOLDED' ? PREVIEW_VIEW_MODES.filter((mode) => mode !== 'SHEET') : PREVIEW_VIEW_MODES;
+type TimelineDefinition = {
+  presets: Readonly<Record<TimelineViewMode, number>>;
+  stops: readonly number[];
+  state: (progress: number) => TimelineState;
+};
+
+/** The per-type timeline mapping: presets, chapter stops and the derived state (split + stage label). */
+export const TIMELINE_DEFINITIONS: Readonly<Record<BagType, TimelineDefinition>> = {
+  BLOCK: { presets: TIMELINE_PRESETS, stops: TIMELINE_STOPS, state: getTimelineState },
+  FOLDED: { presets: GUSSETED_TIMELINE_PRESETS, stops: GUSSETED_TIMELINE_STOPS, state: getGussetedTimelineState },
+};
+
+const definitionOf = (productType: BagType | undefined) => TIMELINE_DEFINITIONS[productType ?? 'BLOCK'] ?? TIMELINE_DEFINITIONS.BLOCK;
+
+/** Timeline value of every 3D preset for a bag type. */
+export function getTimelinePresets(productType: BagType): Readonly<Record<TimelineViewMode, number>> {
+  return definitionOf(productType).presets;
 }
 
-/**
- * `getTimelineState` for a bag type: the gusseted-bag bag is always assembled (assemblyProgress 1) and its phase is
- * FORMED (open) or FOLD (closing towards flat); `foldProgress` 0 = open, 1 = flat, as for the block bottom.
- */
+/** Chapter stops of a bag type's timeline (ascending, on the 1 % grid). */
+export function getTimelineStops(productType: BagType): readonly number[] {
+  return definitionOf(productType).stops;
+}
+
+/** The next stop after `progress` (direction 1) or the previous one before it (−1); null at the end. */
+export function getTimelineStop(progress: number, direction: 1 | -1, productType: BagType = 'BLOCK'): number | null {
+  const stops = getTimelineStops(productType);
+  if (direction > 0) return stops.find((stop) => stop > progress + PRESET_TOLERANCE) ?? null;
+  return [...stops].reverse().find((stop) => stop < progress - PRESET_TOLERANCE) ?? null;
+}
+
+/** The 3D preset that equals `progress` exactly (within float noise) for a bag type, or null. */
+export function findTimelinePreset(progress: number, productType: BagType = 'BLOCK'): TimelineViewMode | null {
+  const presets = getTimelinePresets(productType);
+  const modes = Object.keys(presets) as TimelineViewMode[];
+  return modes.find((m) => Math.abs(presets[m] - progress) < PRESET_TOLERANCE) ?? null;
+}
+
+/** `getTimelineState` for a bag type (its split, stage label and meaning of the progress values). */
 export function getTimelineStateFor(productType: BagType, progress: number): TimelineState {
-  if (productType !== 'FOLDED') return getTimelineState(progress);
-  const { foldProgress } = splitPreviewTimeline(progress);
-  return { assemblyProgress: 1, foldProgress, phase: foldProgress <= 0 ? 'FORMED' : 'FOLD' };
+  return definitionOf(productType).state(progress);
 }
 
 type PreviewState = {
   /** Selected mode; null = 3D with a custom slider position that matches no preset. */
   viewMode: PreviewViewMode | null;
-  /** The single 3D timeline value 0..1 (0 = flat sheet, 0.4 = formed open bag, 1 = folded flat). */
+  /** The single 3D timeline value 0..1 (its meaning per bag type: `TIMELINE_DEFINITIONS`). */
   progress: number;
   /** Play button: the timeline advances by itself (see `tick`). */
   playing: boolean;
-  /** Selects a mode; 3D modes also move the timeline to their preset (the model animates there) and stop playback. */
+  /**
+   * Selects a mode; 3D modes also move the timeline to their preset for the current bag type (the model animates
+   * there) and stop playback.
+   */
   setViewMode: (mode: PreviewViewMode) => void;
   /**
    * Timeline slider. Clamped to [0, 1]; NaN is ignored. Stops playback. In 3D, selects the preset it lands on exactly,
    * otherwise deselects the mode (null). In DIELINE only the stored progress changes.
    */
   setProgress: (progress: number) => void;
-  /**
-   * Play / pause; playing from the end (1) restarts from `timelineStart` (default 0, the flat sheet; the gusseted bag
-   * passes `getTimelineStart('FOLDED')`), and playback never starts before it.
-   */
-  togglePlaying: (timelineStart?: number) => void;
-  /**
-   * Jumps to the next (1) or previous (−1) chapter stop (`TIMELINE_STOPS` from `timelineStart` on — the gusseted bag
-   * passes `getTimelineStart('FOLDED')`, so it only stops at 0.4, 0.45 and 1); stops playback. No-op at the ends.
-   */
-  skip: (direction: 1 | -1, timelineStart?: number) => void;
-  /** Advances a running playback by `deltaSeconds`; stops at 1 (the FLAT preset). */
+  /** Play / pause; playing from the end (1) restarts from the flat sheet (0). */
+  togglePlaying: () => void;
+  /** Jumps to the next (1) or previous (−1) chapter stop of the current bag type; stops playback. No-op at the ends. */
+  skip: (direction: 1 | -1) => void;
+  /** Advances a running playback by `deltaSeconds`; stops at 1. */
   tick: (deltaSeconds: number) => void;
+  /**
+   * The bag type changed (`productType` is the new one): a selected 3D preset keeps its meaning — the timeline moves
+   * to that preset of the new type; a custom position stays and selects a preset it lands on exactly.
+   */
+  syncProductType: (productType: BagType) => void;
 };
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const currentProductType = (): BagType => useConfigurationStore.getState().configuration.productType;
 
 /** Mode the preview starts in (and that a project without saved view state opens in). */
 export const DEFAULT_PREVIEW_VIEW_MODE: TimelineViewMode = 'BOX';
 
 export const usePreviewStore = create<PreviewState>((set, get) => ({
   viewMode: DEFAULT_PREVIEW_VIEW_MODE,
-  progress: TIMELINE_PRESETS[DEFAULT_PREVIEW_VIEW_MODE],
+  progress: getTimelinePresets(currentProductType())[DEFAULT_PREVIEW_VIEW_MODE],
   playing: false,
   setViewMode: (mode) => {
     if (mode === 'DIELINE') set({ viewMode: mode, playing: false });
-    else set({ viewMode: mode, progress: TIMELINE_PRESETS[mode], playing: false });
+    else set({ viewMode: mode, progress: getTimelinePresets(currentProductType())[mode], playing: false });
   },
   setProgress: (progress) => {
     if (Number.isNaN(progress)) return;
     const p = clamp01(progress);
     if (get().viewMode === 'DIELINE') set({ progress: p, playing: false });
-    else set({ progress: p, viewMode: findTimelinePreset(p), playing: false });
+    else set({ progress: p, viewMode: findTimelinePreset(p, currentProductType()), playing: false });
   },
-  togglePlaying: (timelineStart = 0) => {
+  togglePlaying: () => {
     const { playing, progress, viewMode } = get();
     if (playing) {
       set({ playing: false });
       return;
     }
-    const from = clamp01(Number.isFinite(timelineStart) ? timelineStart : 0);
-    const start = progress >= 1 ? from : Math.max(progress, from);
-    set({ playing: true, progress: start, viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(start) });
+    const start = progress >= 1 ? 0 : progress;
+    set({
+      playing: true,
+      progress: start,
+      viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(start, currentProductType()),
+    });
   },
-  skip: (direction, timelineStart = 0) => {
-    const stop = getTimelineStop(get().progress, direction, timelineStart);
+  skip: (direction) => {
+    const stop = getTimelineStop(get().progress, direction, currentProductType());
     if (stop !== null) get().setProgress(stop);
   },
   tick: (deltaSeconds) => {
@@ -193,9 +263,24 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     set({
       progress: next,
       playing: !done,
-      viewMode: viewMode === 'DIELINE' ? viewMode : done ? 'FLAT' : findTimelinePreset(next),
+      viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(next, currentProductType()),
     });
   },
+  syncProductType: (productType) => {
+    const { viewMode, progress } = get();
+    if (viewMode !== null && viewMode !== 'DIELINE') {
+      set({ progress: getTimelinePresets(productType)[viewMode] });
+    } else if (viewMode === null) {
+      set({ viewMode: findTimelinePreset(progress, productType) });
+    }
+  },
 }));
+
+// Keep the preview in step with the bag type (type switch, demo, project load): presets mean different timeline values
+// per type. A project load restores its own saved view right after replacing the configuration (projectFile.ts).
+useConfigurationStore.subscribe((state, previous) => {
+  const type = state.configuration.productType;
+  if (type !== previous.configuration.productType) usePreviewStore.getState().syncProductType(type);
+});
 
 export const is3DViewMode = (mode: PreviewViewMode | null): boolean => mode !== 'DIELINE';

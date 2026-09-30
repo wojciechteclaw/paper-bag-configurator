@@ -36,6 +36,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
         <GussetedBagModel
           dimensions={dimensions}
           bottomFoldDepth={getConfiguredBottomFold(configuration)}
+          glueFlapWidth={getGlueFlapWidth(configuration)}
           paperColor={configuration.paper.color}
           artworks={artworks}
           foldProgress={foldProgress}

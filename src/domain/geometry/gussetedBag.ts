@@ -116,7 +116,9 @@ function wallPoint(dimensions: Dimensions, panel: PanelPosition, x: number, y: n
  * Position of a panel-local point in the bag frame, mm. y ≥ 0: the wall; y ∈ [−b, 0): the fold-over strip, folded 180°
  * about the bottom fold line onto the BACK [K] (it stays flat — the gussets are glued shut there): the layer order from
  * the BACK wall outwards is BACK strip, gusset strips, FRONT strip (outermost, its print side visible on the back).
- * `gap` = render-only layer separation in mm (see `getWallOffset`).
+ * `gap` = render-only layer separation in mm (see `getWallOffset`). `stripTurn` ∈ [0, 1] is how far the strip has been
+ * folded (0 = still hanging below the flat tube, 1 = folded onto the BACK; the forming timeline, gussetedAssembly.ts,
+ * turns it with the bag flat, open = 0).
  */
 export function getGussetedPoint(
   dimensions: Dimensions,
@@ -124,12 +126,20 @@ export function getGussetedPoint(
   point: { x: number; y: number },
   open: number,
   gap = 0,
+  stripTurn = 1,
 ): Vec3 {
   if (point.y >= 0) return wallPoint(dimensions, panel, point.x, point.y, open, gap);
-  // Flat position of the strip (α = 0 below the glued fold), then a half-turn about the axis (y = 0, z = −1.5·gap):
-  // (y, z) → (−y, −3·gap − z). BACK (z = −gap) lands at −2·gap, FRONT (z = gap) at −4·gap (outermost on the back).
+  // Flat position of the strip (α = 0 below the glued fold), then a turn by θ = π·stripTurn about the axis (y = 0,
+  // z = −1.5·gap) towards the back; at θ = π: (y, z) → (−y, −3·gap − z). BACK (z = −gap) lands at −2·gap, FRONT
+  // (z = gap) at −4·gap (outermost on the back). The layers stay concentric about the axis, so they never cross.
   const flat = wallPoint(dimensions, panel, point.x, 0, 0, gap);
-  return { x: flat.x, y: -point.y, z: -3 * gap - flat.z };
+  if (stripTurn >= 1) return { x: flat.x, y: -point.y, z: -3 * gap - flat.z };
+  const theta = Math.PI * clamp01(stripTurn);
+  const zc = -1.5 * gap;
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  const dz = flat.z - zc;
+  return { x: flat.x, y: c * point.y - s * dz, z: zc + s * point.y + c * dz };
 }
 
 /** Panel-local extent including the fold strip: x ∈ [0, panel width], y ∈ [−b, H]. */

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useConfigurationStore } from '../../src/state/configurationStore';
 import {
   findTimelinePreset,
-  getPreviewViewModes,
-  getTimelineStart,
+  getTimelinePresets,
   getTimelineState,
+  getTimelineStops,
   getTimelineStop,
   getTimelineStateFor,
   PREVIEW_VIEW_MODES,
@@ -16,7 +16,10 @@ import {
 
 const preview = () => usePreviewStore.getState();
 
-beforeEach(() => usePreviewStore.setState({ viewMode: 'BOX', progress: TIMELINE_PRESETS.BOX, playing: false }));
+beforeEach(() => {
+  useConfigurationStore.getState().resetConfiguration('BLOCK');
+  usePreviewStore.setState({ viewMode: 'BOX', progress: TIMELINE_PRESETS.BOX, playing: false });
+});
 
 describe('previewStore', () => {
   it('starts as the formed open bag (3D box)', () => {
@@ -164,47 +167,73 @@ describe('chapter skip (previous / next stage)', () => {
     expect(preview().progress).toBe(1);
   });
 
-  it('skips only the gusseted bag stops (no assembly): 0.4, 0.45, 1 — previous is disabled at 40 %', () => {
-    const start = getTimelineStart('FOLDED');
-    expect(getTimelineStop(start, -1, start)).toBeNull();
-    expect(getTimelineStop(start, 1, start)).toBe(0.45);
-    expect(getTimelineStop(0.45, 1, start)).toBe(1);
-    expect(getTimelineStop(1, -1, start)).toBe(0.45);
-    expect(getTimelineStop(0.2, -1, start)).toBeNull();
-    expect(getTimelineStop(0.2, 1, start)).toBe(0.4);
-    preview().setProgress(1);
-    preview().skip(-1, start);
-    preview().skip(-1, start);
-    expect(preview().progress).toBe(0.4);
-    preview().skip(-1, start);
-    expect(preview()).toMatchObject({ progress: 0.4, viewMode: 'BOX' });
-  });
 });
 
-describe('gusseted bag timeline (FOLDED, no sheet assembly)', () => {
-  it('shows the open bag up to BOX and closes it towards FLAT', () => {
-    expect(getTimelineStateFor('FOLDED', 0)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
-    expect(getTimelineStateFor('FOLDED', TIMELINE_PRESETS.BOX)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
-    expect(getTimelineStateFor('FOLDED', 0.7)).toMatchObject({ assemblyProgress: 1, phase: 'FOLD' });
-    expect(getTimelineStateFor('FOLDED', 0.7).foldProgress).toBeCloseTo(0.5, 9);
+describe('gusseted bag timeline (FOLDED): forming 0–60 %, then the fold', () => {
+  beforeEach(() => {
+    useConfigurationStore.getState().resetConfiguration('FOLDED');
+    usePreviewStore.setState({ viewMode: 'SHEET', progress: 0, playing: false });
+  });
+
+  it('maps its own presets: sheet 0, open bag 0.6, STANDING 0.75 (client), flat 1 — the block bottom unchanged', () => {
+    expect(getTimelinePresets('FOLDED')).toEqual({ SHEET: 0, BOX: 0.6, STANDING: 0.75, FLAT: 1 });
+    expect(getTimelinePresets('BLOCK')).toBe(TIMELINE_PRESETS);
+    expect(TIMELINE_PRESETS).toEqual({ SHEET: 0, BOX: 0.4, STANDING: 0.45, FLAT: 1 });
+    preview().setViewMode('BOX');
+    expect(preview().progress).toBe(0.6);
+    preview().setViewMode('FLAT');
+    expect(preview().progress).toBe(1);
+    preview().setViewMode('SHEET');
+    expect(preview().progress).toBe(0);
+    preview().setProgress(0.75);
+    expect(preview().viewMode).toBe('STANDING');
+    expect(findTimelinePreset(0.4, 'FOLDED')).toBeNull();
+  });
+
+  it('derives forming / fold progress and the stage (PL labels per phase)', () => {
+    expect(getTimelineStateFor('FOLDED', 0)).toEqual({ assemblyProgress: 0, foldProgress: 0, phase: 'SHEET' });
+    expect(getTimelineStateFor('FOLDED', 0.1).phase).toBe('GUSSET_TUCK');
+    expect(getTimelineStateFor('FOLDED', 0.2).phase).toBe('GUSSET_WRAP');
+    expect(getTimelineStateFor('FOLDED', 0.35).phase).toBe('GUSSET_BOTTOM');
+    expect(getTimelineStateFor('FOLDED', 0.5).phase).toBe('GUSSET_OPEN');
+    expect(getTimelineStateFor('FOLDED', 0.6)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
+    expect(getTimelineStateFor('FOLDED', 0.8)).toMatchObject({ assemblyProgress: 1, phase: 'FOLD' });
+    expect(getTimelineStateFor('FOLDED', 0.8).foldProgress).toBeCloseTo(0.5, 9);
     expect(getTimelineStateFor('FOLDED', 1)).toEqual({ assemblyProgress: 1, foldProgress: 1, phase: 'FOLD' });
     expect(getTimelineStateFor('BLOCK', 0.2)).toEqual(getTimelineState(0.2));
   });
 
-  it('offers no SHEET preset and starts its timeline at BOX', () => {
-    expect(getPreviewViewModes('FOLDED')).toEqual(['DIELINE', 'BOX', 'STANDING', 'FLAT']);
-    expect(getPreviewViewModes('BLOCK')).toEqual(PREVIEW_VIEW_MODES);
-    expect(getTimelineStart('FOLDED')).toBe(TIMELINE_PRESETS.BOX);
-    expect(getTimelineStart('BLOCK')).toBe(0);
+  it('skips over its forming phase starts and presets: 0, 0.15, 0.3, 0.45, 0.6, 0.75, 1', () => {
+    expect(getTimelineStops('FOLDED')).toEqual([0, 0.15, 0.3, 0.45, 0.6, 0.75, 1]);
+    expect(getTimelineStops('BLOCK')).toBe(TIMELINE_STOPS);
+    expect(getTimelineStop(0, 1, 'FOLDED')).toBe(0.15);
+    expect(getTimelineStop(0.5, -1, 'FOLDED')).toBe(0.45);
+    expect(getTimelineStop(0, -1, 'FOLDED')).toBeNull();
+    for (let i = 0; i < 4; i++) preview().skip(1);
+    expect(preview()).toMatchObject({ progress: 0.6, viewMode: 'BOX' });
+    preview().skip(1);
+    expect(preview()).toMatchObject({ progress: 0.75, viewMode: 'STANDING' });
   });
 
-  it('plays from the timeline start given by the caller', () => {
+  it('plays from the sheet and ends folded flat', () => {
     preview().setViewMode('FLAT');
-    preview().togglePlaying(getTimelineStart('FOLDED'));
-    expect(preview()).toMatchObject({ playing: true, progress: TIMELINE_PRESETS.BOX, viewMode: 'BOX' });
     preview().togglePlaying();
-    preview().setProgress(0.1);
-    preview().togglePlaying(getTimelineStart('FOLDED'));
-    expect(preview().progress).toBe(TIMELINE_PRESETS.BOX);
+    expect(preview()).toMatchObject({ playing: true, progress: 0, viewMode: 'SHEET' });
+    preview().tick(TIMELINE_PLAY_DURATION_S);
+    expect(preview()).toMatchObject({ playing: false, progress: 1, viewMode: 'FLAT' });
+  });
+
+  it('keeps a selected preset when the bag type changes (the timeline value follows the type)', () => {
+    preview().setViewMode('BOX');
+    expect(preview().progress).toBe(0.6);
+    useConfigurationStore.getState().setProductType('BLOCK');
+    expect(preview()).toMatchObject({ viewMode: 'BOX', progress: 0.4 });
+    preview().setViewMode('STANDING');
+    useConfigurationStore.getState().setProductType('FOLDED');
+    expect(preview()).toMatchObject({ viewMode: 'STANDING', progress: 0.75 });
+    preview().setProgress(0.33);
+    useConfigurationStore.getState().setProductType('BLOCK');
+    expect(preview()).toMatchObject({ viewMode: null, progress: 0.33 });
+    useConfigurationStore.getState().resetConfiguration('BLOCK');
   });
 });

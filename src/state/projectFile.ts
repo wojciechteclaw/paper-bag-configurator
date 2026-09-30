@@ -18,7 +18,7 @@ import {
   DEFAULT_PREVIEW_VIEW_MODE,
   findTimelinePreset,
   PREVIEW_VIEW_MODES,
-  TIMELINE_PRESETS,
+  getTimelinePresets,
   usePreviewStore,
 } from './previewStore';
 
@@ -117,13 +117,14 @@ export function applyProjectView(raw: unknown, configuration: BagConfiguration) 
     steps: CONFIGURATOR_STEPS,
     previewModes: PREVIEW_VIEW_MODES,
     defaultPreviewMode: DEFAULT_PREVIEW_VIEW_MODE,
-    defaultTimelineProgress: TIMELINE_PRESETS[DEFAULT_PREVIEW_VIEW_MODE],
+    defaultTimelineProgress: getTimelinePresets(configuration.productType)[DEFAULT_PREVIEW_VIEW_MODE],
     configuration,
   });
   const mode = view.previewMode;
-  const progress = mode === null || mode === 'DIELINE' ? view.timelineProgress : TIMELINE_PRESETS[mode];
+  const progress =
+    mode === null || mode === 'DIELINE' ? view.timelineProgress : getTimelinePresets(configuration.productType)[mode];
   usePreviewStore.setState({
-    viewMode: mode === null ? findTimelinePreset(progress) : mode,
+    viewMode: mode === null ? findTimelinePreset(progress, configuration.productType) : mode,
     progress,
     playing: false,
   });

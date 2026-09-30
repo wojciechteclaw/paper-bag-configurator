@@ -58,8 +58,8 @@ describe('gusseted-bag bag geometry', () => {
 
   it('poses the open bag W × D at the mouth and the flat bag within the layer gap', () => {
     const meshes = createGussetedMeshes(dims);
-    const open = getGussetedFrame(dims, 0);
-    const flat = getGussetedFrame(dims, 1);
+    const open = getGussetedFrame(dims, 0, 1, 0);
+    const flat = getGussetedFrame(dims, 0, 1, 1);
     const back = meshes.find((m) => m.id === 'BACK')!;
     const right = meshes.find((m) => m.id === 'RIGHT')!;
 
@@ -87,10 +87,53 @@ describe('gusseted-bag bag geometry', () => {
     const backVerticals = edges.filter((e) => e.panel === 'BACK' && e.points.every((p) => p.x === e.points[0].x));
     expect(backVerticals.map((e) => e.points[0].x)).toEqual([0, dims.width]);
     const out = new Float32Array(countSegments(edges) * 6);
-    writeGussetedLines(edges, getGussetedFrame(dims, 0.5), out);
+    writeGussetedLines(edges, getGussetedFrame(dims, 0, 1, 0.5), out);
     for (const value of out) expect(Number.isFinite(value)).toBe(true);
     // The upper edge of the folded strip is FRONT's (outermost on the BACK side) at height b.
-    const stripEdge = edges[edges.length - 1];
-    expect(stripEdge.points.every((p) => p.y === -b)).toBe(true);
+    const stripEdge = edges.find((e) => e.panel === 'FRONT' && e.points.every((p) => p.y === -b));
+    expect(stripEdge?.points.map((p) => p.x)).toEqual([0, dims.width]);
+  });
+});
+
+describe('gusseted bag geometry: forming from the sheet', () => {
+  const all = (meshes: ReturnType<typeof createGussetedMeshes>, q: number, p: number) => {
+    const frame = getGussetedFrame(dims, 15, q, p);
+    meshes.forEach((m) => updateGussetedMesh(m, frame));
+    return meshes.map((m) => Array.from((m.geometry.getAttribute('position') as BufferAttribute).array));
+  };
+
+  it('adds the unprinted seam flap (wall part and strip part)', () => {
+    const glue = createGussetedMeshes(dims, null, 15).filter((m) => m.glue);
+    expect(glue.map((m) => [m.id, m.part, m.strip])).toEqual([
+      ['GLUE', 'GLUE', false],
+      ['GLUE-STRIP', 'GLUE', true],
+    ]);
+    expect(createGussetedMeshes(dims).some((m) => m.glue)).toBe(false);
+  });
+
+  it('lies flat in one plane at 0 % and reaches the open bag of the fold model continuously', () => {
+    const meshes = createGussetedMeshes(dims, null, 15);
+    for (const values of all(meshes, 0, 0)) for (let i = 2; i < values.length; i += 3) expect(values[i]).toBeCloseTo(0, 9);
+    const formed = all(meshes, 1, 0);
+    const almost = all(meshes, 1 - 1e-6, 0);
+    formed.forEach((values, m) => values.forEach((v, i) => expect(Math.abs(v - almost[m][i])).toBeLessThan(1e-5)));
+    // The formed bag is the fold model at p = 0: open mouth ±D/2 on BACK.
+    const back = meshes.findIndex((m) => m.id === 'BACK');
+    expect(bounds(formed[back], 2).min).toBeCloseTo(-30 * MM_TO_SCENE, 6);
+  });
+
+  it('writes finite line positions in every phase', () => {
+    const { edges } = getGussetedLineSpecs(dims, null, 15);
+    for (const [q, p] of [
+      [0, 0],
+      [0.3, 0],
+      [0.6, 0],
+      [0.9, 0],
+      [1, 0.5],
+    ]) {
+      const out = new Float32Array(countSegments(edges) * 6);
+      writeGussetedLines(edges, getGussetedFrame(dims, 15, q, p), out);
+      for (const value of out) expect(Number.isFinite(value)).toBe(true);
+    }
   });
 });
