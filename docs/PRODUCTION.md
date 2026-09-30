@@ -266,7 +266,7 @@ w każdym punkcie dna widać najbardziej wewnętrzną warstwę wg [K]: pasek zak
 głębokości, a między nimi (gdy `W > 2E`) trapez przodu (`y ≥ D − E`) i trapez tyłu (`y < D − E`). Uszy i przekątne
 C9 są niewidoczne z obu stron. Linie od środka: wewnętrzne krawędzie klap boków `x = E`, `x = W − E`, koniec trapezu
 przodu `y = D − E` między nimi oraz krawędź i ścięcie paska zakładki. Przy `W < 2E` klapy boków zachodzą na siebie;
-podgląd kładzie klapę LEFT do środka (umowne, do potwierdzenia). Render: linie wewnętrzne 0,05 mm do środka od swojej
+klapa LEFT leży do środka (potwierdzone [K] 30.09.2026). Render: linie wewnętrzne 0,05 mm do środka od swojej
 powierzchni, cień kontaktowy 0,5 mm pod podłogą (pod wszystkimi warstwami dna).
 
 #### 3.4.2a Poprzedni model (prostokątne klapy, uszy z boków) — usunięty z kodu 29.09.2026, tylko dla historii

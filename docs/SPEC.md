@@ -256,18 +256,33 @@ Exchange (np. eksport z Pantone Connect), a aplikacja używa jej do przybliżani
 - **Odporność:** błędy typowane (`EMPTY_FILE`, `TOO_LARGE`, `NOT_ASE`, `UNSUPPORTED_VERSION`, `TRUNCATED`,
   `NO_COLORS`); limit rozmiaru pliku i liczby kolorów w `SWATCH_LIBRARY_RULES` (5 MB, 20 000). Wpisy nieużyteczne są
   pomijane i liczone: nieobsługiwany model (np. HKS), błędne wartości, bez nazwy, **duplikat kodu** (ten sam
-  `pantoneLookupKey`, wygrywa pierwszy), ponad limit. Nieudany import nie zmienia wczytanego wzornika.
+  `pantoneLookupKey`, wygrywa pierwszy), ponad limit. Nieudany import nie zmienia wczytanych wzorników.
+  Naiwne przeliczenie CMYK i odczyt Gray jako jasności — **zaakceptowane przez klienta [K] 30.09.2026** (bez profilu ICC).
 - **Dopasowanie (`src/domain/swatches/matching.ts`):** wyszukiwanie po kodzie znormalizowanym jak `pantoneLookupKey`
   („PANTONE 186 C” = „PMS 186 C” = „186 C”); najbliższe kolory wzornika do koloru wg **CIEDE2000** (top N).
-- **Stan:** osobny store `swatchLibraryStore` (poza konfiguracją): wzornik, indeks kodów, akcje zamień / usuń; zapis
-  w localStorage (`paper-bag-configurator.swatchLibrary`) w try/catch, z limitem rozmiaru (`maxStoredChars`) — za duży
-  lub przy niedostępnej pamięci działa do zamknięcia karty (UI o tym informuje). Aplikacja działa bez wzornika.
-- **UI — „Nadruk i produkcja”:** „Importuj wzornik (.ase)” (wybór pliku), status (nazwa, plik, liczba kolorów,
-  pominięte, przybliżone CMYK, błąd), „Usuń wzornik”, notka o licencji / prywatności. Przy dodawaniu kodu, który jest
-  we wzorniku, **kolor podglądu pochodzi ze wzornika** (przed wbudowanymi podpowiedziami; podpowiedź „We wzorniku: …”
-  pod polem); przy kolorze na liście znacznik „z wzornika”, a gdy podgląd zmieniono — przycisk „kolor z wzornika”.
+- **Kilka wzorników naraz** (decyzja klienta [K] 30.09.2026, np. Coated + Uncoated; `src/domain/swatches/libraries.ts`):
+  import **dodaje** wzornik; plik o tej samej nazwie (bez rozróżniania wielkości liter) **zastępuje** wczytany wcześniej
+  na tym samym miejscu listy. Limity w katalogu: `maxLibraries` (8) i `maxTotalColors` (50 000 kolorów łącznie) —
+  import ponad limit jest odrzucany (`TOO_MANY_LIBRARIES` / `TOO_MANY_COLORS`, wczytane wzorniki bez zmian; wymieniany
+  wzornik nie liczy się do limitu). Wyszukiwanie po kodzie i najbliższe kolory działają na **wspólnej puli** wszystkich
+  wzorników (`poolSwatches`): każdy kolor ma nazwę swojego wzornika; kod obecny w kilku wzornikach występuje raz —
+  z wczytanego najwcześniej (jak duplikat w jednym pliku).
+- **Stan:** osobny store `swatchLibraryStore` (poza konfiguracją): lista wzorników, pula kolorów, indeks kodów, akcje
+  dodaj / usuń jeden / usuń wszystkie. Zapis w localStorage (`paper-bag-configurator.swatchLibrary`, format v2:
+  `{ v: 2, libraries: [...] }`) w try/catch; limit `maxStoredChars` dotyczy **wszystkich wzorników razem** — zapisywane
+  są po kolei, dopóki się mieszczą, a te, które się nie mieszczą (albo gdy pamięć jest niedostępna), działają do
+  zamknięcia karty (UI oznacza je przy każdym wzorniku). Zapisany wcześniej pojedynczy wzornik (format v1) jest
+  wczytywany jako lista z jednym elementem (migracja przy odczycie; przy następnej zmianie zapis w v2). Aplikacja działa
+  bez wzornika.
+- **UI — „Nadruk i produkcja”:** „Importuj wzornik (.ase)” (wybór jednego lub kilku plików), lista wczytanych
+  wzorników — każdy z nazwą, plikiem, liczbą kolorów, pominiętymi wpisami, przybliżonymi CMYK, informacją „tylko do
+  zamknięcia karty” i własnym przyciskiem „Usuń”; błędy z nazwą pliku; notka o kilku wzornikach i o licencji /
+  prywatności. Przy dodawaniu kodu, który jest we wzorniku, **kolor podglądu pochodzi ze wzornika** (przed wbudowanymi
+  podpowiedziami; podpowiedź „We wzorniku „…”: …” pod polem); przy kolorze na liście znacznik „z wzornika” (nazwa
+  wzornika w podpowiedzi), a gdy podgląd zmieniono — przycisk „kolor z wzornika”.
 - **UI — „Kolory w grafikach (HEX)”:** z wczytanym wzornikiem dodatkowa kolumna „Wzornik (najbliższy)”: dla każdego
-  wykrytego koloru `SWATCH_LIBRARY_RULES.suggestionsPerColor` (2) najbliższe kolory wzornika z ΔE00 i przyciskiem
+  wykrytego koloru `SWATCH_LIBRARY_RULES.suggestionsPerColor` (2) najbliższe kolory wszystkich wzorników (z nazwą
+  wzornika) z ΔE00 i przyciskiem
   „Dodaj” (do kolorów nadruku: kod = nazwa ze wzornika, HEX = kolor wzornika; obowiązują limit kolorów, długość kodu
   i brak duplikatów — kod już obecny, także z innym prefiksem, pokazany jako „na liście”). Bez wzornika — bez zmian.
 - **Duplikaty kodów nadruku** (zmiana przy okazji): `validatePantoneColorToAdd` porównuje kody przez `pantoneLookupKey`,
@@ -363,10 +378,12 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
   usuwane po przełączeniu?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.
 - Wzornik `.ase` (§4g): czy wzornik ma być współdzielony w firmie (serwer, licencja firmowa Pantone), czy zostaje
-  lokalny w przeglądarce użytkownika (obecnie lokalny)? Czy trzymać kilka wzorników naraz (np. Coated + Uncoated) —
-  obecnie jeden, import zastępuje poprzedni?
+  lokalny w przeglądarce użytkownika (obecnie lokalny)? ~~Czy trzymać kilka wzorników naraz?~~ — rozstrzygnięte [K]
+  (30.09.2026): **tak**, kilka wzorników naraz (np. Coated + Uncoated), §4g.
 - Wzornik `.ase`: kolumna „Pantone (najbliższy)” w tabeli kolorów grafik nadal porównuje z listą nadruku (ΔE76), a
   kolumna wzornika z biblioteką (ΔE00) — czy ujednolicić na ΔE00? Czy przyciemniać / ukrywać podpowiedzi wzornika
-  powyżej jakiegoś ΔE (obecnie zawsze 2 najbliższe)?
-- Wzornik `.ase`: kolory CMYK przeliczane naiwnie (bez profilu ICC), a Gray traktowane jako jasność (0 = czerń) —
-  wystarczy, czy potrzebny profil (np. FOGRA39) do podglądu? Pliki Pantone Connect zwykle zawierają LAB lub RGB.
+  powyżej jakiegoś ΔE (obecnie zawsze 2 najbliższe)? — [K] 30.09.2026: na razie zostaje bez zmian.
+- ~~Wzornik `.ase`: kolory CMYK przeliczane naiwnie (bez profilu ICC), a Gray jako jasność — wystarczy?~~ —
+  rozstrzygnięte [K] (30.09.2026): **wystarczy**, profil ICC niepotrzebny.
+- ~~Dno przy `W < 2E` (klapy boków zachodzą na siebie): czy wewnętrzna jest klapa LEFT?~~ — rozstrzygnięte [K]
+  (30.09.2026): **tak**, klapa LEFT leży do środka (`docs/PRODUCTION.md` §3.4.2).

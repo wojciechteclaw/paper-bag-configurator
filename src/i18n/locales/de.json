@@ -174,7 +174,7 @@
     "title": "Farbfächer (.ase)",
     "import": "Farbfächer importieren (.ase)",
     "fileInput": "Farbfächer-Datei (.ase)",
-    "remove": "Farbfächer entfernen",
+    "remove": "Entfernen",
     "reading": "Farbfächer wird gelesen…",
     "none": "Kein Farbfächer — die Pantone-Vorschaufarben sind eingebaute Näherungen.",
     "loaded": "Farbfächer „{{name}}“ ({{fileName}}): {{colors}}.",
@@ -182,7 +182,7 @@
     "colors_other": "{{value}} Farben",
     "skipped": "Übersprungene Einträge: {{value}} (nicht unterstütztes Farbmodell, fehlerhaft, ohne Namen, doppelt oder über dem Limit).",
     "approximate": "CMYK-Farben ({{value}}) wurden für den Bildschirm näherungsweise umgerechnet (ohne ICC-Profil).",
-    "notPersisted": "Der Farbfächer konnte in diesem Browser nicht gespeichert werden (zu groß oder Speicher nicht verfügbar) — er gilt, bis der Tab geschlossen wird.",
+    "notPersisted": "Dieser Farbfächer konnte in diesem Browser nicht gespeichert werden (zu wenig Platz oder Speicher nicht verfügbar) — er gilt, bis der Tab geschlossen wird.",
     "privacy": "Verwenden Sie Ihre eigene, lizenzierte Farbbibliothek (z. B. einen Export aus Pantone Connect). Der Farbfächer bleibt nur in diesem Browser — er wird weder hochgeladen noch mit der App ausgeliefert oder in Konfiguration und Exporten gespeichert.",
     "errors": {
       "EMPTY_FILE": "Die Datei ist leer.",
@@ -191,11 +191,13 @@
       "UNSUPPORTED_VERSION": "Nicht unterstützte Version der .ase-Datei.",
       "TRUNCATED": "Die .ase-Datei ist beschädigt oder unvollständig.",
       "NO_COLORS": "Die Datei enthält keine importierbaren Farben.",
-      "READ_FAILED": "Die Datei konnte nicht gelesen werden."
+      "READ_FAILED": "Die Datei konnte nicht gelesen werden.",
+      "TOO_MANY_LIBRARIES": "Es können höchstens {{maxLibraries}} Farbfächer geladen werden — entfernen Sie einen, um einen neuen hinzuzufügen.",
+      "TOO_MANY_COLORS": "Alle Farbfächer zusammen dürfen höchstens {{maxColors}} Farben haben — entfernen Sie einen Farbfächer."
     },
     "fromLibrary": "aus Farbfächer",
     "fromLibraryTitle": "Vorschaufarbe aus dem Farbfächer „{{name}}“",
-    "inLibrary": "Im Farbfächer: {{name}} — die Vorschaufarbe wird aus dem Farbfächer übernommen.",
+    "inLibrary": "Im Farbfächer „{{library}}“: {{name}} — die Vorschaufarbe wird aus dem Farbfächer übernommen.",
     "useLibraryColor": "Farbe aus Farbfächer",
     "useLibraryColorFor": "Farbe aus dem Farbfächer für {{code}} verwenden",
     "nearest": "Farbfächer (nächste)",
@@ -211,7 +213,11 @@
       "TOO_LONG": "Der Farbname ist zu lang für einen Pantone-Code (max. {{max}} Zeichen).",
       "EMPTY": "Die Farbe hat keinen Namen.",
       "INVALID_HEX": "Ungültige Farbe."
-    }
+    },
+    "removeLibrary": "Farbfächer {{name}} entfernen",
+    "listLabel": "Geladene Farbfächer",
+    "errorForFile": "{{fileName}}: {{message}}",
+    "multiNote": "Mehrere Farbfächer können gleichzeitig geladen werden (max. {{max}}, z. B. Coated und Uncoated); eine Datei mit demselben Namen ersetzt die zuvor geladene. Ein Code aus mehreren Farbfächern wird aus dem zuerst geladenen übernommen."
   },
   "packaging": {
     "label": "Verpackung",

@@ -94,7 +94,7 @@ function ArtworkColorsTable({ palette }: { palette: ArtworkPaletteResult }) {
   const deltaE = (value: number) => createNumberFormatter(locale, { maximumFractionDigits: 1 })(value);
   const share = (ratio: number) => createNumberFormatter(locale, { style: 'percent', maximumFractionDigits: 2 })(ratio);
   // Imported swatch library (docs/SPEC.md §4g): an extra column with the nearest library swatches.
-  const hasLibrary = useSwatchLibraryStore((s) => s.library !== null);
+  const hasLibrary = useSwatchLibraryStore((s) => s.libraries.length > 0);
   const libraryColumns = hasLibrary ? 1 : 0;
 
   return (

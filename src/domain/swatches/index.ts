@@ -1,8 +1,10 @@
 export { libraryNameFromFileName, parseAse } from './ase';
 export type { AseError, AseParseOptions, AseParseResult } from './ase';
+export { addSwatchLibrary, poolSwatches, swatchLibraryKey } from './libraries';
+export type { SwatchLibraryLimitError, SwatchLibraryLimits } from './libraries';
 export { findNearestSwatches, findSwatchByCode, indexSwatchesByCode } from './matching';
 export type { SwatchCodeIndex, SwatchMatch } from './matching';
-export { deserializeSwatchLibrary, serializeSwatchLibrary } from './storage';
+export { deserializeSwatchLibraries, deserializeSwatchLibrary, packSwatchLibraries, serializeSwatchLibrary } from './storage';
 export { grayToRgb, labD50ToD65, naiveCmykToRgb, unitRgbToRgb } from './swatchColor';
 export { countSkipped } from './types';
-export type { Swatch, SwatchColorModel, SwatchColorType, SwatchLibrary, SwatchSkipReason } from './types';
+export type { PooledSwatch, Swatch, SwatchColorModel, SwatchColorType, SwatchLibrary, SwatchSkipReason } from './types';

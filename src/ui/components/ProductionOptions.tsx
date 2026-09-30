@@ -26,8 +26,7 @@ function PrintOptions() {
   const removePantoneColor = useConfigurationStore((s) => s.removePantoneColor);
   const [code, setCode] = useState('');
   const [error, setError] = useState<PantoneError | null>(null);
-  // Imported swatch library (docs/SPEC.md §4g): its colour wins over the built-in preview suggestions.
-  const library = useSwatchLibraryStore((s) => s.library);
+  // Imported swatch libraries (docs/SPEC.md §4g): their colour wins over the built-in preview suggestions.
   const codeIndex = useSwatchLibraryStore((s) => s.codeIndex);
   const typedSwatch = findSwatchByCode(codeIndex, code);
 
@@ -72,8 +71,8 @@ function PrintOptions() {
                     onChange={(e) => setPantoneColorHex(index, e.target.value)}
                   />
                   <span>{color.code}</span>
-                  {swatch && library && swatch.hex === color.hex && (
-                    <small className="badge" title={t('swatches.fromLibraryTitle', { name: library.name })}>
+                  {swatch && swatch.hex === color.hex && (
+                    <small className="badge" title={t('swatches.fromLibraryTitle', { name: swatch.library })}>
                       {t('swatches.fromLibrary')}
                     </small>
                   )}
@@ -130,7 +129,7 @@ function PrintOptions() {
         {typedSwatch && !error && !full && (
           <small className="note pantone-form__library">
             <span className="swatch" style={{ background: typedSwatch.hex }} aria-hidden="true" />{' '}
-            {t('swatches.inLibrary', { name: typedSwatch.name })}
+            {t('swatches.inLibrary', { name: typedSwatch.name, library: typedSwatch.library })}
           </small>
         )}
       </form>
