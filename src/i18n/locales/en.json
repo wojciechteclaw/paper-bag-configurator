@@ -11,6 +11,57 @@
     "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
     "demoError": "The demo artwork could not be loaded."
   },
+  "project": {
+    "save": "Save project",
+    "saveWithExtension": "Save project ({{extension}})",
+    "saveHint": "Save the whole project (configuration and artwork files) to one file you can load later",
+    "saving": "Saving…",
+    "saved": "Project saved: {{fileName}}",
+    "load": "Load project",
+    "loadHint": "Load a previously saved project (.bagproj file) — replaces the current configuration",
+    "loading": "Loading…",
+    "loaded": "Project \"{{fileName}}\" loaded.",
+    "loadedAt": "Project \"{{fileName}}\" loaded (saved {{date}}).",
+    "adjusted": "Some values were adjusted to the configurator's current options: {{sections}}.",
+    "dismiss": "Dismiss message",
+    "fileNamePrefix": "bag-project",
+    "summaryNote": "The project file (.bagproj) contains the configuration and all artwork files — load it with \"Load project\" in the header. The JSON preview above refers to the artwork only within this browser tab.",
+    "sections": {
+      "dimensions": "dimensions",
+      "paper": "paper",
+      "handle": "handle",
+      "artwork": "artwork",
+      "print": "print",
+      "packaging": "packaging"
+    },
+    "warnings": {
+      "LEGACY_CONFIGURATION": "This is an older configuration file (JSON), not a project file.",
+      "ARTWORK_NOT_INCLUDED": "The file contains no artwork — upload it again in the Artwork step."
+    },
+    "confirm": {
+      "title": "Load project?",
+      "body": "The current project has unsaved changes. Loading \"{{fileName}}\" replaces it completely.",
+      "confirm": "Load",
+      "cancel": "Cancel"
+    },
+    "saveErrors": {
+      "MISSING_FILE": "The project could not be saved: the artwork \"{{detail}}\" cannot be read. Upload it again.",
+      "TOO_LARGE": "The project could not be saved: the artwork is too large for one project file.",
+      "TOO_MANY_FILES": "The project could not be saved: too many artwork files.",
+      "generic": "The project could not be saved."
+    },
+    "loadErrors": {
+      "EMPTY_FILE": "Project not loaded: the file is empty.",
+      "TOO_LARGE": "Project not loaded: the file is too large.",
+      "TOO_MANY_FILES": "Project not loaded: the file contains too many artwork files.",
+      "NOT_A_PROJECT": "Project not loaded: this is not a bag configurator project file (.bagproj).",
+      "NEWER_VERSION": "Project not loaded: the file was saved by a newer version of the configurator (format {{detail}}). Please update the app.",
+      "MISSING_FILE": "Project not loaded: the artwork file \"{{detail}}\" is missing.",
+      "CORRUPT_DATA": "Project not loaded: the file is damaged.",
+      "UNSUPPORTED_PRODUCT_TYPE": "Project not loaded: this bag type is not available in the configurator yet.",
+      "generic": "The project could not be loaded."
+    }
+  },
   "steps": {
     "navLabel": "Configurator steps",
     "position": "Step {{current}} of {{total}}",
@@ -259,7 +310,6 @@
     "packaging": "Packaging",
     "json": "Configuration (JSON)",
     "copy": "Copy JSON",
-    "download": "Download JSON",
     "copied": "Copied to clipboard.",
     "copyFailed": "Could not copy — select the text manually.",
     "moistureBarrier": "moisture barrier"

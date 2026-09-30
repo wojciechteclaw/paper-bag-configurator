@@ -27,6 +27,7 @@ import {
   type PaperAdjustment,
 } from '../domain/handleVariants';
 import { suggestPantonePreviewHex } from '../domain/printColors';
+import { collectArtworks } from '../domain/project/artworkRefs';
 import { normalizeHex } from '../domain/printCoverage/color';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
 import type {
@@ -50,6 +51,12 @@ import { normalizePantoneCode, validatePantoneColorToAdd, type PantoneError } fr
 // Every action produces a valid BagConfiguration: invalid input is constrained or ignored, never stored.
 type ConfigurationState = {
   configuration: BagConfiguration;
+  /**
+   * Replaces the whole configuration (loading a project, docs/SPEC.md §4h). The caller passes a configuration already
+   * made valid (`sanitizeConfiguration`). Object URLs of the previous artwork that the new configuration does not use
+   * are revoked.
+   */
+  replaceConfiguration: (configuration: BagConfiguration) => void;
   setProductType: (type: BagType) => void;
   /** Clamps into the effective limits (depth ≤ width) and snaps to the 5 mm step. */
   setDimension: (key: keyof Dimensions, value: number) => void;
@@ -158,6 +165,14 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
 
   return {
     configuration: createConfiguration('BLOCK'),
+
+    replaceConfiguration: (next) => {
+      const kept = new Set(collectArtworks(next).map((artwork) => artwork.fileUrl));
+      collectArtworks(get().configuration).forEach((artwork) => {
+        if (!kept.has(artwork.fileUrl)) revokeArtworkUrl(artwork);
+      });
+      set({ configuration: next });
+    },
 
     setProductType: (type) => {
       const { configuration } = get();

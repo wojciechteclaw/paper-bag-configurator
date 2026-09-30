@@ -6,6 +6,7 @@ import { createNumberFormatter } from '../../i18n/numberFormat';
 import { getBagWeight } from '../../domain/bagWeight';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { ExportActions } from './ExportActions';
+import { SaveProjectButton } from './ProjectFileActions';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
 
@@ -26,15 +27,6 @@ export function ConfigurationSummary() {
     } catch {
       setCopyStatus('copyFailed');
     }
-  };
-
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `bag-configuration-${configuration.id.slice(0, 8)}.json`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   return (
@@ -122,13 +114,12 @@ export function ConfigurationSummary() {
           <button type="button" onClick={() => void copy()}>
             {t('summary.copy')}
           </button>
-          <button type="button" onClick={download}>
-            {t('summary.download')}
-          </button>
+          <SaveProjectButton />
           <span aria-live="polite" className="note">
             {copyStatus && t(`summary.${copyStatus}`)}
           </span>
         </div>
+        <p className="note">{t('project.summaryNote')}</p>
         <pre className="json-view" tabIndex={0} aria-labelledby={jsonId}>
           <code>{json}</code>
         </pre>

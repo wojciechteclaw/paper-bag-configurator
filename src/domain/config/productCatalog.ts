@@ -338,3 +338,27 @@ export const PAPER_PREVIEW_COLORS: Record<PaperColor, string> = {
   WHITE: '#f4f2ec',
   BROWN: '#b88a5a',
 };
+
+/**
+ * Project files ("Zapisz projekt" / "Wczytaj projekt", docs/SPEC.md §4h): a ZIP archive with the configuration and
+ * every artwork file. The limits guard the import against oversized or hostile files (zip bombs) before anything is
+ * inflated or decoded.
+ */
+export const PROJECT_FILE_RULES = {
+  /** Extension of saved projects. */
+  extension: '.bagproj',
+  /** File picker filter: projects, a renamed / re-zipped project, and the older configuration JSON download. */
+  accept: '.bagproj,.zip,.json,application/zip,application/json',
+  mimeType: 'application/zip',
+  /**
+   * Largest project file accepted. Every artwork slot filled (4 walls + `MAX_WRAP_ARTWORK_LAYERS` layers) at
+   * `ARTWORK_RULES.maxSizeBytes` is 240 MB; images are stored uncompressed in the archive.
+   */
+  maxFileSizeBytes: 256 * 1024 * 1024,
+  /** Sum of all uncompressed entries (zip-bomb guard, read from the archive directory before inflating). */
+  maxUncompressedBytes: 256 * 1024 * 1024,
+  /** The manifest (configuration JSON) is small; anything bigger is not a project of this app. */
+  maxManifestBytes: 5 * 1024 * 1024,
+  /** Distinct artwork files in one project (both layouts, with headroom for future artwork slots). */
+  maxFiles: 32,
+} as const;

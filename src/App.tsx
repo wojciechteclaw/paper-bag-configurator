@@ -3,6 +3,7 @@ import { BagConfigurator } from './ui/components/BagConfigurator';
 import { DemoButton } from './ui/components/DemoButton';
 import { LanguageSwitcher } from './ui/components/LanguageSwitcher';
 import { PreviewPanel } from './ui/components/PreviewPanel';
+import { ProjectFileActions } from './ui/components/ProjectFileActions';
 
 export default function App() {
   const { t } = useTranslation();
@@ -12,6 +13,7 @@ export default function App() {
       <header className="app-header">
         <h1>{t('app.title')}</h1>
         <div className="app-header__actions">
+          <ProjectFileActions />
           <DemoButton />
           <LanguageSwitcher />
         </div>

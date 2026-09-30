@@ -336,6 +336,60 @@ Exchange (np. eksport z Pantone Connect), a aplikacja używa jej do przybliżani
 - **Duplikaty kodów nadruku** (zmiana przy okazji): `validatePantoneColorToAdd` porównuje kody przez `pantoneLookupKey`,
   więc „PANTONE 186 C” jest duplikatem „PMS 186 C”; duplikat jest zgłaszany przed limitem kolorów.
 
+### 4h. Plik projektu — zapis i wczytanie (prośba klienta 30.09.2026)
+
+„Chciałbym mieć opcję wczytania projektu i eksportu” — cały projekt (konfiguracja + pliki grafik) zapisywany do
+jednego pliku i wczytywany później, z dokładnym odtworzeniem konfiguratora. Wzorniki `.ase` (§4g) **nie** są częścią
+projektu (zostają w przeglądarce), podobnie stan widoku (krok, tryb podglądu, suwak, zaznaczenie).
+
+- **Format `.bagproj`** (`src/domain/project/projectFile.ts`) = archiwum **ZIP**:
+  - `project.json` — manifest: `format: "paper-bag-configurator/project"`, `formatVersion` (liczba całkowita,
+    obecnie **1**), `generator: { name, version }` (wersja aplikacji z `package.json`), `exportedAt` (ISO 8601),
+    `configuration` — **cały `BagConfiguration` bez zmian** (także pola nieznane tej wersji), z jednym wyjątkiem:
+    `fileUrl` każdej grafiki to ścieżka jej pliku w archiwum (URL-e `blob:` nie są przenośne), oraz `files` —
+    `[{ artworkId, path, fileName, mimeType, width, height, sizeBytes }]`;
+  - `artwork/<n>.<png|jpg|webp>` — oryginalne pliki grafik (bez rekompresji, w ZIP „stored”), **każdy raz na id
+    grafiki** (ta sama grafika na kilku ściankach / w warstwie = jeden plik). Zapisywane są grafiki obu układów
+    (per ścianka i całej torby), jak w JSON.
+  - Grafiki są znajdowane w konfiguracji **po kształcie** (obiekt z `id`, `fileName`, `fileUrl`, `mimeType`, `width`,
+    `height`), więc nowe miejsca na grafiki przechodzą przez zapis bez zmian w formacie.
+- **Dlaczego ZIP, a nie JSON z base64:** obrazy do 20 MB każdy (do 12 slotów) — base64 dokłada 33 % i wymaga
+  trzymania całości jako jednego napisu; ZIP przechowuje bajty bez zmian, a rozmiary wpisów można sprawdzić przed
+  rozpakowaniem (ochrona przed „zip bomb”). Biblioteka **fflate** (mała, bez zależności) była już w projekcie jako
+  zależność jsPDF — teraz jest zależnością bezpośrednią.
+- **Limity** (`PROJECT_FILE_RULES` w katalogu): plik ≤ 256 MB, suma rozpakowanych wpisów ≤ 256 MB, manifest ≤ 5 MB,
+  ≤ 32 pliki grafik, każda grafika ≤ `ARTWORK_RULES.maxSizeBytes`.
+- **Wczytanie** (`parseProject` → `sanitizeConfiguration`): błędy typowane `ProjectFileError`: `EMPTY_FILE`,
+  `TOO_LARGE`, `TOO_MANY_FILES`, `NOT_A_PROJECT` (inny plik / inny `format`), `NEWER_VERSION` (plik z nowszej wersji
+  aplikacji — odrzucony z numerem wersji), `MISSING_FILE` (grafika bez pliku, z nazwą pliku), `CORRUPT_DATA`
+  (uszkodzone archiwum / JSON / plik nie jest obrazem PNG/JPEG/WEBP — typ sprawdzany po bajtach, zapisany typ MIME
+  poprawiany wg danych), `UNSUPPORTED_PRODUCT_TYPE` (typ torby niedostępny w tej wersji). Nieudane wczytanie nie
+  zmienia bieżącego projektu.
+- **Sanityzacja** (`src/domain/project/sanitizeConfiguration.ts`): te same fabryki i ograniczenia co akcje store —
+  wymiary przycinane (krok 5 mm, gł. ≤ szer.), papier dopasowany do wariantu uchwytu, nieznane opcje → domyślne,
+  placementy normalizowane, grafiki nie do użycia usuwane, warstwy ≤ `MAX_WRAP_ARTWORK_LAYERS`, kolory Pantone
+  (duplikaty, limit, HEX) i `colorAnalysis` jak w store. Każda zmiana to „dopasowanie” (sekcja + pole) pokazane
+  użytkownikowi. **Nieznane pola są zachowywane** (np. `glueFlapWidth` z innej gałęzi) — nie są jednak walidowane,
+  dopóki ich właściciel nie doda reguły do sanityzacji.
+- **Migracje:** `formatVersion` starszy niż bieżący → łańcuch `MANIFEST_MIGRATIONS` (na razie pusty — v1 to pierwsza
+  wersja); starsze kształty samej konfiguracji rozpoznawane niezależnie od wersji: pojedyncze `wrapArtwork` → jedna
+  warstwa (`withWrapLayers` / id `wrap-<id grafiki>`), brak `artworkLayout` → `PER_PANEL`, brak `colorAnalysis` /
+  `extendToBottom` → domyślne. Przyjmowany jest też **starszy plik JSON** z Podsumowania
+  (`bag-configuration-<id>.json`): konfiguracja jest wczytywana, ale grafiki (tylko URL-e `blob:`) są pomijane
+  z ostrzeżeniem.
+- **Stan** (`src/state/projectFile.ts`): `exportProject` czyta bajty grafik z bieżących URL-i (`fetch` obiektowego
+  URL-a lub zasobu demo), raz na id; `readProjectFile` (bez skutków ubocznych) + `applyProject` = `loadProject`:
+  nowe URL-e obiektowe dla grafik, `replaceConfiguration` (zwalnia URL-e poprzedniego projektu), zaznaczenie grafiki
+  (także cel edycji na wykroju) czyszczone, odtwarzanie osi czasu zatrzymane (tryb podglądu i pozycja suwaka
+  zostają). „Niezapisane zmiany” = konfiguracja różna od ostatnio zapisanej / wczytanej (na starcie: od domyślnej).
+- **UI:** w nagłówku obok „Demo” — „Zapisz projekt” i „Wczytaj projekt” (dostępne z każdego kroku; pliki
+  `.bagproj`, `.zip`, `.json`). Przy niezapisanych zmianach wczytanie pyta o potwierdzenie w dialogu na stronie
+  (`ConfirmDialog`, `role="alertdialog"`, fokus na „Anuluj”, Esc anuluje). Komunikat o wyniku pod przyciskami:
+  zapisano (nazwa pliku) / wczytano (nazwa, data zapisu, ostrzeżenia, dopasowane sekcje) / błąd. W Podsumowaniu
+  „Pobierz JSON” zastąpione przez „Zapisz projekt (.bagproj)”; „Kopiuj JSON” i podgląd JSON zostają.
+- **Nazwa pliku:** `<prefiks>-<typ>-<W>x<H>x<D>-<RRRR-MM-DD>.bagproj`, prefiks wg języka (`projekt-torby`,
+  `bag-project`, `taschen-projekt`), np. `projekt-torby-block-200x400x150-2026-09-30.bagproj`.
+
 ## 5. Architektura
 
 ```text
@@ -351,7 +405,8 @@ USER → UI (src/ui) → store (src/state, Zustand) → BagConfiguration (src/do
 - `src/pricing` — tylko kontrakt `PricingEngine`.
 
 Konfigurator jest podzielony na **kroki** (swobodna nawigacja między nimi, podgląd 3D zawsze widoczny):
-1. Typ i wymiary → 2. Papier i uchwyt → 3. Grafiki → 4. Nadruk i produkcja → 5. Podsumowanie (JSON).
+1. Typ i wymiary → 2. Papier i uchwyt → 3. Grafiki → 4. Nadruk i produkcja → 5. Podsumowanie (JSON, zapis projektu).
+Zapis / wczytanie projektu (`.bagproj`, §4h) dostępne z nagłówka w każdym kroku.
 
 Docelowe drzewo komponentów:
 
@@ -432,6 +487,14 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Przełączanie układu grafik: czy grafiki nieaktywnego układu mają być zachowywane (obecnie tak, także w JSON), czy
   usuwane po przełączeniu?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.
+  Przenośny zapis projektu z grafikami: plik `.bagproj` (§4h).
+- Plik projektu (§4h) — do potwierdzenia: (1) rozszerzenie `.bagproj` i nazwa pliku (prefiks wg języka interfejsu);
+  (2) czy zapisywać też grafiki nieaktywnego układu (obecnie tak — plik może być większy niż potrzeba); (3) czy
+  zapisywać stan widoku (krok, tryb podglądu, suwak) — obecnie nie; (4) czy plik ma zawierać też wzorniki `.ase`
+  (obecnie nie — licencja Pantone, §4g); (5) limit 256 MB na plik — wystarczy?; (6) „niezapisane zmiany” liczone od
+  ostatniego zapisu / wczytania — wczytanie Demo też jest zmianą (pyta o potwierdzenie); (7) projekt z typem torby
+  niedostępnym w danej wersji (np. fałdowa przed wdrożeniem) jest odrzucany — czy wczytywać go jako klockową?;
+  (8) wspólne przechowywanie projektów (serwer / konto) poza MVP.
 - Wzornik `.ase` (§4g): czy wzornik ma być współdzielony w firmie (serwer, licencja firmowa Pantone), czy zostaje
   lokalny w przeglądarce użytkownika (obecnie lokalny)? ~~Czy trzymać kilka wzorników naraz?~~ — rozstrzygnięte [K]
   (30.09.2026): **tak**, kilka wzorników naraz (np. Coated + Uncoated), §4g.

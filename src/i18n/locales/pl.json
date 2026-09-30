@@ -11,6 +11,57 @@
     "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt skręcany (sznurek), grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
     "demoError": "Nie udało się wczytać grafik demo."
   },
+  "project": {
+    "save": "Zapisz projekt",
+    "saveWithExtension": "Zapisz projekt ({{extension}})",
+    "saveHint": "Zapisz cały projekt (konfiguracja i pliki grafik) do jednego pliku, który można później wczytać",
+    "saving": "Zapisywanie…",
+    "saved": "Zapisano projekt: {{fileName}}",
+    "load": "Wczytaj projekt",
+    "loadHint": "Wczytaj projekt zapisany wcześniej (plik .bagproj) — zastępuje bieżącą konfigurację",
+    "loading": "Wczytywanie…",
+    "loaded": "Wczytano projekt „{{fileName}}”.",
+    "loadedAt": "Wczytano projekt „{{fileName}}” (zapisany {{date}}).",
+    "adjusted": "Niektóre wartości dopasowano do aktualnych opcji konfiguratora: {{sections}}.",
+    "dismiss": "Zamknij komunikat",
+    "fileNamePrefix": "projekt-torby",
+    "summaryNote": "Plik projektu (.bagproj) zawiera konfigurację i wszystkie pliki grafik — wczytasz go przyciskiem „Wczytaj projekt” w nagłówku. Podgląd JSON powyżej odwołuje się do grafik tylko w tej karcie przeglądarki.",
+    "sections": {
+      "dimensions": "wymiary",
+      "paper": "papier",
+      "handle": "uchwyt",
+      "artwork": "grafiki",
+      "print": "nadruk",
+      "packaging": "pakowanie"
+    },
+    "warnings": {
+      "LEGACY_CONFIGURATION": "To starszy plik konfiguracji (JSON), a nie plik projektu.",
+      "ARTWORK_NOT_INCLUDED": "Plik nie zawiera grafik — wgraj je ponownie w kroku Grafiki."
+    },
+    "confirm": {
+      "title": "Wczytać projekt?",
+      "body": "Bieżący projekt ma niezapisane zmiany. Wczytanie pliku „{{fileName}}” zastąpi go w całości.",
+      "confirm": "Wczytaj",
+      "cancel": "Anuluj"
+    },
+    "saveErrors": {
+      "MISSING_FILE": "Nie udało się zapisać projektu: nie można odczytać grafiki „{{detail}}”. Wgraj ją ponownie.",
+      "TOO_LARGE": "Nie udało się zapisać projektu: grafiki są za duże na jeden plik projektu.",
+      "TOO_MANY_FILES": "Nie udało się zapisać projektu: za dużo plików grafik.",
+      "generic": "Nie udało się zapisać projektu."
+    },
+    "loadErrors": {
+      "EMPTY_FILE": "Nie wczytano projektu: plik jest pusty.",
+      "TOO_LARGE": "Nie wczytano projektu: plik jest za duży.",
+      "TOO_MANY_FILES": "Nie wczytano projektu: plik zawiera za dużo grafik.",
+      "NOT_A_PROJECT": "Nie wczytano projektu: to nie jest plik projektu konfiguratora toreb (.bagproj).",
+      "NEWER_VERSION": "Nie wczytano projektu: plik zapisała nowsza wersja konfiguratora (format {{detail}}). Zaktualizuj aplikację.",
+      "MISSING_FILE": "Nie wczytano projektu: brakuje pliku grafiki „{{detail}}”.",
+      "CORRUPT_DATA": "Nie wczytano projektu: plik jest uszkodzony.",
+      "UNSUPPORTED_PRODUCT_TYPE": "Nie wczytano projektu: ten typ torby nie jest jeszcze dostępny w konfiguratorze.",
+      "generic": "Nie udało się wczytać projektu."
+    }
+  },
   "steps": {
     "navLabel": "Kroki konfiguratora",
     "position": "Krok {{current}} z {{total}}",
@@ -261,7 +312,6 @@
     "packaging": "Pakowanie",
     "json": "Konfiguracja (JSON)",
     "copy": "Kopiuj JSON",
-    "download": "Pobierz JSON",
     "copied": "Skopiowano do schowka.",
     "copyFailed": "Nie udało się skopiować — zaznacz tekst ręcznie.",
     "moistureBarrier": "bariera na wilgoć"
