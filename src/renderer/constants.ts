@@ -95,6 +95,12 @@ export type PaperPalette = {
   crease: string;
 };
 
+/**
+ * Render-only distance of the window film inside FRONT's paper, mm: the film is glued on the inside and overlaps the
+ * paper around the opening (client [K]); within the client limit of ≤ 0.1 mm per layer step.
+ */
+export const WINDOW_FILM_INSET_MM = 0.05;
+
 export type WindowFilmLook = {
   /** Tint of the film (seen over the bag interior). */
   color: string;

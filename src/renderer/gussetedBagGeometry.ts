@@ -15,8 +15,8 @@ import { BufferAttribute, BufferGeometry } from 'three';
 import { getBottomFoldDepth, getGussetedPoint, getGussetOpeningRise } from '../domain/geometry/gussetedBag';
 import { getPanelSize } from '../domain/panels';
 import type { BagWindow, Dimensions, PanelPosition } from '../domain/types';
-import { getWindowOpening, isInWindowOpening, type WindowOpening } from '../domain/window';
-import { MM_TO_SCENE } from './constants';
+import { getWindowFilm, getWindowOpening, isInWindowOpening, type WindowOpening } from '../domain/window';
+import { MM_TO_SCENE, WINDOW_FILM_INSET_MM } from './constants';
 
 /** Render-only paper-layer separation of the flat parts (folded bag, glued bottom), mm. */
 export const GUSSETED_LAYER_GAP_MM = 0.4;
@@ -127,9 +127,11 @@ export function createGussetedMeshes(dimensions: Dimensions, window: BagWindow |
     if (b > 0) result.push({ id: `${panel}-STRIP`, panel, strip: true, ...createGrid(xs, [-b, 0], panelUv) });
     return result;
   });
-  if (opening) {
-    const { x, y, width: w, height: h } = opening;
-    const filmRows = rows.filter((r) => r >= y && r <= y + h);
+  if (opening && window) {
+    // The film is glued on the INSIDE of FRONT and overlaps the paper around the opening by the film overlap (client
+    // [K]): its mesh covers the film rectangle (opening + overlap on every closed side) and is posed just inside FRONT.
+    const { x, y, width: w, height: h } = getWindowFilm(window, dimensions);
+    const filmRows = [...new Set([y, ...rows.filter((r) => r > y && r < y + h), y + h])].sort((p, q) => p - q);
     const film = createGrid([x, x + w / 2, x + w], filmRows, (px, py) => [(px - x) / w, (py - y) / h]);
     meshes.push({ id: 'WINDOW-FILM', panel: 'FRONT', strip: false, film: true, ...film });
   }
@@ -146,6 +148,17 @@ export function updateGussetedMesh(mesh: GussetedMesh, frame: GussetedFrame) {
     out[3 * i + 1] = q.y * MM_TO_SCENE;
     out[3 * i + 2] = q.z * MM_TO_SCENE;
   });
+  if (mesh.film) {
+    // Pose the film just inside FRONT (against its unprinted face): shift along the outward normal, inwards.
+    mesh.geometry.computeVertexNormals();
+    const normal = mesh.geometry.getAttribute('normal') as BufferAttribute;
+    const inset = WINDOW_FILM_INSET_MM * MM_TO_SCENE;
+    for (let i = 0; i < mesh.samples.length; i++) {
+      out[3 * i] -= normal.getX(i) * inset;
+      out[3 * i + 1] -= normal.getY(i) * inset;
+      out[3 * i + 2] -= normal.getZ(i) * inset;
+    }
+  }
   position.needsUpdate = true;
   mesh.geometry.computeVertexNormals();
   mesh.geometry.computeBoundingSphere();

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { BufferAttribute } from 'three';
 import type { BagWindow } from '../../src/domain/types';
-import { MM_TO_SCENE } from '../../src/renderer/constants';
+import { getGussetedPoint } from '../../src/domain/geometry/gussetedBag';
+import { MM_TO_SCENE, WINDOW_FILM_INSET_MM } from '../../src/renderer/constants';
 import {
   createGussetedMeshes,
   getGussetedFrame,
@@ -9,7 +10,8 @@ import {
   updateGussetedMesh,
 } from '../../src/renderer/gussetedBagGeometry';
 
-// Gusseted 140 + 90 × 370 with a window in FRONT (docs/SPEC.md §2b): a hole in the wall, a film mesh in its place.
+// Gusseted 140 + 90 × 370 with a window in FRONT (docs/SPEC.md §2b): a hole in the wall and a film glued on the
+// inside that overlaps the paper around the opening by the film overlap (client [K]).
 const dims = { width: 140, height: 370, depth: 90 };
 const rectangle: BagWindow = { type: 'RECTANGLE', material: 'PP', width: 60, height: 100, bottomOffset: 150, filmOverlap: 10 };
 const panoramic: BagWindow = { type: 'PANORAMIC', material: 'PP_PERFORATED', width: 40, filmOverlap: 10 };
@@ -27,9 +29,9 @@ function triangleCentres(mesh: ReturnType<typeof createGussetedMeshes>[number]) 
 
 describe('gusseted geometry with a window', () => {
   it.each([
-    ['rectangle', rectangle, { x0: 40, x1: 100, y0: 150, y1: 250 }],
-    ['panoramic', panoramic, { x0: 50, x1: 90, y0: 40, y1: 370 }],
-  ] as const)('%s: leaves the opening out of FRONT and fills it with a film mesh', (_, window, box) => {
+    ['rectangle', rectangle, { x0: 40, x1: 100, y0: 150, y1: 250 }, { x0: 30, x1: 110, y0: 140, y1: 260 }],
+    ['panoramic', panoramic, { x0: 50, x1: 90, y0: 40, y1: 370 }, { x0: 40, x1: 100, y0: 30, y1: 370 }],
+  ] as const)('%s: leaves the opening out of FRONT and covers it with a film overlapping the paper', (_, window, box, filmBox) => {
     const meshes = createGussetedMeshes(dims, window);
     const front = meshes.find((m) => m.id === 'FRONT')!;
     const inside = (p: { x: number; y: number }) => p.x > box.x0 && p.x < box.x1 && p.y > box.y0 && p.y < box.y1;
@@ -39,17 +41,17 @@ describe('gusseted geometry with a window', () => {
 
     const film = meshes.find((m) => m.film)!;
     expect(film).toMatchObject({ id: 'WINDOW-FILM', panel: 'FRONT', strip: false });
-    expect(triangleCentres(film).every(inside)).toBe(true);
     const xs = film.samples.map((s) => s.x);
     const ys = film.samples.map((s) => s.y);
-    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([box.x0, box.x1, box.y0, box.y1]);
-    // UV spans the opening 0..1.
+    // The film = the opening grown by the 10 mm overlap on every closed side (not above the mouth).
+    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([filmBox.x0, filmBox.x1, filmBox.y0, filmBox.y1]);
+    // UV spans the film 0..1.
     const uv = film.geometry.getAttribute('uv').array;
     expect(Math.min(...uv)).toBe(0);
     expect(Math.max(...uv)).toBe(1);
   });
 
-  it('poses the film exactly in FRONT’s surface, open, folded and in between', () => {
+  it('poses the film just inside FRONT (glued on the inside), open, folded and in between', () => {
     const meshes = createGussetedMeshes(dims, rectangle);
     const front = meshes.find((m) => m.id === 'FRONT')!;
     const film = meshes.find((m) => m.film)!;
@@ -58,15 +60,16 @@ describe('gusseted geometry with a window', () => {
       updateGussetedMesh(front, frame);
       updateGussetedMesh(film, frame);
       const position = (mesh: typeof film) => mesh.geometry.getAttribute('position') as BufferAttribute;
-      // A film corner coincides with the FRONT vertex at the same panel point.
-      const corner = film.samples.findIndex((s) => s.x === 40 && s.y === 150);
-      const same = front.samples.findIndex((s) => s.x === 40 && s.y === 150);
-      expect(corner).toBeGreaterThanOrEqual(0);
-      expect(same).toBeGreaterThanOrEqual(0);
-      for (const axis of ['getX', 'getY', 'getZ'] as const) {
-        expect(position(film)[axis](corner)).toBeCloseTo(position(front)[axis](same), 9);
-      }
-      expect(position(film).getY(corner)).toBeCloseTo(150 * MM_TO_SCENE, 6);
+      // Every film vertex lies WINDOW_FILM_INSET_MM from FRONT's surface at the same panel point, on the inner side.
+      film.samples.forEach((sample, k) => {
+        const onFront = getGussetedPoint(dims, 'FRONT', sample, frame.open, frame.gap);
+        const behind = getGussetedPoint(dims, 'BACK', { x: dims.width - sample.x, y: sample.y }, frame.open, frame.gap);
+        const p = position(film);
+        const q = { x: p.getX(k) / MM_TO_SCENE, y: p.getY(k) / MM_TO_SCENE, z: p.getZ(k) / MM_TO_SCENE };
+        expect(Math.hypot(q.x - onFront.x, q.y - onFront.y, q.z - onFront.z)).toBeCloseTo(WINDOW_FILM_INSET_MM, 3);
+        if (fold < 1) expect(Math.abs(q.z - behind.z)).toBeLessThan(Math.abs(onFront.z - behind.z));
+      });
+      expect(front.samples.length).toBeGreaterThan(0);
     }
   });
 
