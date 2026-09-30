@@ -93,7 +93,7 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
 
 Suwak **„Składanie” 0–100%** to jedna ciągła oś czasu (decyzja klienta 29.09.2026): **płaski arkusz (0 %)** → rękaw
 (faza A) → boki dna do środka w całości (B) → trapez przedni (C1) → trapez tylny na wierzch (C2) → **uformowana torba
-(40 %, „3D pełne”)** → stojąca (55 %) → **złożona na płasko (100 %)**. Część 0–40 % to składanie z arkusza
+(40 %, „3D pełne”)** → stojąca („3D po zgięciu”, 45 %) → **złożona na płasko (100 %)**. Część 0–40 % to składanie z arkusza
 (`assemblyKinematics.ts`, `docs/PRODUCTION.md` §10.8), część 40–100 % to dotychczasowe złożenie na płasko (§10.5,
 przemapowane). Podział 40/60 trzyma wszystkie presety na siatce 1 % (0 / 0,4 / 0,55 / 1). Obok suwaka nazwa bieżącego
 etapu i przycisk odtwórz / pauza (cała oś w ok. 14 s; odtwarzanie z końca zaczyna od arkusza). W stanie widoku
@@ -138,7 +138,7 @@ Przełącznik trybów w panelu podglądu:
 1. **Wykrój 2D** — płaski arkusz z grafikami (podgląd + edycja: przesuwanie/skalowanie grafiki na ściance). Osobny widok, poza osią czasu.
 2. **Arkusz** — wykrój w 3D, wszystkie ścianki w jednej płaszczyźnie, grafika widoczna (początek osi czasu, 0 %).
 3. **3D pełne** — uformowana torba, prostopadłościan (koniec składania z arkusza, 40 %; foldProgress = 0).
-4. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (na osi czasu: 0,4 + 0,6 · 0,25 = **55 %**). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
+4. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (na osi czasu: 0,4 + 0,6 · 0,25 = 55 %). **Przycisk „3D po zgięciu” ustawia jednak 45 %** (p = 1/12, decyzja klienta 30.09.2026). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
 5. **3D złożona na płasko** — foldProgress = 1 (100 %).
 
 Tryby 3D to **presety na osi czasu**; przełączenie animuje przejście przez wszystkie etapy pomiędzy (np. z „Złożona” do „Arkusz”). **Suwak** (tylko w trybach 3D) pozwala przejść całą oś płynnie; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane na razie **per ścianka**.

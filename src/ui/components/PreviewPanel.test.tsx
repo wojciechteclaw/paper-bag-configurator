@@ -42,7 +42,7 @@ describe('PreviewPanel modes', () => {
     expect(screen.getByTestId('bag-3d')).toHaveTextContent('0.5|0');
     fireEvent.change(screen.getByRole('slider'), { target: { value: '40' } });
     expect(box).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.change(screen.getByRole('slider'), { target: { value: '55' } });
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '45' } });
     expect(standing).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(flat);
     expect(screen.getByTestId('bag-3d')).toHaveTextContent('1|1');

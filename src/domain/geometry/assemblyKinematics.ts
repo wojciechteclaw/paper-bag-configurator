@@ -480,7 +480,7 @@ export function assemblyInwardNormal(pose: AssemblyPose, piece: Pick<AssemblyPie
 
 /**
  * Share of the preview timeline taken by the assembly (docs/SPEC.md §4a/§4c). 0.4 keeps every preset on the 1 %
- * slider grid: SHEET 0, BOX 0.4, STANDING 0.4 + 0.6 · 0.25 = 0.55, FLAT 1.
+ * slider grid: SHEET 0, BOX 0.4, STANDING 0.45, FLAT 1.
  */
 export const ASSEMBLY_TIMELINE_SHARE = 0.4;
 

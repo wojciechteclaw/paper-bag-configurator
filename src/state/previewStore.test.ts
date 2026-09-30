@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getStandingFoldProgress } from '../domain/geometry/foldKinematics';
 import { useConfigurationStore } from './configurationStore';
 import {
   findTimelinePreset,
@@ -47,11 +46,10 @@ describe('one timeline: sheet → assembly → BOX → fold → flat', () => {
     expect(PREVIEW_VIEW_MODES).toEqual(['DIELINE', 'SHEET', 'BOX', 'STANDING', 'FLAT']);
   });
 
-  it('places the presets on the 1 % grid: SHEET 0, BOX 0.4, STANDING 0.55, FLAT 1', () => {
-    expect(TIMELINE_PRESETS).toEqual({ SHEET: 0, BOX: 0.4, STANDING: 0.55, FLAT: 1 });
-    // STANDING is the 45° triangle preset of the fold (p ≈ 0.2497 → 0.25) on the fold part of the timeline.
-    expect(getTimelineState(TIMELINE_PRESETS.STANDING).foldProgress).toBeCloseTo(0.25, 9);
-    expect(Math.abs(getTimelineState(TIMELINE_PRESETS.STANDING).foldProgress - getStandingFoldProgress())).toBeLessThan(0.005);
+  it('places the presets on the 1 % grid: SHEET 0, BOX 0.4, STANDING 0.45 (client [K]), FLAT 1', () => {
+    expect(TIMELINE_PRESETS).toEqual({ SHEET: 0, BOX: 0.4, STANDING: 0.45, FLAT: 1 });
+    // STANDING is early in the fold part of the timeline: p = 0.05 / 0.6.
+    expect(getTimelineState(TIMELINE_PRESETS.STANDING).foldProgress).toBeCloseTo(1 / 12, 9);
     for (const value of Object.values(TIMELINE_PRESETS)) expect(findTimelinePreset(Math.round(value * 100) / 100)).not.toBeNull();
   });
 
@@ -72,7 +70,7 @@ describe('one timeline: sheet → assembly → BOX → fold → flat', () => {
     preview().setViewMode('FLAT');
     expect(preview()).toMatchObject({ viewMode: 'FLAT', progress: 1 });
     preview().setViewMode('STANDING');
-    expect(preview()).toMatchObject({ viewMode: 'STANDING', progress: 0.55 });
+    expect(preview()).toMatchObject({ viewMode: 'STANDING', progress: 0.45 });
   });
 
   it('keeps the timeline when switching to the dieline', () => {
@@ -87,7 +85,7 @@ describe('one timeline: sheet → assembly → BOX → fold → flat', () => {
     preview().setViewMode('FLAT');
     preview().setProgress(0.42);
     expect(preview().viewMode).toBeNull();
-    preview().setProgress(55 / 100); // slider value 55 %
+    preview().setProgress(45 / 100); // slider value 45 %
     expect(preview().viewMode).toBe('STANDING');
     preview().setProgress(40 / 100);
     expect(preview().viewMode).toBe('BOX');

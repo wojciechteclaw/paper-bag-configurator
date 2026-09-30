@@ -3,10 +3,8 @@ import {
   ASSEMBLY_TIMELINE_SHARE,
   getAssemblyPhase,
   splitPreviewTimeline,
-  toPreviewTimeline,
   type AssemblyPhaseId,
 } from '../domain/geometry/assemblyKinematics';
-import { getStandingFoldProgress } from '../domain/geometry/foldKinematics';
 
 // View state of the preview (docs/SPEC.md §4a, §4c). Deliberately NOT part of BagConfiguration.
 //
@@ -26,17 +24,14 @@ export const TIMELINE_SLIDER_STEP = 0.01;
 /** Seconds for the play button to run the whole timeline 0 → 1. */
 export const TIMELINE_PLAY_DURATION_S = 14;
 
-const toSliderStep = (t: number) => Math.round(t / TIMELINE_SLIDER_STEP) / (1 / TIMELINE_SLIDER_STEP);
-
 /**
- * Timeline value of each 3D preset. SHEET = 0, BOX = end of the assembly (0.4), FLAT = 1. STANDING = the fold at which
- * the side's bottom triangle is inclined 45° from the vertical (`getStandingFoldProgress` ≈ 0.2497, SPEC §4c) mapped
- * onto the timeline: 0.4 + 0.6 · 0.2497 ≈ 0.5498 → 0.55 (fold p = 0.25 exactly).
+ * Timeline value of each 3D preset. SHEET = 0, BOX = end of the assembly (0.4), FLAT = 1. STANDING = 0.45 (client
+ * [K], 30.09.2026: fold p = 1/12, just after the bag starts to fold; was the 45° side-triangle pose at 0.55).
  */
 export const TIMELINE_PRESETS: Readonly<Record<TimelineViewMode, number>> = {
   SHEET: 0,
   BOX: ASSEMBLY_TIMELINE_SHARE,
-  STANDING: toSliderStep(toPreviewTimeline(1, getStandingFoldProgress())),
+  STANDING: 0.45,
   FLAT: 1,
 };
 
