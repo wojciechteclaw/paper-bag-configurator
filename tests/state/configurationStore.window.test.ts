@@ -72,3 +72,15 @@ describe('window actions (docs/SPEC.md §2b)', () => {
     expect(adjustments).toContainEqual({ field: 'window', removed: true });
   });
 });
+
+describe('panoramic strip start (client [K], 30.09.2026)', () => {
+  it('sets the start of the panoramic strip ("Odległość od dna") and clamps it', () => {
+    store().setWindowType('PANORAMIC');
+    store().setWindowValue('bottomOffset', 120);
+    expect(config().window).toMatchObject({ type: 'PANORAMIC', bottomOffset: 120 });
+    store().setWindowValue('bottomOffset', 5);
+    expect(config().window).toMatchObject({ bottomOffset: 40 });
+    store().setWindowValue('height', 50);
+    expect(config().window).not.toHaveProperty('height');
+  });
+});

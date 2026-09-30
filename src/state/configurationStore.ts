@@ -475,7 +475,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => {
         const current = getWindow(c);
         if (!current || !Number.isFinite(value)) return {};
-        if ((field === 'height' || field === 'bottomOffset') && current.type !== 'RECTANGLE') return {};
+        if (field === 'height' && current.type !== 'RECTANGLE') return {}; // the panoramic strip runs to the mouth
         return { window: constrainWindow({ ...current, [field]: value } as typeof current, getWindowDimensions(c)) };
       }),
   };

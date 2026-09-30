@@ -33,10 +33,10 @@ describe('buildDielineSvg', () => {
     const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
     expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
     const root = doc.documentElement;
-    // Sheet 710 × 490 + margins 51/8 → viewBox and physical size agree 1:1.
-    expect(root.getAttribute('viewBox')).toBe('-51 -51 769 549');
-    expect(root.getAttribute('width')).toBe('769mm');
-    expect(root.getAttribute('height')).toBe('549mm');
+    // Sheet 710 × 490 + margins 40/8 + the wall-name band under the sheet (19) → viewBox and physical size agree 1:1.
+    expect(root.getAttribute('viewBox')).toBe('-40 -40 758 557');
+    expect(root.getAttribute('width')).toBe('758mm');
+    expect(root.getAttribute('height')).toBe('557mm');
     const layers = [...root.querySelectorAll('g[id]')].filter((g) => g.parentElement === root);
     expect(layers.map((g) => [g.id, g.getAttribute('inkscape:label')])).toEqual([
       ['print', 'print'],
@@ -168,8 +168,8 @@ describe('dieline annotations (client feedback)', () => {
     dimension: (key) => key,
   });
 
-  it('draws dimensions with the enlarged (5×) text', () => {
-    expect(DIMENSION_TEXT_SIZE).toBe(17.5);
+  it('draws dimensions with the enlarged text (5×, then −35 %: client)', () => {
+    expect(DIMENSION_TEXT_SIZE).toBeCloseTo(17.5 * 0.65, 9);
     expect(scene.dimensions.length).toBeGreaterThan(0);
     expect(scene.dimensions.every((d) => d.text.size === DIMENSION_TEXT_SIZE)).toBe(true);
   });

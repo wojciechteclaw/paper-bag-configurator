@@ -94,8 +94,11 @@ export type SceneTexts = {
   dimension: (key: DielineDimensionKey, value: number) => string;
 };
 
-/** Dimension text height, mm on the sheet — 5× the original 3.5 mm (client: dimensions were too small to read). */
-export const DIMENSION_TEXT_SIZE = 17.5;
+/**
+ * Dimension text height, mm on the sheet: 5× the original 3.5 mm (client: too small to read), then −35 % (client,
+ * 30.09.2026: too large) = 17.5 × 0.65.
+ */
+export const DIMENSION_TEXT_SIZE = 11.375;
 
 /**
  * Dimension tiers outside the sheet: the domain's offsets (10 = inner tier, 22 = outer tier for the sheet totals) are
@@ -112,6 +115,12 @@ const OUTER_TEXT_REACH =
 
 // Left/top margins fit both dimension tiers and their text.
 export const SCENE_MARGIN = { left: Math.ceil(OUTER_TEXT_REACH + 4), top: Math.ceil(OUTER_TEXT_REACH + 4), right: 8, bottom: 8 } as const;
+
+/** Wall names are written UNDER the sheet, one per column (client, 30.09.2026), at this text height (mm). */
+export const WALL_LABEL_SIZE = 11;
+const WALL_LABEL_GAP = 4;
+/** Room under the sheet for the wall names. */
+const WALL_LABEL_BAND = WALL_LABEL_GAP + WALL_LABEL_SIZE + 4;
 
 const dimensionTier = (domainOffset: number) => (domainOffset > 10 ? 1 : 0);
 const estimateTextLength = (text: string) => text.length * DIMENSION_TEXT_SIZE * CHAR_WIDTH_RATIO;
@@ -160,11 +169,11 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
     printed: artworks[segment.panel].extendsToBottom,
   }));
   const patches = dieline.handlePatches.map((patch) => svgRect(patch.id, patch.rect));
-  // Only panel names are drawn; zone descriptions (allowance, flaps, glue flap) were removed at the client's request.
+  // Only panel names are drawn (zone descriptions were removed at the client's request), under the sheet, centred on
+  // their column (client, 30.09.2026: not over the artwork).
   const labels = dieline.labels.filter((label) => PANEL_LABEL_KEYS.has(label.key)).map((label) => {
-    const [x, y] = pt(label.at);
-    const glue = label.key === 'glueFlap';
-    return { id: label.id, x, y, text: texts.label(label.key), size: fmt(label.size), ...(glue ? { rotate: -90 } : {}) };
+    const [x] = pt(label.at);
+    return { id: label.id, x, y: fmt(H + WALL_LABEL_GAP + WALL_LABEL_SIZE), text: texts.label(label.key), size: WALL_LABEL_SIZE };
   });
 
   const dimensions = dieline.annotations.map((dimension): SceneDimension => {
@@ -286,7 +295,7 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
       -SCENE_MARGIN.left,
       -SCENE_MARGIN.top,
       fmt(dieline.sheet.width + SCENE_MARGIN.left + SCENE_MARGIN.right),
-      fmt(dieline.sheet.height + SCENE_MARGIN.top + SCENE_MARGIN.bottom),
+      fmt(dieline.sheet.height + SCENE_MARGIN.top + SCENE_MARGIN.bottom + WALL_LABEL_BAND),
     ],
     cuts,
     creases,
