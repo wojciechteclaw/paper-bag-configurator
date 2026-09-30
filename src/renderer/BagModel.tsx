@@ -1,4 +1,4 @@
-import { Line } from '@react-three/drei';
+import { Html, Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { BackSide, FrontSide, type BufferGeometry, type Group, type InterleavedBufferAttribute, type Texture } from 'three';
@@ -11,6 +11,7 @@ import {
   createAssemblyMeshes,
   getAssemblyFrame,
   getAssemblyHandleMatrix,
+  getAssemblyDebugEdges,
   getAssemblyLineSpecs,
   updateAssemblyMesh,
   writeAssemblyLines,
@@ -67,6 +68,8 @@ type BagModelProps = {
    * only fold (e.g. the offscreen snapshots) are unaffected. A fold progress > 0 implies a finished assembly.
    */
   assemblyProgress?: number;
+  /** Debug aid: numbered, highlighted edges of the bottom-zone pieces during the assembly (`?lines`). */
+  debugLines?: boolean;
 };
 
 function writeLineBuffer(line: LineRef | null, segments: number, write: (out: Float32Array) => void) {
@@ -96,6 +99,15 @@ const PAPER_MATERIAL = { roughness: 0.85, metalness: 0, envMapIntensity: 0.4 } a
 // default camera distance): a slope-scaled factor pushed oblique faces back by ~1 mm, more than the 0.05–0.2 mm
 // paper-layer gaps, so lines and patches of hidden layers showed through the layer covering them.
 const POLYGON_OFFSET = { polygonOffset: true, polygonOffsetFactor: 0, polygonOffsetUnits: 4 } as const;
+const DEBUG_LABEL_STYLE = {
+  background: '#e0115f',
+  color: '#fff',
+  font: '600 11px/1 sans-serif',
+  padding: '2px 4px',
+  borderRadius: 3,
+  pointerEvents: 'none',
+  whiteSpace: 'nowrap',
+} as const;
 const artworkProgramKey = () => ARTWORK_PROGRAM_KEY;
 
 type SurfaceViewProps = {
@@ -158,7 +170,15 @@ function useWallTexture(panel: BagPanel, dimensions: Dimensions): Texture | null
   return texture;
 }
 
-export function BagModel({ dimensions, paperColor, panels, handle, foldProgress, assemblyProgress = 1 }: BagModelProps) {
+export function BagModel({
+  dimensions,
+  paperColor,
+  panels,
+  handle,
+  foldProgress,
+  assemblyProgress = 1,
+  debugLines = false,
+}: BagModelProps) {
   const { width, height, depth } = dimensions;
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
@@ -188,6 +208,11 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress,
   const assemblyLines = useMemo(() => getAssemblyLineSpecs(dims), [dims]);
   const sheetCutPoints = useMemo(() => placeholderPoints(assemblyLines.cut.length), [assemblyLines]);
   const sheetCreasePoints = useMemo(() => placeholderPoints(assemblyLines.crease.length), [assemblyLines]);
+  const debugEdges = useMemo(() => (debugLines ? getAssemblyDebugEdges(dims) : []), [debugLines, dims]);
+  const debugPoints = useMemo(() => placeholderPoints(debugEdges.length), [debugEdges]);
+  const debugRef = useRef<LineRef>(null);
+  const debugLabels = useRef<(Group | null)[]>([]);
+  const debugLabelElements = useRef<(HTMLDivElement | null)[]>([]);
 
   const edgesRef = useRef<LineRef>(null);
   const creasesRef = useRef<LineRef>(null);
@@ -207,11 +232,22 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress,
       const assembling = q < 1;
       if (foldGroup.current) foldGroup.current.visible = !assembling;
       if (assemblyGroup.current) assemblyGroup.current.visible = assembling;
+      // Html labels are DOM overlays: they ignore the hidden group, so toggle them explicitly.
+      for (const element of debugLabelElements.current) if (element) element.style.display = assembling ? '' : 'none';
       if (assembling) {
         const frame = getAssemblyFrame(dims, q);
         for (const mesh of assemblyMeshes) updateAssemblyMesh(mesh, frame);
         writeAssemblyLine(sheetCutRef.current, assemblyLines.cut, frame);
         writeAssemblyLine(sheetCreaseRef.current, assemblyLines.crease, frame);
+        if (debugEdges.length > 0) {
+          writeAssemblyLine(debugRef.current, debugEdges, frame);
+          const out = new Float32Array(debugEdges.length * 6);
+          writeAssemblyLines(debugEdges, frame, out);
+          debugLabels.current.forEach((label, i) => {
+            const o = i * 6;
+            label?.position.set((out[o] + out[o + 3]) / 2, (out[o + 1] + out[o + 4]) / 2, (out[o + 2] + out[o + 5]) / 2);
+          });
+        }
         for (const wall of HANDLE_WALLS) {
           const group = handleGroups.current[wall];
           if (!group) continue;
@@ -234,13 +270,13 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress,
         group.scale.set(1, 1, squash);
       }
     },
-    [dims, meshes, assemblyMeshes, edgeSpecs, creaseSpecs, assemblyLines],
+    [dims, meshes, assemblyMeshes, edgeSpecs, creaseSpecs, assemblyLines, debugEdges],
   );
 
   // New geometry (dimension change), new line buffers or (re)mounted handles → pose them before the browser paints.
   useLayoutEffect(() => {
     pose(current.current);
-  }, [pose, edgePoints, creasePoints, sheetCutPoints, sheetCreasePoints, handle]);
+  }, [pose, edgePoints, creasePoints, sheetCutPoints, sheetCreasePoints, debugPoints, handle]);
 
   useFrame((_, delta) => {
     const diff = targetTimeline - current.current;
@@ -300,6 +336,31 @@ export function BagModel({ dimensions, paperColor, panels, handle, foldProgress,
           opacity={0.7}
           frustumCulled={false}
         />
+        {debugEdges.length > 0 && (
+          <>
+            <Line ref={debugRef} segments points={debugPoints} color="#e0115f" lineWidth={2} frustumCulled={false} />
+            {debugEdges.map((_, k) => (
+              <group
+                key={k}
+                ref={(g) => {
+                  debugLabels.current[k] = g;
+                }}
+              >
+                <Html
+                  ref={(element) => {
+                    debugLabelElements.current[k] = element;
+                  }}
+                  center
+                  occlude
+                  zIndexRange={[20, 0]}
+                  style={DEBUG_LABEL_STYLE}
+                >
+                  {k + 1}
+                </Html>
+              </group>
+            ))}
+          </>
+        )}
       </group>
 
       {handle && <HandleModel handle={handle} dimensions={dims} paperColor={getHandlePaperColor({ color: paperColor })} wallGroups={handleGroups} />}

@@ -94,6 +94,9 @@ export type BagPreview3DProps = {
   assemblyProgress?: number;
 };
 
+/** Dev aid: `?lines` in the URL numbers the bottom-zone edges during the assembly (to discuss folds with the client). */
+const DEBUG_LINES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('lines');
+
 export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress = 1 }: BagPreview3DProps) {
   const { dimensions, paper } = configuration;
   const [w, h, d] = [dimensions.width * MM_TO_SCENE, dimensions.height * MM_TO_SCENE, dimensions.depth * MM_TO_SCENE];
@@ -125,6 +128,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
         handle={configuration.handle}
         foldProgress={foldProgress}
         assemblyProgress={assemblyProgress}
+        debugLines={DEBUG_LINES}
       />
 
       {/* Slightly below the bag bottom so the shadow plane never z-fights with it (visible through the open top). */}

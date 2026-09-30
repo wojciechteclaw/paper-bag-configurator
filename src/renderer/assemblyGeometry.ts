@@ -192,6 +192,31 @@ export function getAssemblyLineSpecs(dimensions: Dimensions): { cut: AssemblyLin
   };
 }
 
+/**
+ * Debug aid (`?lines`): every distinct edge of the bottom-zone pieces (creases, cuts, the ears' bend lines), numbered
+ * 1… in sheet order (left → right, top → bottom), each carried by the first piece that has it.
+ */
+export function getAssemblyDebugEdges(dimensions: Dimensions): AssemblyLineSpec[] {
+  const origins = getAssemblySheetOrigins(dimensions);
+  const seen = new Set<string>();
+  const edges: (AssemblyLineSpec & { sx: number; sy: number })[] = [];
+  const r = (x: number) => Math.round(x * 1000) / 1000;
+  for (const piece of getAssemblyPieces(dimensions)) {
+    if (!piece.allowance) continue;
+    const ox = origins[piece.panel];
+    piece.polygon.forEach((p, i) => {
+      const q = piece.polygon[(i + 1) % piece.polygon.length];
+      const a = `${r(ox + p.x)},${r(p.y)}`;
+      const b = `${r(ox + q.x)},${r(q.y)}`;
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      edges.push({ piece, from: [p.x, p.y], to: [q.x, q.y], sx: ox + (p.x + q.x) / 2, sy: (p.y + q.y) / 2 });
+    });
+  }
+  return edges.sort((e, f) => e.sx - f.sx || f.sy - e.sy).map(({ piece, from, to }) => ({ piece, from, to }));
+}
+
 /** Writes line segments as [x1,y1,z1,x2,y2,z2, …] in scene units (length = specs.length · 6). */
 export function writeAssemblyLines(specs: readonly AssemblyLineSpec[], frame: AssemblyFrame, out: Float32Array) {
   specs.forEach((spec, i) => {
