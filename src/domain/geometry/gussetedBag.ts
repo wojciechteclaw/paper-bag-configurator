@@ -3,7 +3,8 @@
 // construction, docs/research/promar-gusseted-bag-bags.md §6–§7 for the opening shape [Z].
 //
 // Construction [K]: a tube of FRONT (W), two side gussets (F — `depth` —, each tucked inwards by F/2 along its centre
-// crease) and BACK (W), closed by the longitudinal seam in the middle of BACK. There is no block bottom: the flattened
+// crease) and BACK (W), closed by the longitudinal seam on the BACK / LEFT tube edge (like the block bottom, client
+// decision 30.09.2026; the flap is glued inside LEFT's half next to BACK). There is no block bottom: the flattened
 // tube end (all layers, gussets included) is folded 180° TO THE BACK by the bottom strip `d`
 // (GUSSETED_BAG_RULES.bottomFoldDepth, here `b`) and glued. The top edge is cut straight (serrated: not in the MVP).
 //

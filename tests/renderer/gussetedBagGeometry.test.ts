@@ -83,6 +83,9 @@ describe('gusseted-bag bag geometry', () => {
       ['LEFT', 30],
       ['RIGHT', 30],
     ]);
+    // Seam on the BACK / LEFT tube edge (client 30.09.2026): no line in the middle of BACK, only its two edges.
+    const backVerticals = edges.filter((e) => e.panel === 'BACK' && e.points.every((p) => p.x === e.points[0].x));
+    expect(backVerticals.map((e) => e.points[0].x)).toEqual([0, dims.width]);
     const out = new Float32Array(countSegments(edges) * 6);
     writeGussetedLines(edges, getGussetedFrame(dims, 0.5), out);
     for (const value of out) expect(Number.isFinite(value)).toBe(true);

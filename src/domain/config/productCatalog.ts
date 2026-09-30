@@ -188,7 +188,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     type: 'FOLDED',
     available: true,
     defaultDimensions: { width: 140, height: 370, depth: 90 },
-    // Seam overlap s [K]: 10–20 mm, default 15 (in the middle of BACK).
+    // Seam overlap s [K]: 10–20 mm, default 15 (on the BACK / LEFT tube edge like the block bottom, client 30.09.2026).
     glueFlap: { min: 10, max: 20, default: 15 },
     limits: {
       width: { min: 100, max: 300 },
@@ -214,7 +214,7 @@ export const GUSSETED_BAG_RULES = {
    */
   bottomFoldDepth: 25,
   bottomFoldRange: { min: 15, max: 30 },
-  // The seam overlap `s` [K] (10–20, default 15, in the middle of BACK) is the bag's configurable glue flap:
+  // The seam overlap `s` [K] (10–20, default 15, on the BACK / LEFT tube edge) is the bag's configurable glue flap:
   // `BAG_TYPES.FOLDED.glueFlap`, read through `getGlueFlapWidth(configuration)`.
   /** Recommended gusset F as a share of W [K]: 0.4–0.7 (outside → warning; hard maximum F ≤ W). */
   recommendedGussetRatio: { min: 0.4, max: 0.7 },

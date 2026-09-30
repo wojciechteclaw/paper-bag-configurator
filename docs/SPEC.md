@@ -75,17 +75,17 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
 | Rozmiary standardowe | brak |
 | DEMO | przycisk DEMO wczytuje demo wybranego typu: przykład klienta 140 + 90 × 370, papier brązowy 40 g/m² FSC, grafiki `public/gusseted-bag/{front,back,left,right}.webp` (brakujące są pomijane) |
 | Nadruk / pakowanie | flekso do 8 Pantone, **pole nadruku `W × (H − d)` na stronę**; karton / folia [K] |
-| Szew | zakładka `s` 10–20 mm, domyślnie 15, **na środku tylnej ścianki** [K]; pole „zakładka klejowa” jak w torbie klockowej (`glueFlapWidth`); przy zmianie typu wartość domyślna przechodzi na domyślną nowego typu, wybrana przez użytkownika jest tylko przycinana do zakresu |
+| Szew | zakładka `s` 10–20 mm, domyślnie 15, **na krawędzi tył | fałda lewa, jak w torbie klockowej** [K] (decyzja 30.09.2026; wariant „szew na środku tylnej ścianki” nie jest używany); pole „zakładka klejowa” jak w torbie klockowej (`glueFlapWidth`); przy zmianie typu wartość domyślna przechodzi na domyślną nowego typu, wybrana przez użytkownika jest tylko przycinana do zakresu |
 | Dno | pasek `d = 25 mm` (15–30) z klejem, zagięty **na tył**, pojedyncze [K]; bez nadruku („Rozciągnij na dno” niedostępne) |
 
 - **Zmiana typu** (`changeProductType`, akcja `setProductType`) nie zeruje konfiguracji: zachowuje grafiki (ścianki
   i wszystkie warstwy całej torby), kolory nadruku, kolor papieru, FSC; usuwa niedostępny uchwyt, przycina wymiary do
   zakresu nowego typu (z regułą `F ≤ W`), dopasowuje papier do wariantu i wyłącza „Rozciągnij na dno” (na ściankach i
   na każdej warstwie). UI wypisuje, co zmieniono. Przycisk DEMO zaczyna od nowej konfiguracji (`resetConfiguration`).
-- **Wykrój:** arkusz `B × L = (2W + 2F + s) × (H + d)`, kolumny od lewej: połowa BACK | LEFT | FRONT | RIGHT |
-  połowa BACK | zakładka `s` (bigi po `W/2, F/2, F/2, W, F/2, F/2, W/2, s`); krawędzie rękawa na zewnątrz (V), osie
-  fałd do środka (M), linia dna V / M zależnie od warstwy; klej na zakładce i na pasku dna. Przykład 140 + 90 × 370 →
-  475 × 395 mm.
+- **Wykrój:** arkusz `B × L = (2W + 2F + s) × (H + d)`, **kolumny od lewej jak w torbie klockowej [K]** (30.09.2026):
+  LEFT | FRONT | RIGHT | BACK | zakładka `s` (bigi po `F/2, F/2, W, F/2, F/2, W, s`; BACK w całości); krawędzie
+  rękawa na zewnątrz (V), osie fałd do środka (M), linia dna V / M zależnie od warstwy; klej na zakładce i na pasku
+  dna. Przykład 140 + 90 × 370 → 475 × 395 mm, bigi na x = 45, 90, 230, 275, 320, 460.
 - **Wycena / eksport:** typ i jego parametry w Podsumowaniu (JSON), karcie PDF i Excelu jak dla torby klockowej
   (etykiety „Fałda (F)”, „Pas dna (d)”, „Zakładka szwu (s)”, „Pole nadruku (na stronę)”); waga torby z wykroju
   `B × L`; wycena nadal niezaimplementowana (§1).
@@ -254,8 +254,8 @@ Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `de
 
 - Osobny model (`src/renderer/GussetedBagModel.tsx`, geometria `gussetedBagGeometry.ts` z kinematyki domenowej
   `src/domain/geometry/gussetedBag.ts`), niezależny od modelu torby klockowej; tekstury ścianek (jedna grafika albo
-  kompozyt warstw) ze wspólnego `wallTextures.ts`. Ścianki: przód, tył i dwie fałdy, bigi osi fałd, krawędzie, szew na
-  środku tyłu, pasek dna zagięty na tył (goły papier) [K].
+  kompozyt warstw) ze wspólnego `wallTextures.ts`. Ścianki: przód, tył i dwie fałdy, bigi osi fałd, krawędzie (szew na
+  krawędzi tył | fałda lewa, jak w torbie klockowej [K]), pasek dna zagięty na tył (goły papier) [K].
 - **Otwarta torba:** wylot `W × F`, zwężenie do linii dna — fałdy otwierają się od 0 przy przyklejonym dnie do 90°
   na wysokości `d + min(F, H/2)`. **Złożona:** płasko (warstwy rozsunięte tylko o grubość renderu).
 - **Oś czasu (decyzja MVP):** składanie z arkusza pominięte. Przedział 0–40 % pokazuje otwartą torbę, więc suwak
@@ -580,7 +580,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 
 **Torba fałdowa (`FOLDED`, §2a, `docs/PRODUCTION.md` §13):** wytyczne klienta 30.09.2026 [K] rozstrzygnęły:
 ~~zakres fałdy~~ (`F ≤ W`, zalecane 0,4–0,7·W), ~~dno~~ (pasek `d` 15–30 / 25 mm z klejem, na tył, pojedyncze lub
-podwójne), ~~szew~~ (środek tylnej ścianki, `s` 10–20 / 15 mm), ~~pole nadruku~~ (`W × (H − d)` na stronę), ~~papiery~~
+podwójne), ~~szew~~ (`s` 10–20 / 15 mm; położenie: decyzja 30.09.2026 — na krawędzi tył | fałda lewa, układ wykroju jak w torbie
+klockowej; środek tylnej ścianki nie jest używany), ~~pole nadruku~~ (`W × (H − d)` na stronę), ~~papiery~~
 (kraft, MG, tłuszczoszczelny, PE), ~~minimalny nakład~~ (30 000 — tylko informacja). Pozostaje:
 
 - Dno podwójne: wytyczne dopuszczają dwa zagięcia — ma być opcją w konfiguratorze (obecnie tylko pojedyncze)? Jak

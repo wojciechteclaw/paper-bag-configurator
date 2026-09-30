@@ -121,9 +121,9 @@ const horizontal = (panel: PanelPosition, y: number, xs: number[]): GussetedLine
 });
 
 /**
- * Lines of the bag: `edges` = the four tube edges, the top edge, the longitudinal seam in the middle of BACK [K], the
- * bottom fold edge and the upper edge of the strip folded onto the BACK (FRONT's strip is the outermost layer there);
- * `creases` = the gusset centre creases.
+ * Lines of the bag: `edges` = the four tube edges (the longitudinal seam lies on the BACK / LEFT one [K], its flap
+ * glued inside the gusset, so it adds no line of its own), the top edge, the bottom fold edge and the upper edge of the
+ * strip folded onto the BACK (FRONT's strip is the outermost layer there); `creases` = the gusset centre creases.
  */
 export function getGussetedLineSpecs(dimensions: Dimensions): { edges: GussetedLineSpec[]; creases: GussetedLineSpec[] } {
   const rows = getWallRows(dimensions);
@@ -134,7 +134,6 @@ export function getGussetedLineSpecs(dimensions: Dimensions): { edges: GussetedL
     vertical('FRONT', W, rows),
     vertical('BACK', 0, rows),
     vertical('BACK', W, rows),
-    vertical('BACK', W / 2, rows),
     ...WALLS.map((panel) => horizontal(panel, H, getColumns(panel, dimensions))),
     horizontal('FRONT', 0, [0, W]),
   ];
