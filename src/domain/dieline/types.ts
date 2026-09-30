@@ -13,19 +13,10 @@ export type Rect = { x: number; y: number; width: number; height: number };
 
 /**
  * Sheet columns from the left: LEFT | FRONT | RIGHT | BACK | glue flap (PRODUCTION.md §9.1). The seam lies on the
- * BACK/LEFT tube edge: the glue flap hinges on BACK's outer edge and is glued to LEFT's free edge (sheet x = 0).
+ * BACK/LEFT tube edge: the glue flap hinges on BACK's outer edge and is glued to LEFT's free edge (sheet x = 0). Same
+ * order for the gusseted bag (docs/PRODUCTION.md §13.4).
  */
-export type DielineSegmentId =
-  | 'LEFT'
-  | 'FRONT'
-  | 'RIGHT'
-  | 'BACK'
-  /**
-   * Gusseted bag (seam in the middle of BACK [K], docs/PRODUCTION.md §13.4): BACK is split into two sheet columns —
-   * its half next to LEFT (panel x ∈ [W/2, W]) starts the sheet, its half next to RIGHT (x ∈ [0, W/2]) ends it.
-   */
-  | 'BACK_LEFT_HALF'
-  | 'BACK_RIGHT_HALF';
+export type DielineSegmentId = 'LEFT' | 'FRONT' | 'RIGHT' | 'BACK';
 
 export type DielineSegment = {
   id: DielineSegmentId;
@@ -109,8 +100,8 @@ export type Dieline = {
   allowance: number;
   glueFlapWidth: number;
   /**
-   * Seam position on BACK, panel-local x: W for the block bottom, i.e. the BACK/LEFT tube edge (client rule, §9.1);
-   * W / 2 for the gusseted-bag bag (middle of BACK, client rule, §13.4).
+   * Seam position on BACK, panel-local x: W, i.e. the BACK/LEFT tube edge, for both bag types (client rules, §9.1 and
+   * §13.4 — the gusseted bag uses the block bottom's column order since 30.09.2026).
    */
   seamOffset: number;
   sheet: { width: number; height: number };

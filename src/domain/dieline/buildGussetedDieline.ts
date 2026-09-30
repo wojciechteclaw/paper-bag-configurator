@@ -3,18 +3,20 @@
 // dieline (`buildDieline`, types.ts): sheet y = 0 at the tube end, bottom line at y = d, panel-local x of every column
 // runs with sheet x (seen from outside).
 //
-// Blank B × L = (2W + 2F + s) × (H + d). The seam lies in the MIDDLE OF THE BACK wall [K], so the vertical creases
-// from the left sheet edge follow W/2, F/2, F/2, W, F/2, F/2, W/2, s: columns BACK (half next to LEFT) | LEFT | FRONT |
-// RIGHT | BACK (half next to RIGHT) | seam flap. The flap hinges on the right half of BACK and is glued to the inside
-// of the sheet's left edge (the other half of BACK). Example 140 + 90 × 370, s = 15, d = 25 → 475 × 395 mm, creases at
-// x = 70, 115, 160, 300, 345, 390, 460.
+// Blank B × L = (2W + 2F + s) × (H + d). Column order as the block-bottom bag [K] (client decision 30.09.2026, the
+// guideline's "seam on the gusset edge" variant; the seam in the middle of BACK is not used): LEFT | FRONT | RIGHT |
+// BACK | seam flap s, every wall whole. The seam lies on the BACK / LEFT tube edge: the flap hinges on BACK's outer
+// edge and is glued to the inside of LEFT's free edge (sheet x = 0, LEFT's half next to BACK). The vertical creases
+// from the left sheet edge follow F/2, F/2, W, F/2, F/2, W, s. Example 140 + 90 × 370, s = 15, d = 25 → 475 × 395 mm,
+// creases at x = 45, 90, 230, 275, 320, 460.
 //
-// Creases: the four tube edges C2 fold out (VALLEY seen from the print side) and the gusset centres C4 fold in
+// Creases: the three inner tube edges C2 fold out (VALLEY seen from the print side) and the gusset centres C4 fold in
 // (MOUNTAIN) [K], over the whole length (the flattened tube is folded along them including the bottom strip); C3 = the
-// seam-flap hinge. The bottom strip d (all layers, gussets included) is folded 180° TO THE BACK and glued [K], so the
-// bottom line C1's direction depends on which way each layer's print side faces in the flat tube: BACK, the gusset
-// halves next to FRONT and the seam flap face the BACK side → MOUNTAIN (print side inside the fold); FRONT and the
-// gusset halves next to BACK → VALLEY. No 45° creases, no bottom flaps.
+// seam-flap hinge on the fourth tube edge (BACK / LEFT, VALLEY). The bottom strip d (all layers, gussets included) is
+// folded 180° TO THE BACK and glued [K], so the bottom line C1's direction depends on which way each layer's print side
+// faces in the flat tube: BACK and the gusset halves next to FRONT face the BACK side → MOUNTAIN (print side inside
+// the fold); FRONT, the gusset halves next to BACK and the seam flap (turned over at C3 onto the inside of LEFT's half
+// next to BACK, its print side towards FRONT) → VALLEY. No 45° creases, no bottom flaps.
 
 import { getGlueFlapWidth } from '../glueFlap';
 import { DIELINE_RULES } from '../config/productionRules';
@@ -51,7 +53,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 /**
  * Fold direction of the bottom line C1 on each part of the sheet, seen from the print side (the strip folds to the
  * BACK, see the file comment). Gusset halves in panel-local x: LEFT x ∈ [0, F/2] lies next to BACK, RIGHT x ∈ [0, F/2]
- * next to FRONT.
+ * next to FRONT. The seam flap lies against the inside of LEFT's half next to BACK, print side towards FRONT.
  */
 export const GUSSETED_BOTTOM_FOLD: Readonly<{
   FRONT: CreaseFold;
@@ -64,7 +66,7 @@ export const GUSSETED_BOTTOM_FOLD: Readonly<{
   BACK: 'MOUNTAIN',
   GUSSET_NEXT_TO_FRONT: 'MOUNTAIN',
   GUSSET_NEXT_TO_BACK: 'VALLEY',
-  GLUE_FLAP: 'MOUNTAIN',
+  GLUE_FLAP: 'VALLEY',
 };
 
 export function buildGussetedDieline(
@@ -82,22 +84,21 @@ export function buildGussetedDieline(
   const y0 = d; // bottom line (C1) in sheet coordinates
   const yTop = sheetHeight;
 
-  // ——— Columns (panel-local x runs with sheet x; BACK split at its middle, where the seam is) ———
-  const columns: { id: DielineSegmentId; panel: PanelPosition; width: number; localX0: number }[] = [
-    { id: 'BACK_LEFT_HALF', panel: 'BACK', width: W / 2, localX0: W / 2 },
-    { id: 'LEFT', panel: 'LEFT', width: F, localX0: 0 },
-    { id: 'FRONT', panel: 'FRONT', width: W, localX0: 0 },
-    { id: 'RIGHT', panel: 'RIGHT', width: F, localX0: 0 },
-    { id: 'BACK_RIGHT_HALF', panel: 'BACK', width: W / 2, localX0: 0 },
+  // ——— Columns: LEFT | FRONT | RIGHT | BACK like the block bottom; every wall whole, panel-local x runs with sheet x ———
+  const columns: { id: DielineSegmentId; panel: PanelPosition; width: number }[] = [
+    { id: 'LEFT', panel: 'LEFT', width: F },
+    { id: 'FRONT', panel: 'FRONT', width: W },
+    { id: 'RIGHT', panel: 'RIGHT', width: F },
+    { id: 'BACK', panel: 'BACK', width: W },
   ];
   let cursor = 0;
-  const segments: DielineSegment[] = columns.map(({ id, panel, width, localX0 }) => {
+  const segments: DielineSegment[] = columns.map(({ id, panel, width }) => {
     const x0 = cursor;
     cursor += width;
-    return { id, panel, x0, x1: cursor, localX0, wall: rect(x0, y0, cursor, yTop), allowance: rect(x0, 0, cursor, y0) };
+    return { id, panel, x0, x1: cursor, localX0: 0, wall: rect(x0, y0, cursor, yTop), allowance: rect(x0, 0, cursor, y0) };
   });
   const seg = (id: DielineSegmentId) => segments.find((segment) => segment.id === id)!;
-  const tubeEnd = cursor; // 2W + 2F: seam flap hinge
+  const tubeEnd = cursor; // 2W + 2F: seam flap hinge on BACK's outer edge (the BACK / LEFT tube edge)
   const glueFlap = rect(tubeEnd, 0, sheetWidth, sheetHeight);
 
   // ——— Cut: plain rectangle; the seam flap runs through the bottom fold, so its ends stay square [Z] ———
@@ -112,16 +113,15 @@ export function buildGussetedDieline(
   const left = seg('LEFT');
   const right = seg('RIGHT');
   const c1 = (id: string, x0: number, x1: number, kind: CreaseFold) => add('C1', `C1-${id}`, p(x0, y0), p(x1, y0), kind);
-  c1('BACK-1', 0, left.x0, fold.BACK);
   c1('LEFT-1', left.x0, left.x0 + F / 2, fold.GUSSET_NEXT_TO_BACK);
   c1('LEFT-2', left.x0 + F / 2, left.x1, fold.GUSSET_NEXT_TO_FRONT);
   c1('FRONT', seg('FRONT').x0, seg('FRONT').x1, fold.FRONT);
   c1('RIGHT-1', right.x0, right.x0 + F / 2, fold.GUSSET_NEXT_TO_FRONT);
   c1('RIGHT-2', right.x0 + F / 2, right.x1, fold.GUSSET_NEXT_TO_BACK);
-  c1('BACK-2', right.x1, tubeEnd, fold.BACK);
+  c1('BACK', right.x1, tubeEnd, fold.BACK);
   c1('GLUE', tubeEnd, sheetWidth, fold.GLUE_FLAP);
-  // Tube edges BACK|LEFT, LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK (fold out) and the seam-flap hinge.
-  [left.x0, left.x1, right.x0, right.x1].forEach((x, i) => add('C2', `C2-${i + 1}`, p(x, 0), p(x, yTop), 'VALLEY'));
+  // Tube edges LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK (fold out) and the seam-flap hinge on the BACK|LEFT tube edge.
+  [left.x1, right.x0, right.x1].forEach((x, i) => add('C2', `C2-${i + 1}`, p(x, 0), p(x, yTop), 'VALLEY'));
   add('C3', 'C3', p(tubeEnd, 0), p(tubeEnd, yTop), 'VALLEY');
   for (const side of [left, right]) {
     add('C4', `C4-${side.id}`, p(side.x0 + F / 2, 0), p(side.x0 + F / 2, yTop), 'MOUNTAIN');
@@ -135,9 +135,7 @@ export function buildGussetedDieline(
     { id: 'glue-flap', kind: 'GLUE_FLAP', rect: glueFlap },
     // Glue on the bottom strip d [K]; the strip folds to the BACK, so the glue lies on the print side of BACK's strip,
     // which meets the print side of the BACK wall.
-    ...(['BACK_LEFT_HALF', 'BACK_RIGHT_HALF'] as const).map(
-      (id): DielineZone => ({ id: `bottom-flap-glue-${id}`, kind: 'BOTTOM_FLAP_GLUE', face: 'PRINT', rect: seg(id).allowance }),
-    ),
+    { id: 'bottom-flap-glue-BACK', kind: 'BOTTOM_FLAP_GLUE', face: 'PRINT', rect: seg('BACK').allowance },
   ];
   // Safety areas: the print area is W × (H − d) per side [K] (the band y ∈ [0, d] above the bottom line is under the
   // folded strip on BACK and inside the glued, closed bottom elsewhere), clear of creases, the seam and the top cut.
@@ -169,7 +167,7 @@ export function buildGussetedDieline(
     { id: 'dim-sheet-height', key: 'sheetHeight', from: p(0, 0), to: p(0, yTop), value: sheetHeight, side: 'left', offset: 22 },
   ];
 
-  // ——— Labels (panel names — BACK on both halves; the glue flap label is kept for parity with the block bottom) ———
+  // ——— Labels (panel names; the glue flap label is kept for parity with the block bottom) ———
   const labelSize = clamp(Math.min(W, H) / 12, 6, 16);
   const labels: DielineLabel[] = segments.map((segment) => ({
     id: `label-${segment.id}`,
@@ -183,7 +181,7 @@ export function buildGussetedDieline(
     dimensions: { ...dimensions },
     allowance: d,
     glueFlapWidth: s,
-    seamOffset: W / 2,
+    seamOffset: W,
     sheet: { width: sheetWidth, height: sheetHeight },
     bottomLineY: y0,
     segments,
