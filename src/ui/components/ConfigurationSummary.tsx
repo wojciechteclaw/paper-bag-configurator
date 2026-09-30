@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BAG_TYPES } from '../../domain/config/productCatalog';
 import type { BagConfiguration } from '../../domain/types';
 import { getWindow, getWindowDimensions, getWindowOpening } from '../../domain/window';
-import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../../domain/artworkLayout';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getLayers, isLayeredLayout } from '../../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { createNumberFormatter } from '../../i18n/numberFormat';
 import { getBagWeight } from '../../domain/bagWeight';
@@ -35,6 +35,7 @@ export function ConfigurationSummary() {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>(null);
 
   const { dimensions, paper, handle, print } = configuration;
+  const layout = getArtworkLayout(configuration);
   const colorAnalysis = normalizeColorAnalysis(print.colorAnalysis);
   const json = JSON.stringify(configuration, null, 2);
 
@@ -88,11 +89,11 @@ export function ConfigurationSummary() {
           <dd>
             {t(`artwork.layout.${getArtworkLayout(configuration)}`)}
             <ul className="summary__list">
-              {getArtworkLayout(configuration) === 'WRAP' ? (
-                getWrapLayers(configuration).length === 0 ? (
+              {isLayeredLayout(layout) ? (
+                getLayers(configuration, layout).length === 0 ? (
                   <li>{t('artwork.layers.title')}: {t('summary.noArtwork')}</li>
                 ) : (
-                  getWrapLayers(configuration).map((layer, index) => (
+                  getLayers(configuration, layout).map((layer, index) => (
                     <li key={layer.id}>
                       {t('artwork.layers.layerName', { index: index + 1 })}: {layer.artwork.fileName}
                     </li>

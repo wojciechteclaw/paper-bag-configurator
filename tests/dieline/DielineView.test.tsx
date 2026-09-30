@@ -192,6 +192,25 @@ describe('DielineView', () => {
     expect(store().configuration.wrapLayers[0].placement).toMatchObject({ offsetX: -345 });
   });
 
+  it('edits a whole-sheet layer as one image; its bottom allowance is always printed (no toggle)', () => {
+    const { container } = render(<DielineView />);
+    act(() => {
+      store().setArtworkLayout('SHEET');
+      store().addArtworkLayer(
+        'SHEET',
+        createArtwork({ fileName: 'arkusz.png', fileUrl: 'blob:sheet', mimeType: 'image/png', width: 1420, height: 980, sizeBytes: 10 }),
+      );
+    });
+    expect([...container.querySelectorAll('[data-layer="artwork"] image')].map((el) => el.getAttribute('href'))).toEqual(['blob:sheet']);
+    const button = screen.getByRole('button', { name: /Grafika: Cały arkusz, warstwa 1: arkusz\.png/ });
+    fireEvent.focus(button);
+    expect(screen.getByRole('toolbar', { name: /Cały arkusz, warstwa 1/ })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Rozciągnij na dno' })).not.toBeInTheDocument();
+    fireEvent.keyDown(button, { key: 'ArrowRight', shiftKey: true });
+    expect(store().configuration.sheetLayers[0].placement).toMatchObject({ mode: 'CUSTOM', offsetX: 10, extendToBottom: true });
+    expect(container.querySelectorAll('[data-zone="BOTTOM_ALLOWANCE"][data-printed="true"]')).toHaveLength(4);
+  });
+
   it('switches labels with the language', async () => {
     render(<DielineView />);
     await act(() => i18n.changeLanguage('en'));

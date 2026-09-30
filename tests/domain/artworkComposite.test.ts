@@ -121,4 +121,21 @@ describe('planArtworkComposite', () => {
     expect(apply(front.layers[1].matrix, 50, 50).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([0, 200]);
     expect(apply(left.layers[1].matrix, 50, 50).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([150, 200]);
   });
+
+  it('composites whole-sheet layers over the wall and its bottom allowance, clipped to the wall column', () => {
+    const configuration = createConfiguration('BLOCK'); // sheet 710 × 490, FRONT column 150…350, a = 90
+    configuration.artworkLayout = 'SHEET';
+    configuration.sheetLayers = [
+      createWrapLayer(image('sheet', 710, 490), fillPlacement(true)),
+      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -105, offsetY: 45, scale: 100 / 490, rotation: 0, extendToBottom: true }),
+    ];
+    const layers = resolvePanelArtwork(configuration, 'FRONT').layers;
+    const plan = planArtworkComposite(getPanelSize('FRONT', configuration.dimensions), layers, { maxLongSidePx: 490 });
+    expect(plan.frame).toEqual({ x: 0, y: -90, width: 200, height: 490 });
+    expect(plan.layers[0].clip).toEqual({ x: 0, y: 0, width: 200, height: 490 });
+    // The sheet image: its pixel (150, 0) (sheet x 150, top) at the frame's top-left.
+    expect(apply(plan.layers[0].matrix, 150, 0).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([0, 0]);
+    // Logo centred on FRONT (sheet 250, 290): canvas centre (100, 490 − 290 − 90 + 90) = (100, 200).
+    expect(apply(plan.layers[1].matrix, 50, 50).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([100, 200]);
+  });
 });

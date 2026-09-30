@@ -23,9 +23,10 @@ import { ARTWORK_PROGRAM_KEY, clipArtworkToImage } from './panelTexture';
 // the configuration like BagModel, but a separate model: open (mouth W × D, narrowing to the glued bottom line) ↔
 // folded flat, driven by the same view-only `foldProgress` (0 = open, 1 = flat) and animated towards it. There is no
 // assembly from the sheet and no handle. Walls show their artwork (per wall or the whole-bag wrap, through the shared
-// `computePanelUvTransform`); the folded bottom strip is plain paper. A window (docs/SPEC.md §2b) is a hole in FRONT
-// (artwork masked, the interior — gusset and BACK inner faces — visible) closed by a transparent, slightly tinted,
-// glossy film mesh in FRONT's surface; perforated PP adds a faint dot pattern.
+// `computePanelUvTransform`); the folded bottom strip is plain paper unless the wall prints its bottom allowance
+// (whole-sheet artwork). A window (docs/SPEC.md §2b) is a hole in FRONT (artwork masked, the interior — gusset and BACK
+// inner faces — visible) closed by a transparent, slightly tinted, glossy film mesh in FRONT's surface; perforated PP
+// adds a faint dot pattern.
 
 const DAMPING = 6;
 const EPSILON = 1e-4;
@@ -158,7 +159,8 @@ export function GussetedBagModel({
             </mesh>
           ) : null;
         }
-        const texture = mesh.strip ? null : textures[mesh.panel];
+        // The fold strip shows the wall's texture only when the wall prints its bottom allowance (e.g. whole-sheet artwork).
+        const texture = mesh.strip && !artworks[mesh.panel].extendsToBottom ? null : textures[mesh.panel];
         return (
           <group key={mesh.id} name={`panel-${mesh.id}`}>
             <mesh geometry={mesh.geometry} userData={{ panel: mesh.panel, strip: mesh.strip, side: 'outer' }}>

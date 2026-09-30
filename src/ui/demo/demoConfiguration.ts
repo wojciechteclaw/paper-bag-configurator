@@ -1,5 +1,5 @@
 import { createArtwork } from '../../domain/factories';
-import { wrapLayerTarget } from '../../domain/artworkLayout';
+import { getPrintFilePlacement, layerTarget, wrapLayerTarget } from '../../domain/artworkLayout';
 import type { ArtworkPlacement, BagType, Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
 
@@ -9,8 +9,9 @@ import { useConfigurationStore } from '../../state/configurationStore';
 //   twisted paper rope handle, the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched onto
 //   the bottom (SPEC §4f).
 // - FOLDED (client configuration 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, glue flap
-//   15 mm, one whole-bag (WRAP) artwork layer public/gusseted-bag/gussted.webp (5040 × 3000 px = the 420 × 250 mm wrap)
-//   stretched (FILL) over the wrap, which starts at the LEFT gusset's free edge in sheet order.
+//   15 mm, the client's print file public/gusseted-bag/gussted.webp as the one whole-SHEET layer (docs/SPEC.md §3c),
+//   laid 1:1 on the dieline (`getPrintFilePlacement`: FILL for a whole-sheet file 435 × 275 mm; the current
+//   5040 × 3000 px file covers the wall row 420 × 250 mm, so it is placed over the walls without distortion).
 // Missing images are skipped: the configuration still loads.
 
 export type DemoConfiguration = {
@@ -24,6 +25,11 @@ export type DemoConfiguration = {
   artwork: Partial<Record<PanelPosition, string>>;
   /** Whole-bag (WRAP) artwork layers, bottom → top, paths relative to `public/`; non-empty = the WRAP layout. */
   wrapLayers?: { path: string; placement?: ArtworkPlacement }[];
+  /**
+   * Whole-sheet (SHEET) artwork layers, bottom → top, paths relative to `public/`; non-empty = the SHEET layout. Placed
+   * as print files (`getPrintFilePlacement`).
+   */
+  sheetLayers?: { path: string }[];
   /** Glue flap width s, mm (default: the bag type's). */
   glueFlapWidth?: number;
   /** "Extend to bottom" on every wall with artwork (only where the bag type offers it). */
@@ -55,13 +61,8 @@ export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> =
     grammage: 40,
     artwork: {},
     glueFlapWidth: 15,
-    // FILL over the wrap 2W + 2F = 420 × H 250 mm from LEFT's free edge (image aspect 1.68 = wrap aspect: 1:1).
-    wrapLayers: [
-      {
-        path: 'gusseted-bag/gussted.webp',
-        placement: { mode: 'FILL', extendToBottom: false },
-      },
-    ],
+    // The client's print file on the whole dieline sheet (LEFT | FRONT | RIGHT | BACK | glue flap, strip d included).
+    sheetLayers: [{ path: 'gusseted-bag/gussted.webp' }],
     extendToBottom: false,
   },
 };
@@ -115,12 +116,14 @@ export async function loadDemoConfiguration(
   if (demo.glueFlapWidth !== undefined) store().setGlueFlapWidth(demo.glueFlapWidth);
   const entries = Object.entries(demo.artwork) as [PanelPosition, string][];
   const layers = demo.wrapLayers ?? [];
+  const sheetLayers = demo.sheetLayers ?? [];
   const prefix = base.endsWith('/') ? base : `${base}/`;
   const artworkOf = (path: string, info: ImageInfo) =>
     createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...info });
-  const [results, layerResults] = await Promise.all([
+  const [results, layerResults, sheetResults] = await Promise.all([
     Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`))),
     Promise.allSettled(layers.map(({ path }) => probeImage(`${prefix}${path}`))),
+    Promise.allSettled(sheetLayers.map(({ path }) => probeImage(`${prefix}${path}`))),
   ]);
   const missing: string[] = [];
   if (layers.length > 0) store().setArtworkLayout('WRAP');
@@ -133,6 +136,17 @@ export async function loadDemoConfiguration(
     const id = store().addWrapLayer(artworkOf(path, result.value));
     if (id && placement) store().setPanelPlacement(wrapLayerTarget(id), placement);
   });
+  if (sheetLayers.length > 0) store().setArtworkLayout('SHEET');
+  sheetLayers.forEach(({ path }, i) => {
+    const result = sheetResults[i];
+    if (result.status === 'rejected') {
+      missing.push(path);
+      return;
+    }
+    const artwork = artworkOf(path, result.value);
+    const id = store().addArtworkLayer('SHEET', artwork);
+    if (id) store().setPanelPlacement(layerTarget('SHEET', id), getPrintFilePlacement(store().configuration, artwork));
+  });
   entries.forEach(([position, path], i) => {
     const result = results[i];
     if (result.status === 'rejected') {
@@ -142,5 +156,5 @@ export async function loadDemoConfiguration(
     store().setPanelArtwork(position, artworkOf(path, result.value));
     if (demo.extendToBottom) store().setPanelExtendToBottom(position, true);
   });
-  return { missing, total: entries.length + layers.length };
+  return { missing, total: entries.length + layers.length + sheetLayers.length };
 }

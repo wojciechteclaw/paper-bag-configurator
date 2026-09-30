@@ -1,7 +1,7 @@
 // Excel export (docs/SPEC.md §4e) as a pure, localized table model; the exceljs adapter only writes it.
 // Sheets: Parameters / Panels & artwork / Pantone & coverage / Artwork colours / Dieline. Units live in the column headers.
 
-import { getArtworkLayout, getWrapLayers, getWrapSize } from '../domain/artworkLayout';
+import { getArtworkLayout, getLayers, getSheetDieline, getWrapSize, isLayeredLayout } from '../domain/artworkLayout';
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
@@ -52,10 +52,12 @@ const length = (a: Point2, b: Point2) => Math.hypot(b.x - a.x, b.y - a.y);
 /** One row of the "Panels & artwork" sheet: a wall (per-wall layout) or a whole-bag layer. */
 type ArtworkRow = {
   label: string;
-  /** Size of what the artwork is printed on: the wall, or the four walls around the bag. */
+  /** Size of what the artwork is printed on: the wall, the four walls around the bag, or the whole sheet. */
   size: { width: number; height: number };
   artwork: Artwork | null;
   placement: ArtworkPlacement;
+  /** Height of the artwork area when it is fixed (the whole sheet already includes the bottom allowance). */
+  areaHeight?: number;
 };
 
 export function buildWorkbookModel(
@@ -67,15 +69,16 @@ export function buildWorkbookModel(
 ): WorkbookModel {
   const { t } = context;
   const { dimensions, print } = configuration;
-  // What is printed: per wall, or the whole-bag layers (bottom → top; placements relative to the whole wrap area,
-  // docs/SPEC.md §3b). The layout is listed on the Parameters sheet.
-  const artworkRows: ArtworkRow[] =
-    getArtworkLayout(configuration) === 'WRAP'
-      ? getWrapLayers(configuration).map((layer, index) => ({
-          label: t('export.param.wrapLayer', { index: index + 1 }),
-          size: getWrapSize(dimensions),
+  // What is printed: per wall, or the layers (bottom → top; placements relative to the whole wrap area or the whole
+  // sheet, docs/SPEC.md §3b, §3c). The layout is listed on the Parameters sheet.
+  const layout = getArtworkLayout(configuration);
+  const artworkRows: ArtworkRow[] = isLayeredLayout(layout)
+      ? getLayers(configuration, layout).map((layer, index) => ({
+          label: t(layout === 'SHEET' ? 'export.param.sheetLayer' : 'export.param.wrapLayer', { index: index + 1 }),
+          size: layout === 'SHEET' ? getSheetDieline(configuration).sheet : getWrapSize(dimensions),
           artwork: layer.artwork,
           placement: layer.placement,
+          ...(layout === 'SHEET' ? { areaHeight: getSheetDieline(configuration).sheet.height } : {}),
         }))
       : PANEL_POSITIONS.map((position) => ({
           label: t(`artwork.${position}`),
@@ -124,7 +127,7 @@ export function buildWorkbookModel(
     { header: h('rotation', '°'), width: 10 },
     ...(hasExtend ? [{ header: h('extendToBottom'), width: 16 }, { header: h('artworkAreaHeight', mm), width: 16, numFmt: MM }] : []),
   ];
-  const panelRows = artworkRows.map(({ label, size, artwork, placement }): Cell[] => {
+  const panelRows = artworkRows.map(({ label, size, artwork, placement, areaHeight }): Cell[] => {
     const custom = placement.mode === 'CUSTOM' ? placement : null;
     const extend = extendToBottomOf(placement);
     return [
@@ -140,7 +143,7 @@ export function buildWorkbookModel(
       custom ? round(custom.scale, 3) : null,
       custom ? custom.rotation : null,
       ...(hasExtend
-        ? [yesNo(extend ?? false), round(size.height + (extend ? getBottomAllowance(dimensions) : 0), 2)]
+        ? [yesNo(extend ?? false), round(areaHeight ?? size.height + (extend ? getBottomAllowance(dimensions) : 0), 2)]
         : []),
     ];
   });

@@ -50,13 +50,15 @@ export function useInkCoverage(): InkCoverageState {
   const panels = useConfigurationStore((s) => s.configuration.panels);
   const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
   const wrapLayers = useConfigurationStore((s) => s.configuration.wrapLayers);
+  const sheetLayers = useConfigurationStore((s) => s.configuration.sheetLayers);
   const paperColor = useConfigurationStore((s) => s.configuration.paper.color);
   const pantoneColors = useConfigurationStore((s) => s.configuration.print.pantoneColors);
   const colorAnalysis = useConfigurationStore((s) => s.configuration.print.colorAnalysis);
-  // What every wall shows under the active layout (per wall, or the whole-bag layers — docs/SPEC.md §3a, §3b).
+  // What every wall shows under the active layout (per wall, whole-bag or whole-sheet layers — docs/SPEC.md §3a–§3c).
   const artworks = useMemo(
-    () => resolvePanelArtworks({ dimensions, panels, artworkLayout, wrapLayers }),
-    [dimensions, panels, artworkLayout, wrapLayers],
+    () =>
+      resolvePanelArtworks({ dimensions, panels, artworkLayout, wrapLayers, sheetLayers, productType, glueFlapWidth, bottomFoldDepth }),
+    [dimensions, panels, artworkLayout, wrapLayers, sheetLayers, productType, glueFlapWidth, bottomFoldDepth],
   );
   const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].layers.length > 0);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.

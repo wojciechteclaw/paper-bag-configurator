@@ -11,9 +11,10 @@ import {
   getArtworkLayout,
   getArtworkSlot,
   getArtworkTargetArea,
-  getNewWrapLayerPlacement,
-  getWrapArtworkArea,
-  getWrapLayerId,
+  getLayers,
+  getLayerTargetInfo,
+  getNewLayerPlacement,
+  getSheetLayers,
   getWrapLayers,
 } from '../domain/artworkLayout';
 import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, WINDOW_RULES } from '../domain/config/productCatalog';
@@ -42,6 +43,7 @@ import type {
   ColorAnalysisSettings,
   Dimensions,
   HandleType,
+  LayeredArtworkLayout,
   PackagingType,
   PanelPosition,
   PaperColor,
@@ -117,6 +119,16 @@ type ConfigurationState = {
   removeWrapLayer: (layerId: string) => void;
   /** Moves a whole-bag layer one step up (+1: printed later, on top) or down (−1); ignored at either end. */
   moveWrapLayer: (layerId: string, direction: 1 | -1) => void;
+  /**
+   * Adds a layer on top of a layered layout (whole bag `WRAP`, docs/SPEC.md §3b, or whole sheet `SHEET`, §3c). The
+   * first layer FILLs the area, later ones start fitted on the FRONT wall (`getNewLayerPlacement`). Returns the new
+   * layer's id, or null when `MAX_WRAP_ARTWORK_LAYERS` is reached (the artwork's object URL is then revoked).
+   */
+  addArtworkLayer: (layout: LayeredArtworkLayout, artwork: Artwork) => string | null;
+  /** Removes a layer of a layered layout and revokes its object URL. Unknown ids are ignored. */
+  removeArtworkLayer: (layout: LayeredArtworkLayout, layerId: string) => void;
+  /** Moves a layer one step up (+1: printed later, on top) or down (−1); ignored at either end. */
+  moveArtworkLayer: (layout: LayeredArtworkLayout, layerId: string, direction: 1 | -1) => void;
   /** Sets how the artwork sits on its target (normalized against its artwork area: scale limits, centre kept inside, 90° steps). */
   setPanelPlacement: (target: ArtworkTarget, placement: ArtworkPlacement) => void;
   /** Back to the default placement (`DEFAULT_PLACEMENT`: FILL, extension per `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`). */
@@ -167,26 +179,32 @@ function revokeArtworkUrl(artwork: Artwork | null) {
   }
 }
 
+/** The configuration field holding the layers of a layered layout. */
+const layerField = (layout: LayeredArtworkLayout) => (layout === 'SHEET' ? 'sheetLayers' : 'wrapLayers');
+
 /**
- * Configuration patch writing (part of) the artwork slot of a wall or of a whole-bag layer. A layer's artwork is never
- * null (removing a layer is `removeWrapLayer`); an unknown layer yields no change.
+ * Configuration patch writing (part of) the artwork slot of a wall or of a layer. A layer's artwork is never null
+ * (removing a layer is `removeArtworkLayer`); an unknown layer yields no change.
  */
 function writeSlot(
   configuration: BagConfiguration,
   target: ArtworkTarget,
   slot: Partial<{ artwork: Artwork; placement: ArtworkPlacement }> | Partial<{ artwork: Artwork | null; placement: ArtworkPlacement }>,
 ): Partial<BagConfiguration> {
-  // Bag types without a printed bottom allowance (gusseted-bag bag) never store "extend to bottom".
-  if (slot.placement?.extendToBottom && !BAG_TYPES[configuration.productType].extendToBottomAvailable) {
+  const info = getLayerTargetInfo(target);
+  if (info?.layout === 'SHEET') {
+    // Whole-sheet layers always print the bottom allowance / strip: it is part of the sheet (docs/SPEC.md §3c).
+    if (slot.placement && !slot.placement.extendToBottom) slot = { ...slot, placement: { ...slot.placement, extendToBottom: true } };
+  } else if (slot.placement?.extendToBottom && !BAG_TYPES[configuration.productType].extendToBottomAvailable) {
+    // Bag types without a printed bottom allowance (gusseted-bag bag) never store "extend to bottom".
     slot = { ...slot, placement: { ...slot.placement, extendToBottom: false } };
   }
-  const layerId = getWrapLayerId(target);
-  if (layerId !== null) {
-    const layers = getWrapLayers(configuration);
-    if (!layers.some((layer) => layer.id === layerId) || slot.artwork === null) return {};
+  if (info !== null) {
+    const layers = getLayers(configuration, info.layout);
+    if (!layers.some((layer) => layer.id === info.layerId) || slot.artwork === null) return {};
     return {
-      wrapLayers: layers.map((layer) =>
-        layer.id === layerId ? { ...layer, ...(slot as Partial<{ artwork: Artwork; placement: ArtworkPlacement }>) } : layer,
+      [layerField(info.layout)]: layers.map((layer) =>
+        layer.id === info.layerId ? { ...layer, ...(slot as Partial<{ artwork: Artwork; placement: ArtworkPlacement }>) } : layer,
       ),
     };
   }
@@ -226,6 +244,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       const { configuration } = get();
       Object.values(configuration.panels).forEach((panel) => revokeArtworkUrl(panel.artwork));
       getWrapLayers(configuration).forEach((layer) => revokeArtworkUrl(layer.artwork));
+      getSheetLayers(configuration).forEach((layer) => revokeArtworkUrl(layer.artwork));
       set({ configuration: createConfiguration(type) });
     },
 
@@ -292,17 +311,17 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => (ARTWORK_LAYOUTS.includes(layout) && getArtworkLayout(c) !== layout ? { artworkLayout: layout } : {})),
 
     setPanelArtwork: (target, artwork) => {
-      const layerId = getWrapLayerId(target);
-      if (layerId !== null) {
+      const info = getLayerTargetInfo(target);
+      if (info !== null) {
         if (!artwork) {
-          get().removeWrapLayer(layerId);
+          get().removeArtworkLayer(info.layout, info.layerId);
           return;
         }
         const { configuration } = get();
         const { artwork: previous, placement } = getArtworkSlot(configuration, target);
         if (!previous) return;
         if (previous.fileUrl !== artwork.fileUrl) revokeArtworkUrl(previous);
-        const area = getWrapArtworkArea(configuration.dimensions, placement);
+        const area = getArtworkTargetArea(target, configuration, placement);
         update((c) => writeSlot(c, target, { artwork, placement: normalizePlacement(placement, area) }));
         return;
       }
@@ -316,45 +335,50 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => writeSlot(c, target, { artwork, placement }));
     },
 
-    addWrapLayer: (artwork) => {
-      const layers = getWrapLayers(get().configuration);
+    addArtworkLayer: (layout, artwork) => {
+      const { configuration } = get();
+      const layers = getLayers(configuration, layout);
       if (layers.length >= MAX_WRAP_ARTWORK_LAYERS) {
         revokeArtworkUrl(artwork);
         return null;
       }
-      const placement = getNewWrapLayerPlacement(
-        get().configuration.dimensions,
+      const placement = getNewLayerPlacement(
+        layout,
+        configuration,
         artwork,
         layers.length,
-        DEFAULT_PLACEMENT.extendToBottom && definitionOf(get().configuration).extendToBottomAvailable,
+        DEFAULT_PLACEMENT.extendToBottom && definitionOf(configuration).extendToBottomAvailable,
       );
       const layer = createWrapLayer(artwork, placement);
-      update((c) => ({ wrapLayers: [...getWrapLayers(c), layer] }));
+      update((c) => ({ [layerField(layout)]: [...getLayers(c, layout), layer] }));
       return layer.id;
     },
 
-    removeWrapLayer: (layerId) => {
-      const layers = getWrapLayers(get().configuration);
-      const removed = layers.find((layer) => layer.id === layerId);
+    removeArtworkLayer: (layout, layerId) => {
+      const removed = getLayers(get().configuration, layout).find((layer) => layer.id === layerId);
       if (!removed) return;
       revokeArtworkUrl(removed.artwork);
-      update((c) => ({ wrapLayers: getWrapLayers(c).filter((layer) => layer.id !== layerId) }));
+      update((c) => ({ [layerField(layout)]: getLayers(c, layout).filter((layer) => layer.id !== layerId) }));
     },
 
-    moveWrapLayer: (layerId, direction) =>
+    moveArtworkLayer: (layout, layerId, direction) =>
       update((c) => {
-        const layers = [...getWrapLayers(c)];
+        const layers = [...getLayers(c, layout)];
         const from = layers.findIndex((layer) => layer.id === layerId);
         const to = from + direction;
         if (from < 0 || to < 0 || to >= layers.length) return {};
         [layers[from], layers[to]] = [layers[to], layers[from]];
-        return { wrapLayers: layers };
+        return { [layerField(layout)]: layers };
       }),
+
+    addWrapLayer: (artwork) => get().addArtworkLayer('WRAP', artwork),
+    removeWrapLayer: (layerId) => get().removeArtworkLayer('WRAP', layerId),
+    moveWrapLayer: (layerId, direction) => get().moveArtworkLayer('WRAP', layerId, direction),
 
     setPanelPlacement: (target, placement) =>
       update((c) =>
         writeSlot(c, target, {
-          placement: normalizePlacement(placement, getArtworkTargetArea(target, c.dimensions, placement)),
+          placement: normalizePlacement(placement, getArtworkTargetArea(target, c, placement)),
         }),
       ),
 
@@ -369,7 +393,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => {
         const { artwork, placement } = getArtworkSlot(c, target);
         if (!artwork) return {};
-        const area = getArtworkTargetArea(target, c.dimensions, placement);
+        const area = getArtworkTargetArea(target, c, placement);
         return writeSlot(c, target, { placement: alignPlacement(placement, alignment, area, artwork) });
       }),
 
@@ -377,9 +401,10 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => {
         const { artwork, placement } = getArtworkSlot(c, target);
         if ((placement.extendToBottom === true) === extendToBottom) return {};
+        if (getLayerTargetInfo(target)?.layout === 'SHEET') return {}; // the sheet always includes the allowance
         if (extendToBottom && !definitionOf(c).extendToBottomAvailable) return {};
-        const from = getArtworkTargetArea(target, c.dimensions, placement);
-        const to = getArtworkTargetArea(target, c.dimensions, { extendToBottom });
+        const from = getArtworkTargetArea(target, c, placement);
+        const to = getArtworkTargetArea(target, c, { extendToBottom });
         const next = setPlacementExtendToBottom(placement, extendToBottom, from, to, artwork);
         return writeSlot(c, target, { placement: next });
       }),

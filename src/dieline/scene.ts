@@ -1,7 +1,7 @@
 // Adapter: domain Dieline (+ artwork placements) → SVG-space primitives (mm, y down).
 // Shared by the interactive DielineView and the SVG/PDF export so all three draw exactly the same thing.
 
-import { getWrapLayerId, type ResolvedPanelArtworks } from '../domain/artworkLayout';
+import { getLayerTargetInfo, type ResolvedPanelArtworks } from '../domain/artworkLayout';
 import { computePanelUvTransform, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import { getArtworkClipHoles, getArtworkClipRect } from '../domain/dieline';
@@ -15,7 +15,7 @@ import type {
   Point2,
 } from '../domain/dieline';
 import { getPanelSize } from '../domain/panels';
-import type { ArtworkTarget, PanelPosition } from '../domain/types';
+import type { ArtworkTarget, LayeredArtworkLayout, PanelPosition } from '../domain/types';
 
 /** A crease line; `kind` = fold direction seen from the print side (valley / mountain, docs/PRODUCTION.md §9.3). */
 export type SceneLine = { id: string; code: string; kind: CreaseFold; x1: number; y1: number; x2: number; y2: number };
@@ -46,8 +46,8 @@ export type SceneImage = {
   panel: PanelPosition;
   /** What editing this image changes: its wall, or one whole-bag layer (`WRAP:<id>`). */
   target: ArtworkTarget;
-  /** Sheet column, or `'WRAP'` for a merged part of a whole-bag layer (FRONT…BACK, or the LEFT column). */
-  segment: DielineSegmentId | 'WRAP';
+  /** Sheet column, or the layout (`'WRAP'` / `'SHEET'`) for a merged image of a layer spanning several columns. */
+  segment: DielineSegmentId | LayeredArtworkLayout;
   href: string;
   /** Maps the unit square (SVG `<image x=0 y=0 width=1 height=1 preserveAspectRatio="none">`) into the sheet. */
   matrix: Affine2;
@@ -267,8 +267,8 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
   }
   const wallColumns = dieline.segments.filter((segment) => segment.x1 - segment.x0 > 0);
   const images = mergeWrapImages(columnImages, {
-    x0: Math.min(...wallColumns.map((segment) => segment.x0)),
-    x1: Math.max(...wallColumns.map((segment) => segment.x1)),
+    WRAP: { x0: Math.min(...wallColumns.map((segment) => segment.x0)), x1: Math.max(...wallColumns.map((segment) => segment.x1)) },
+    SHEET: { x0: 0, x1: dieline.sheet.width },
   });
 
   const windows = (dieline.windows ?? []).map((window): SceneWindow => ({
@@ -364,42 +364,50 @@ function overlaps(corners: [number, number][], clip: SceneRect): boolean {
  *   the part at the LEFT start are the same image shifted by the wrap width → `artwork-WRAP-<id>-BACK` / `-LEFT`;
  * - other groups → `artwork-WRAP-<id>-<first wall>`.
  * All images of a layer are edited as one (same target) and keep the layer order (bottom → top), after wall images.
- * `row` = sheet x extent of the wall columns: the selection area of a whole-bag layer (it covers every wall).
+ * Whole-sheet layers (docs/SPEC.md §3c) lie 1:1 on the sheet, so their column images always share one matrix: one image
+ * per layer (`artwork-SHEET-<id>`), clipped to the wall columns (+ bleed; the glue flap stays unprinted).
+ * `rows` = sheet x extent of the selection area: the wall columns for a whole-bag layer, the whole sheet for a
+ * whole-sheet layer.
  */
-function mergeWrapImages(images: SceneImage[], row: { x0: number; x1: number }): SceneImage[] {
-  const groups = new Map<string, { layerId: string; images: SceneImage[] }>();
+function mergeWrapImages(
+  images: SceneImage[],
+  rows: Record<LayeredArtworkLayout, { x0: number; x1: number }>,
+): SceneImage[] {
+  const groups = new Map<string, { layout: LayeredArtworkLayout; layerId: string; images: SceneImage[] }>();
   for (const image of images) {
-    const layerId = getWrapLayerId(image.target);
-    if (layerId === null) continue;
-    const key = `${layerId}|${matrixAttr(image.matrix)}`;
+    const info = getLayerTargetInfo(image.target);
+    if (info === null) continue;
+    const key = `${image.target}|${matrixAttr(image.matrix)}`;
     const group = groups.get(key);
     if (group) group.images.push(image);
-    else groups.set(key, { layerId, images: [image] });
+    else groups.set(key, { ...info, images: [image] });
   }
   if (groups.size === 0) return images;
   const merged: SceneImage[] = [];
   const used = new Set<string>();
-  for (const { layerId, images: group } of groups.values()) {
+  for (const { layout, layerId, images: group } of groups.values()) {
     const first = group[0];
     const base = group.some((image) => image.panel === 'FRONT') ? '' : `-${first.panel}`;
     let suffix = base;
-    for (let n = 2; used.has(`${layerId}${suffix}`); n++) suffix = `${base}-${n}`;
-    used.add(`${layerId}${suffix}`);
+    const name = `${layout}-${layerId}`;
+    for (let n = 2; used.has(`${name}${suffix}`); n++) suffix = `${base}-${n}`;
+    used.add(`${name}${suffix}`);
+    const row = rows[layout];
     const minX = Math.min(...group.map((image) => image.clip.x));
     const maxX = Math.max(...group.map((image) => image.clip.x + image.clip.width));
     const clipHoles = group.flatMap((image) => image.clipHoles ?? []);
     merged.push({
       ...first,
       ...(clipHoles.length > 0 ? { clipHoles } : {}),
-      id: `artwork-WRAP-${layerId}${suffix}`,
-      segment: 'WRAP',
-      clip: { ...first.clip, id: `clip-WRAP-${layerId}${suffix}`, x: fmt(minX), width: fmt(maxX - minX) },
-      area: { ...first.area, id: `area-WRAP-${layerId}${suffix}`, x: fmt(row.x0), width: fmt(row.x1 - row.x0) },
+      id: `artwork-${name}${suffix}`,
+      segment: layout,
+      clip: { ...first.clip, id: `clip-${name}${suffix}`, x: fmt(minX), width: fmt(maxX - minX) },
+      area: { ...first.area, id: `area-${name}${suffix}`, x: fmt(row.x0), width: fmt(row.x1 - row.x0) },
     });
   }
   // Groups were created column by column (LEFT first), so restore the layer order (stable sort).
   merged.sort((a, b) => (a.stackIndex ?? 0) - (b.stackIndex ?? 0));
-  return [...images.filter((image) => getWrapLayerId(image.target) === null), ...merged];
+  return [...images.filter((image) => getLayerTargetInfo(image.target) === null), ...merged];
 }
 
 export const matrixAttr =(m: Affine2) => `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`;

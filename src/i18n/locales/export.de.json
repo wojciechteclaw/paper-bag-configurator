@@ -80,7 +80,9 @@
       "windowFilmOverlap": "Folienüberlappung unter dem Papier",
       "windowFilmSize": "Foliengröße",
       "windowFilmSizeValue": "{{width}} × {{height}}",
-      "windowFilmArea": "Folienfläche"
+      "windowFilmArea": "Folienfläche",
+      "sheetLayer": "Ganzer Bogen — Ebene {{index}}",
+      "sheetLayers": "Ganzer Bogen — Motivebenen"
     },
     "handleMaterial": {
       "KRAFT": "festes Kraftpapier"
@@ -236,7 +238,8 @@
     "placementSummary": {
       "FILL": "über die ganze Tasche gestreckt",
       "CUSTOM": "x {{x}} mm, y {{y}} mm von der Mitte, Skalierung {{scale}} %, Drehung {{rotation}}°",
-      "extended": "mit Boden"
+      "extended": "mit Boden",
+      "FILL_SHEET": "über den ganzen Bogen gestreckt"
     }
   }
 }

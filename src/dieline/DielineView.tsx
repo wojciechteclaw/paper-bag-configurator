@@ -4,8 +4,8 @@ import {
   getActiveArtworkTargets,
   getArtworkSlot,
   getArtworkTargetArea,
-  getWrapLayerId,
-  getWrapLayers,
+  getLayers,
+  getLayerTargetInfo,
   resolvePanelArtworks,
 } from '../domain/artworkLayout';
 import {
@@ -173,8 +173,8 @@ export function DielineView() {
    */
   const areaOf = useCallback(
     (target: ArtworkTarget, placement?: ArtworkPlacement) =>
-      getArtworkTargetArea(target, dimensions, placement ?? placementOf(target)),
-    [dimensions],
+      getArtworkTargetArea(target, configuration, placement ?? placementOf(target)),
+    [configuration],
   );
   const applyPlacement = useCallback(
     (target: ArtworkTarget, update: (placement: ArtworkPlacement) => ArtworkPlacement) =>
@@ -359,12 +359,13 @@ export function DielineView() {
     }
   };
 
-  const wrapLayers = getWrapLayers(configuration);
   const panelName = (target: ArtworkTarget) => {
-    const layerId = getWrapLayerId(target);
-    if (layerId === null) return t(`dieline.panel.${target}`);
-    const index = wrapLayers.findIndex((layer) => layer.id === layerId);
-    return t('dieline.panel.wrapLayer', { index: index + 1, name: wrapLayers[index]?.artwork.fileName ?? '' });
+    const info = getLayerTargetInfo(target);
+    if (info === null) return t(`dieline.panel.${target}`);
+    const layers = getLayers(configuration, info.layout);
+    const index = layers.findIndex((layer) => layer.id === info.layerId);
+    const key = info.layout === 'SHEET' ? 'dieline.panel.sheetLayer' : 'dieline.panel.wrapLayer';
+    return t(key, { index: index + 1, name: layers[index]?.artwork.fileName ?? '' });
   };
   const hasArtwork = scene.images.length > 0;
   const firstImageOfPanel = new Set<string>();
@@ -424,7 +425,8 @@ export function DielineView() {
                   rotation: selectedPlacement.rotation,
                 })}
           </span>
-          {extendToBottomAvailable && (
+          {/* Whole-sheet layers always print the bottom allowance (it is part of the sheet). */}
+          {extendToBottomAvailable && getLayerTargetInfo(activeSelection)?.layout !== 'SHEET' && (
             <label className="dieline-view__toggle dieline-view__extend" title={t('dieline.edit.extendToBottomHint')}>
               <input
                 type="checkbox"

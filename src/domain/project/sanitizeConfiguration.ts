@@ -7,7 +7,7 @@
 // missing `artworkLayout` / `colorAnalysis` / `extendToBottom`). Unknown fields — at the top level and inside known
 // objects — are kept as they are, so fields added by newer code (or by other features) flow through a save / load.
 
-import { getArtworkLayout, getWrapArtworkArea, getWrapLayerId, getWrapLayers } from '../artworkLayout';
+import { getArtworkLayout, getSheetArtworkArea, getWrapArtworkArea, getWrapLayerId, getWrapLayers } from '../artworkLayout';
 import { constrainPlacements } from '../productType';
 import { getPanelArtworkArea, normalizePlacement, DEFAULT_PLACEMENT, type Size2 } from '../artworkPlacement';
 import { ARTWORK_RULES, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS, type BagTypeDefinition } from '../config/productCatalog';
@@ -192,28 +192,44 @@ function sanitizePanels(raw: unknown, dimensions: Dimensions, note: (field: stri
   return Object.fromEntries(entries) as BagPanels;
 }
 
-function sanitizeWrapLayers(raw: Raw, dimensions: Dimensions, note: (field: string) => void): WrapArtworkLayer[] {
-  const source = Array.isArray(raw.wrapLayers) ? (raw.wrapLayers as unknown[]) : getWrapLayers(raw as never);
+/**
+ * The layers of a layered layout (`wrapLayers`: legacy single `wrapArtwork` migrated; `sheetLayers`: always printing the
+ * bottom allowance), usable artwork only, unique ids, placements normalised against `areaOf`, capped at the maximum.
+ */
+function sanitizeLayers(
+  raw: Raw,
+  field: 'wrapLayers' | 'sheetLayers',
+  areaOf: (placement: Pick<ArtworkPlacement, 'extendToBottom'>) => Size2,
+  note: (field: string) => void,
+): WrapArtworkLayer[] {
+  const stored = raw[field];
+  const source = Array.isArray(stored) ? (stored as unknown[]) : field === 'wrapLayers' ? getWrapLayers(raw as never) : [];
+  if (stored !== undefined && !Array.isArray(stored) && field === 'sheetLayers') note(field);
   const ids = new Set<string>();
   const layers: WrapArtworkLayer[] = [];
   source.forEach((entry, index) => {
     const layer = asRecord(entry);
     if (!isUsableArtwork(layer.artwork)) {
-      note(`wrapLayers.${index}.artwork`);
+      note(`${field}.${index}.artwork`);
       return;
     }
     let id = isNonEmptyString(layer.id) ? layer.id : '';
     if (!id || ids.has(id)) {
-      if (id) note(`wrapLayers.${index}.id`);
+      if (id) note(`${field}.${index}.id`);
       id = `layer-${index + 1}-${layer.artwork.id}`;
       while (ids.has(id)) id = `${id}-${index}`;
     }
     ids.add(id);
-    const { placement, changed } = sanitizePlacement(layer.placement, (p) => getWrapArtworkArea(dimensions, p));
-    if (changed) note(`wrapLayers.${index}.placement`);
+    let { placement, changed } = sanitizePlacement(layer.placement, areaOf);
+    // Whole-sheet layers always include the bottom allowance (part of the sheet, docs/SPEC.md §3c).
+    if (field === 'sheetLayers' && !placement.extendToBottom) {
+      placement = { ...placement, extendToBottom: true };
+      changed = true;
+    }
+    if (changed) note(`${field}.${index}.placement`);
     layers.push({ ...layer, id, artwork: sanitizeArtwork(layer.artwork), placement } as WrapArtworkLayer);
   });
-  if (layers.length > MAX_WRAP_ARTWORK_LAYERS) note('wrapLayers');
+  if (layers.length > MAX_WRAP_ARTWORK_LAYERS) note(field);
   return layers.slice(0, MAX_WRAP_ARTWORK_LAYERS);
 }
 
@@ -298,7 +314,7 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
   const paper = sanitizePaper(raw.paper, definition, handle, defaults.paper, noter('paper'));
   const storedPanels = sanitizePanels(raw.panels, dimensions, noter('artwork'));
   if (raw.artworkLayout !== undefined && getArtworkLayout(raw) !== raw.artworkLayout) noter('artwork')('artworkLayout');
-  const storedLayers = sanitizeWrapLayers(raw, dimensions, noter('artwork'));
+  const storedLayers = sanitizeLayers(raw, 'wrapLayers', (p) => getWrapArtworkArea(dimensions, p), noter('artwork'));
   // Types without a printed bottom allowance (gusseted bag) never keep "extend to bottom" (on walls and on every layer).
   const { panels, wrapLayers, targets } = constrainPlacements(
     { dimensions, panels: storedPanels, wrapLayers: storedLayers },
@@ -331,6 +347,13 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     noter('window'),
   );
 
+  const sheetLayers = sanitizeLayers(
+    raw,
+    'sheetLayers',
+    () => getSheetArtworkArea({ dimensions, productType, glueFlapWidth, bottomFoldDepth }),
+    noter('artwork'),
+  );
+
   const { wrapArtwork: _legacy, ...rest } = raw;
   const configuration = {
     ...rest,
@@ -342,6 +365,7 @@ export function sanitizeConfiguration(raw: unknown): SanitizeResult {
     panels,
     artworkLayout: getArtworkLayout(raw),
     wrapLayers,
+    sheetLayers,
     print,
     packaging,
     glueFlapWidth,

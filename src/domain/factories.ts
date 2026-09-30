@@ -51,6 +51,7 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     panels,
     artworkLayout: DEFAULT_ARTWORK_LAYOUT,
     wrapLayers: [],
+    sheetLayers: [],
     print: { technology: 'FLEXO', pantoneColors: [], colorAnalysis: { ...COLOR_ANALYSIS_DEFAULTS } },
     packaging: 'CARTON',
     glueFlapWidth: definition.glueFlap.default,

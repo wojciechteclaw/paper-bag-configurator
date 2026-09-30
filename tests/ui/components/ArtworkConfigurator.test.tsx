@@ -48,7 +48,7 @@ describe('ArtworkConfigurator — artwork layout', () => {
     setPanelArtwork('FRONT', artwork('front.png'));
     setArtworkLayout('WRAP');
     render(<ArtworkConfigurator />);
-    expect(screen.getByText(/Grafiki poszczególnych ścianek są zachowane/)).toBeInTheDocument();
+    expect(screen.getByText(/Grafiki innych układów \(Osobna grafika na każdą ściankę\) są zachowane/)).toBeInTheDocument();
   });
 });
 
@@ -138,5 +138,26 @@ describe('ArtworkConfigurator — whole-bag layers', () => {
     render(<ArtworkConfigurator />);
     expect(screen.queryByRole('button', { name: 'Dodaj warstwę grafiki całej torby' })).not.toBeInTheDocument();
     expect(screen.getByText(`Osiągnięto limit ${MAX_WRAP_ARTWORK_LAYERS} warstw — usuń warstwę, aby dodać nową.`)).toBeInTheDocument();
+  });
+});
+
+describe('ArtworkConfigurator — whole-sheet layers', () => {
+  it('offers the sheet layout with the print-file size (mm and px at 300 dpi) and adds sheet layers', async () => {
+    render(<ArtworkConfigurator />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Grafika na cały arkusz (wykrój)' }));
+    expect(config().artworkLayout).toBe('SHEET');
+    // Block bag 200 × 400 × 150, glue flap 10: sheet 710 × 490 mm = 8386 × 5787 px at 300 dpi.
+    expect(screen.getByText(`arkusz 710 × 490 mm = 8386 × 5787 px przy 300 dpi · 0 z ${MAX_WRAP_ARTWORK_LAYERS}`)).toBeInTheDocument();
+    expect(screen.getByText(/Plik jak do druku/)).toBeInTheDocument();
+
+    loadImage.mockResolvedValueOnce({ url: 'blob:sheet', width: 1000, height: 1000 });
+    fireEvent.change(screen.getByLabelText('Plik nowej warstwy grafiki'), { target: { files: [png('sheet.png')] } });
+    await waitFor(() => expect(config().sheetLayers).toHaveLength(1));
+    expect(config().wrapLayers).toEqual([]);
+    expect(config().sheetLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    expect(useConfiguratorUiStore.getState().selectedArtwork).toBe(`SHEET:${config().sheetLayers[0].id}`);
+    expect(screen.getByText('Rozciągnięta na cały arkusz')).toBeInTheDocument();
+    // A square file stretched over the 710 × 490 sheet: proportion warning.
+    expect(screen.getByText(/proporcji arkusza wykroju \(1,45\)/)).toBeInTheDocument();
   });
 });

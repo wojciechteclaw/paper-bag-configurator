@@ -74,4 +74,24 @@ describe('dieline scene with a window', () => {
     expect(scene.windows).toEqual([]);
     expect(scene.images.every((image) => image.clipHoles === undefined)).toBe(true);
   });
+
+  it('keeps the window opening and the glue flap unprinted for a whole-sheet (SHEET) layer', () => {
+    const configuration: BagConfiguration = { ...createConfiguration('FOLDED'), window: rectangle };
+    configuration.artworkLayout = 'SHEET';
+    configuration.sheetLayers = [createWrapLayer(artwork, { mode: 'FILL', extendToBottom: true })];
+    const dieline = buildDieline(configuration);
+    const scene = buildDielineScene(dieline, resolvePanelArtworks(configuration), {
+      label: (key) => key,
+      dimension: (key, value) => `${key}=${value}`,
+    });
+    expect(scene.images).toHaveLength(1);
+    const [image] = scene.images;
+    expect(image.segment).toBe('SHEET');
+    expect(image.clipHoles).toEqual([{ id: 'hole-FRONT-1', x: 130, y: 120, width: 60, height: 100 }]);
+    // The clip ends at BACK's outer edge (+ 2 mm overprint): the glue-flap column stays unprinted.
+    const back = dieline.segments.find((segment) => segment.panel === 'BACK')!;
+    expect(image.clip.x + image.clip.width).toBeCloseTo(back.x1 + 2);
+    expect(back.x1).toBeLessThan(dieline.sheet.width);
+    expect(isPointOnSceneImage(image, [160, 170])).toBe(false);
+  });
 });

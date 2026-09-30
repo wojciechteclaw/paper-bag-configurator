@@ -80,7 +80,9 @@
       "windowFilmOverlap": "Wsunięcie folii pod papier",
       "windowFilmSize": "Wymiar folii",
       "windowFilmSizeValue": "{{width}} × {{height}}",
-      "windowFilmArea": "Powierzchnia folii"
+      "windowFilmArea": "Powierzchnia folii",
+      "sheetLayer": "Cały arkusz — warstwa {{index}}",
+      "sheetLayers": "Cały arkusz — warstwy grafiki"
     },
     "handleMaterial": {
       "KRAFT": "mocny papier kraft"
@@ -236,7 +238,8 @@
     "placementSummary": {
       "FILL": "rozciągnięta na całą torbę",
       "CUSTOM": "x {{x}} mm, y {{y}} mm od środka, skala {{scale}} %, obrót {{rotation}}°",
-      "extended": "z dnem"
+      "extended": "z dnem",
+      "FILL_SHEET": "rozciągnięta na cały arkusz"
     }
   }
 }

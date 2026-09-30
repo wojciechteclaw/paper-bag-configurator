@@ -12,7 +12,7 @@
     "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
     "demoError": "The demo artwork could not be loaded.",
     "demoHintByType": {
-      "FOLDED": "Load an example: gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, one whole-bag artwork (public/gusseted-bag)"
+      "FOLDED": "Load an example: gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, artwork for the whole dieline sheet like a print file (public/gusseted-bag)"
     },
     "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}"
   },
@@ -223,8 +223,9 @@
       "PER_PANEL": "Separate artwork for each wall",
       "WRAP": "Whole-bag artwork (layers)",
       "wrapNote": "The artwork runs around the bag: {{order}} — in dieline order, starting at the left edge of the left side (the seam; the glue flap stays unprinted). Set each layer's position, scale and “Extend to bottom” in the Dieline view.",
-      "keptPanels": "The per-wall artwork is kept and comes back when you switch the layout; it is not printed in this layout.",
-      "keptWrap": "The whole-bag artwork layers are kept and come back when you switch the layout; they are not printed in this layout."
+      "kept": "Artwork of the other layouts ({{layouts}}) is kept and comes back when you switch the layout; it is not printed in this layout.",
+      "SHEET": "Artwork for the whole sheet (dieline)",
+      "sheetNote": "A print-ready file: the artwork lies 1:1 on the whole dieline sheet (columns Left | Front | Right | Back | glue flap, bottom allowance included). Every wall shows its part of the sheet; the glue flap is not printed."
     },
     "layers": {
       "title": "Artwork layers",
@@ -245,8 +246,13 @@
       "addDropLabel": "Add a whole-bag artwork layer",
       "addFileInputLabel": "File of the new artwork layer",
       "replaceFileInputLabel": "File replacing the layer's artwork",
-      "maxReached": "The limit of {{max}} layers is reached — remove a layer to add another."
-    }
+      "maxReached": "The limit of {{max}} layers is reached — remove a layer to add another.",
+      "sheetSize": "sheet {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px at {{dpi}} dpi",
+      "orderNoteSheet": "A layer higher in the list prints on top. The first layer (the whole-sheet file) fills the whole sheet; further ones start fitted to the front.",
+      "placementFillSheet": "Stretched over the whole sheet",
+      "addDropLabelSheet": "Add a whole-sheet artwork layer"
+    },
+    "aspectMismatchSheet": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the dieline sheet ({{panelRatio}}) — with “Stretch” the artwork will be distorted and will not match the walls."
   },
   "paper": {
     "label": "Paper",

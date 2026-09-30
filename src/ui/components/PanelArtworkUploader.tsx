@@ -7,7 +7,7 @@ import { useConfigurationStore } from '../../state/configurationStore';
 import { ARTWORK_MAX_MB, useArtworkUpload } from '../artwork/useArtworkUpload';
 import { useFormatNumber } from '../useFormatNumber';
 
-/** Upload of the artwork of one wall (per-wall layout; whole-bag layers: `WrapLayerList`). */
+/** Upload of the artwork of one wall (per-wall layout; layers: `ArtworkLayerList`). */
 export function PanelArtworkUploader({ position }: { position: PanelPosition }) {
   const { t } = useTranslation();
   const formatNumber = useFormatNumber();

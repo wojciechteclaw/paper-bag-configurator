@@ -21,20 +21,29 @@
 // (`getWrapImageExtent`). The wrap area is only the reference for FILL / fit / align / centring and the vertical clip;
 // horizontally a copy is clipped to the wall and its `clipX`. `offsetX` wraps into one period (`periodicX`) instead
 // of being clamped, so dragging across either end is continuous.
+//
+// Whole-sheet layers (SHEET, docs/SPEC.md §3c) are placed 1:1 on the flat dieline sheet like a print file: area = the
+// whole sheet in sheet coordinates (no wrap, no cycle); each wall shows the part in its sheet column, its bottom
+// allowance / strip always included; the glue-flap column is never printed.
 
 import { getArtworkRect, getPanelArtworkArea, normalizePlacement, type PanelArtworkArea, type Size2 } from './artworkPlacement';
-import { DEFAULT_ARTWORK_LAYOUT, MAX_WRAP_ARTWORK_LAYERS } from './config/productCatalog';
+import { ARTWORK_RULES, DEFAULT_ARTWORK_LAYOUT, MAX_WRAP_ARTWORK_LAYERS } from './config/productCatalog';
+import { buildDieline } from './dieline/buildDieline';
+import type { Dieline } from './dieline/types';
 import { getBottomAllowance } from './geometry/tube';
 import { getPanelSize } from './panels';
 import type {
   Artwork,
+  ArtworkLayer,
   ArtworkLayout,
   ArtworkPlacement,
   ArtworkTarget,
   BagConfiguration,
   Dimensions,
+  LayeredArtworkLayout,
   LegacyWrapArtwork,
   PanelPosition,
+  SheetLayerTarget,
   WrapArtworkLayer,
   WrapLayerTarget,
 } from './types';
@@ -50,7 +59,16 @@ export const SHEET_PANEL_ORDER: readonly PanelPosition[] = ['LEFT', 'FRONT', 'RI
  * carry the single pre-layer `wrapArtwork` slot (migrated by `getWrapLayers`).
  */
 export type ArtworkSource = Pick<BagConfiguration, 'dimensions' | 'panels'> &
-  Partial<Pick<BagConfiguration, 'artworkLayout' | 'wrapLayers'>> & { wrapArtwork?: LegacyWrapArtwork | null };
+  Partial<Pick<BagConfiguration, 'artworkLayout' | 'wrapLayers' | 'sheetLayers' | 'productType' | 'glueFlapWidth' | 'bottomFoldDepth'>> & {
+    wrapArtwork?: LegacyWrapArtwork | null;
+  };
+
+/**
+ * What the sheet geometry depends on (whole-sheet layers, docs/SPEC.md §3c): dimensions, bag type, glue flap width and
+ * the gusseted bag's bottom strip (missing type = block bottom; missing values = the type's defaults).
+ */
+export type ArtworkGeometry = Pick<BagConfiguration, 'dimensions'> &
+  Partial<Pick<BagConfiguration, 'productType' | 'glueFlapWidth' | 'bottomFoldDepth'>>;
 
 /** One artwork layer of a wall as every consumer should see it. */
 export type ResolvedArtworkLayer = {
@@ -96,9 +114,44 @@ const EMPTY_SLOT = Object.freeze({ artwork: null, placement: Object.freeze({ mod
 
 /** Active layout; older data without the field is per wall. */
 export function getArtworkLayout(configuration: Partial<Pick<BagConfiguration, 'artworkLayout'>>): ArtworkLayout {
-  return configuration.artworkLayout === 'WRAP' || configuration.artworkLayout === 'PER_PANEL'
-    ? configuration.artworkLayout
-    : DEFAULT_ARTWORK_LAYOUT;
+  const layout = configuration.artworkLayout;
+  return layout === 'WRAP' || layout === 'PER_PANEL' || layout === 'SHEET' ? layout : DEFAULT_ARTWORK_LAYOUT;
+}
+
+/** Layouts made of ordered layers: whole bag (WRAP) and whole sheet (SHEET). */
+export const LAYERED_ARTWORK_LAYOUTS: readonly LayeredArtworkLayout[] = ['WRAP', 'SHEET'];
+
+export function isLayeredLayout(layout: ArtworkLayout): layout is LayeredArtworkLayout {
+  return layout === 'WRAP' || layout === 'SHEET';
+}
+
+/** Artwork target of layer `layerId` of a layered layout: `WRAP:<id>` or `SHEET:<id>`. */
+export function layerTarget(layout: LayeredArtworkLayout, layerId: string): WrapLayerTarget | SheetLayerTarget {
+  return `${layout}:${layerId}`;
+}
+
+/** Layout and layer id of a layer target; null for a wall. */
+export function getLayerTargetInfo(
+  target: string | null | undefined,
+): { layout: LayeredArtworkLayout; layerId: string } | null {
+  if (typeof target !== 'string') return null;
+  for (const layout of LAYERED_ARTWORK_LAYOUTS) {
+    if (target.startsWith(`${layout}:`)) return { layout, layerId: target.slice(layout.length + 1) };
+  }
+  return null;
+}
+
+/** Whole-sheet layers, bottom → top (the stored list itself; none in older data). */
+export function getSheetLayers(configuration: Partial<Pick<BagConfiguration, 'sheetLayers'>>): readonly ArtworkLayer[] {
+  return Array.isArray(configuration.sheetLayers) ? configuration.sheetLayers : NO_LAYERS;
+}
+
+/** Layers of a layered layout (whole bag: migrates the legacy single slot, `getWrapLayers`). */
+export function getLayers(
+  configuration: Partial<Pick<BagConfiguration, 'wrapLayers' | 'sheetLayers'>> & { wrapArtwork?: LegacyWrapArtwork | null },
+  layout: LayeredArtworkLayout,
+): readonly ArtworkLayer[] {
+  return layout === 'SHEET' ? getSheetLayers(configuration) : getWrapLayers(configuration);
 }
 
 // ——— Layer targets ———
@@ -219,23 +272,119 @@ export function getWrapImageExtent(
 }
 
 /** Visible size an artwork target is printed on: the wall, or the whole wall row for a whole-bag layer. */
-export function getArtworkTargetSize(target: ArtworkTarget, dimensions: Dimensions): Size2 {
-  return isWrapLayerTarget(target) ? getWrapSize(dimensions) : getPanelSize(target, dimensions);
+export function getArtworkTargetSize(target: ArtworkTarget, source: Dimensions | ArtworkGeometry): Size2 {
+  const layout = getLayerTargetInfo(target)?.layout;
+  if (layout === 'SHEET') return getSheetDieline(source).sheet;
+  const { dimensions } = geometryOf(source);
+  return layout === 'WRAP' ? getWrapSize(dimensions) : getPanelSize(target as PanelPosition, dimensions);
+}
+
+const geometryOf = (source: Dimensions | ArtworkGeometry): ArtworkGeometry =>
+  'dimensions' in source ? source : { dimensions: source };
+
+let lastSheet: { key: string; dieline: Dieline } | null = null;
+
+/**
+ * The dieline the whole-sheet layers are laid on (`buildDieline`; the handle does not change the sheet). Memoised for
+ * the last geometry: editors ask for it on every pointer move.
+ */
+export function getSheetDieline(source: Dimensions | ArtworkGeometry): Dieline {
+  const { dimensions, productType, glueFlapWidth, bottomFoldDepth } = geometryOf(source);
+  const key = [productType ?? 'BLOCK', dimensions.width, dimensions.height, dimensions.depth, glueFlapWidth, bottomFoldDepth].join('|');
+  if (lastSheet?.key !== key) {
+    lastSheet = { key, dieline: buildDieline({ dimensions, handle: null, productType, glueFlapWidth, bottomFoldDepth }) };
+  }
+  return lastSheet.dieline;
+}
+
+/**
+ * Artwork area of a whole-sheet layer: the whole cut sheet, sheet coordinates (x from its left edge, y from its bottom
+ * edge — the tube end), bottom allowance / strip and glue-flap column included, so FILL maps a print file 1:1.
+ */
+export function getSheetArtworkArea(source: Dimensions | ArtworkGeometry): PanelArtworkArea {
+  const { sheet } = getSheetDieline(source);
+  return { x: 0, y: 0, width: sheet.width, height: sheet.height };
 }
 
 /**
  * Artwork area a target's placement refers to, in the target's own coordinates (panel-local mm for a wall, wrap
- * coordinates for a whole-bag layer). Only the size matters to the placement editing helpers (offsets are
- * centre-relative).
+ * coordinates for a whole-bag layer, sheet coordinates for a whole-sheet layer). Only the size matters to the placement
+ * editing helpers (offsets are centre-relative). Pass the configuration (or `ArtworkGeometry`) for whole-sheet layers;
+ * bare dimensions assume a block-bottom sheet.
  */
 export function getArtworkTargetArea(
   target: ArtworkTarget,
-  dimensions: Dimensions,
+  source: Dimensions | ArtworkGeometry,
   placement: Pick<ArtworkPlacement, 'extendToBottom'>,
 ): PanelArtworkArea {
-  return isWrapLayerTarget(target)
+  const { dimensions } = geometryOf(source);
+  const layout = getLayerTargetInfo(target)?.layout;
+  if (layout === 'SHEET') return getSheetArtworkArea(source);
+  return layout === 'WRAP'
     ? getWrapArtworkArea(dimensions, placement)
-    : getPanelArtworkArea(target, dimensions, placement);
+    : getPanelArtworkArea(target as PanelPosition, dimensions, placement);
+}
+
+/** Aspect-kept placement fitting `image` inside `rect` (contain) and centred on it; `area` = the placement's area. */
+function fitIntoRect(
+  area: PanelArtworkArea,
+  rect: { x: number; y: number; width: number; height: number },
+  image: Size2,
+  extendToBottom: boolean,
+): ArtworkPlacement {
+  const containRect = Math.min(rect.width / image.width, rect.height / image.height);
+  const containArea = Math.min(area.width / image.width, area.height / image.height);
+  return normalizePlacement(
+    {
+      mode: 'CUSTOM',
+      offsetX: rect.x + rect.width / 2 - (area.x + area.width / 2),
+      offsetY: rect.y + rect.height / 2 - (area.y + area.height / 2),
+      scale: containRect / containArea,
+      rotation: 0,
+      extendToBottom,
+    },
+    area,
+  );
+}
+
+/**
+ * Placement of a print file on the whole sheet (docs/SPEC.md §3c): FILL when the image has the sheet's proportions (a
+ * whole-sheet file, bottom allowance / strip and glue-flap column included); an image with the proportions of the
+ * wall row only (a whole-bag file, (2W + 2D) × H) is laid 1:1 over the wall columns above the bottom line instead of
+ * being stretched; anything else FILLs (the UI warns about the proportions).
+ */
+export function getPrintFilePlacement(geometry: ArtworkGeometry, image: Size2): ArtworkPlacement {
+  const fill: ArtworkPlacement = { mode: 'FILL', extendToBottom: true };
+  if (!(image.width > 0 && image.height > 0)) return fill;
+  const dieline = getSheetDieline(geometry);
+  const area = getSheetArtworkArea(geometry);
+  const ratio = image.width / image.height;
+  const matches = (size: Size2) => Math.abs(ratio - size.width / size.height) / (size.width / size.height) <= ARTWORK_RULES.aspectRatioTolerance;
+  if (matches(area)) return fill;
+  const walls = dieline.segments.filter((segment) => segment.x1 - segment.x0 > 0);
+  const x0 = Math.min(...walls.map((segment) => segment.x0));
+  const x1 = Math.max(...walls.map((segment) => segment.x1));
+  const row = { x: x0, y: dieline.bottomLineY, width: x1 - x0, height: area.height - dieline.bottomLineY };
+  return walls.length > 0 && matches(row) ? fitIntoRect(area, row, image, true) : fill;
+}
+
+/**
+ * Placement of a new layer of a layered layout. The first layer (a background, or the whole print file on the sheet)
+ * FILLs the area; later layers (logo, barcode, …) start fitted inside the FRONT wall and centred on it. Whole-sheet
+ * layers always print the bottom allowance (`extendToBottom` true).
+ */
+export function getNewLayerPlacement(
+  layout: LayeredArtworkLayout,
+  geometry: ArtworkGeometry,
+  image: Size2,
+  existingLayers: number,
+  extendToBottom: boolean,
+): ArtworkPlacement {
+  if (layout === 'WRAP') return getNewWrapLayerPlacement(geometry.dimensions, image, existingLayers, extendToBottom);
+  if (existingLayers === 0 || !(image.width > 0 && image.height > 0)) return { mode: 'FILL', extendToBottom: true };
+  const front = getSheetDieline(geometry).segments.find((segment) => segment.panel === 'FRONT');
+  const area = getSheetArtworkArea(geometry);
+  return front ? fitIntoRect(area, front.wall, image, true) : { mode: 'FILL', extendToBottom: true };
 }
 
 /**
@@ -275,18 +424,21 @@ export function getArtworkSlot(
   configuration: ArtworkSource,
   target: ArtworkTarget,
 ): { artwork: Artwork | null; placement: ArtworkPlacement } {
-  const layerId = getWrapLayerId(target);
-  if (layerId !== null) return getWrapLayer(configuration, layerId) ?? EMPTY_SLOT;
+  const info = getLayerTargetInfo(target);
+  if (info !== null) return getLayers(configuration, info.layout).find((layer) => layer.id === info.layerId) ?? EMPTY_SLOT;
   const { artwork, placement } = configuration.panels[target as PanelPosition];
   return { artwork, placement };
 }
 
-/** Targets of the active layout: the four walls, or the whole-bag layers bottom → top. */
+/** Targets of the active layout: the four walls, or the layers (whole bag / whole sheet) bottom → top. */
 export function getActiveArtworkTargets(
-  configuration: Partial<Pick<BagConfiguration, 'artworkLayout' | 'wrapLayers'>> & { wrapArtwork?: LegacyWrapArtwork | null },
+  configuration: Partial<Pick<BagConfiguration, 'artworkLayout' | 'wrapLayers' | 'sheetLayers'>> & {
+    wrapArtwork?: LegacyWrapArtwork | null;
+  },
 ): ArtworkTarget[] {
-  return getArtworkLayout(configuration) === 'WRAP'
-    ? getWrapLayers(configuration).map((layer) => wrapLayerTarget(layer.id))
+  const layout = getArtworkLayout(configuration);
+  return isLayeredLayout(layout)
+    ? getLayers(configuration, layout).map((layer) => layerTarget(layout, layer.id))
     : [...SHEET_PANEL_ORDER];
 }
 
@@ -299,7 +451,32 @@ export function hasActiveArtwork(configuration: ArtworkSource): boolean {
 export function resolvePanelArtwork(configuration: ArtworkSource, position: PanelPosition): ResolvedPanelArtwork {
   const { dimensions } = configuration;
   let layers: ResolvedArtworkLayer[];
-  if (getArtworkLayout(configuration) === 'WRAP') {
+  const layout = getArtworkLayout(configuration);
+  if (layout === 'SHEET') {
+    // Whole-sheet layers (docs/SPEC.md §3c): the sheet is the print file, so the wall shows the part of the sheet in its
+    // column — panel-local = sheet shifted by the column's position and the bottom line. The area is the whole sheet
+    // (placement reference and vertical clip: the column's allowance / strip is always printed); horizontally the wall
+    // (sheet column) clips as for any wall artwork, so the glue-flap column — no wall's column — is never printed.
+    const dieline = getSheetDieline(configuration);
+    const sheetArea = getSheetArtworkArea(configuration);
+    layers = [];
+    for (const segment of dieline.segments) {
+      if (segment.panel !== position || segment.x1 - segment.x0 <= 0) continue;
+      const shiftX = segment.x0 - segment.localX0;
+      getSheetLayers(configuration).forEach(({ id, artwork, placement }, stackIndex) => {
+        const rect = getArtworkRect(sheetArea, artwork, placement, sheetArea);
+        const half = (rect.rotation === 90 || rect.rotation === 270 ? rect.height : rect.width) / 2;
+        if (Math.min(rect.center.x + half, segment.x1) - Math.max(rect.center.x - half, segment.x0) <= WRAP_EPSILON) return;
+        layers.push({
+          target: layerTarget('SHEET', id),
+          artwork,
+          placement: placement.extendToBottom ? placement : { ...placement, extendToBottom: true },
+          area: { ...sheetArea, x: sheetArea.x - shiftX, y: sheetArea.y - dieline.bottomLineY },
+          stackIndex,
+        });
+      });
+    }
+  } else if (layout === 'WRAP') {
     // The wrap is cyclic with period P = 2W + 2D (it runs around the bag): a layer's image shows at x + k·P. Every
     // copy that reaches this wall becomes an entry (usually one; two when the image crosses the wrap ends — the
     // BACK | LEFT seam — or when it is wider than the wall's neighbours allow).
