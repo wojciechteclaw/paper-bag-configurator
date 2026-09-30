@@ -16,6 +16,7 @@ import { GUSSETED_PHASES } from '../domain/geometry/gussetedAssembly';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
+import { orbitDirection, orbitPose, orbitStartPhase, poseOfDirection } from './autoOrbit';
 
 // Pure view of the configuration: receives it (and the view-only timeline state) as props, never writes back.
 
@@ -102,18 +103,74 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
   return null;
 }
 
+type OrbitControlsEvents = ControlsLike & {
+  addEventListener: (type: 'start', listener: () => void) => void;
+  removeEventListener: (type: 'start', listener: () => void) => void;
+};
+
+/**
+ * While `active`, circles the camera around the orbit target (`autoOrbit.ts`: 360° with the elevation sweeping ±45°),
+ * starting from the current view and keeping the current distance, so zoom and the camera fit still apply. Any user
+ * gesture on the canvas (OrbitControls "start": drag, pinch, wheel) calls `onEnd`.
+ */
+function AutoOrbit({ active, onEnd }: { active: boolean; onEnd?: () => void }) {
+  const get = useThree((s) => s.get);
+  const controlsReady = useThree((s) => s.controls !== null);
+  const orbit = useRef<{ azimuth: number; phase: number; elapsed: number } | null>(null);
+  const onEndRef = useRef(onEnd);
+  useEffect(() => {
+    onEndRef.current = onEnd;
+  });
+
+  useEffect(() => {
+    orbit.current = null;
+    const { camera, controls } = get();
+    const orbitControls = controls as unknown as OrbitControlsEvents | null;
+    if (!active || !orbitControls) return;
+    const offset = camera.position.clone().sub(orbitControls.target);
+    const pose = poseOfDirection([offset.x, offset.y, offset.z]);
+    orbit.current = { azimuth: pose.azimuth, phase: orbitStartPhase(pose.elevation), elapsed: 0 };
+    const stop = () => onEndRef.current?.();
+    orbitControls.addEventListener('start', stop);
+    return () => orbitControls.removeEventListener('start', stop);
+  }, [active, get, controlsReady]);
+
+  useFrame((state, delta) => {
+    const current = orbit.current;
+    const controls = state.controls as unknown as ControlsLike | null;
+    if (!current || !controls) return;
+    current.elapsed += Math.min(delta, 0.1);
+    const distance = state.camera.position.distanceTo(controls.target);
+    const [x, y, z] = orbitDirection(orbitPose(current, current.elapsed));
+    state.camera.position.set(controls.target.x + x * distance, controls.target.y + y * distance, controls.target.z + z * distance);
+    controls.update();
+  });
+
+  return null;
+}
+
 export type BagPreview3DProps = {
   configuration: BagConfiguration;
   /** View-only fold state 0..1: formed open bag → folded flat (preview store, not part of BagConfiguration). */
   foldProgress?: number;
   /** View-only assembly state 0..1: flat sheet → formed open bag (default 1 = formed). */
   assemblyProgress?: number;
+  /** View-only: the camera circles the bag by itself (orbit button). */
+  autoOrbit?: boolean;
+  /** Called when the user takes over the camera during an automatic orbit. */
+  onAutoOrbitEnd?: () => void;
 };
 
 /** Dev aid: `?lines` in the URL numbers the bottom-zone edges during the assembly (to discuss folds with the client). */
 const DEBUG_LINES = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('lines');
 
-export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress = 1 }: BagPreview3DProps) {
+export function BagPreview3D({
+  configuration,
+  foldProgress = 0,
+  assemblyProgress = 1,
+  autoOrbit = false,
+  onAutoOrbitEnd,
+}: BagPreview3DProps) {
   const { dimensions, paper } = configuration;
   const [w, h, d] = [dimensions.width * MM_TO_SCENE, dimensions.height * MM_TO_SCENE, dimensions.depth * MM_TO_SCENE];
   const { handle } = configuration;
@@ -181,6 +238,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
           so on phones the page scrolls from the configuration below / beside the sticky preview (index.css). */}
       <OrbitControls makeDefault touches={ORBIT_TOUCHES} />
       <CameraFit targetY={targetY} radius={radius} />
+      <AutoOrbit active={autoOrbit} onEnd={onAutoOrbitEnd} />
     </Canvas>
   );
 }

@@ -331,7 +331,19 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .fold-slider__phase { min-width: 15em; font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 /* 2D modes: keep the dieline toolbar clear of the floating mode switcher. */
-.preview-stage__view { width: 100%; height: 100%; }
+.preview-stage__view { position: relative; width: 100%; height: 100%; }
+
+/* Camera orbit toggle over the 3D canvas (below the floating mode switcher on desktop). */
+.preview-orbit {
+  position: absolute; top: 60px; right: 12px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 12px;
+  border: 2px solid var(--accent); border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--accent);
+  font: 700 12px/1 var(--font-display); letter-spacing: 0.04em; box-shadow: var(--shadow-overlay);
+}
+.preview-orbit:hover:not(:disabled) { background: var(--accent-soft); }
+.preview-orbit[aria-pressed='true'],
+.preview-orbit[aria-pressed='true']:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 .preview-stage__view > .dieline-view { padding: 60px 16px 12px; }
 
 /* Preview mode switcher (segmented control, SPEC §4c) */
@@ -529,6 +541,7 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .preview-stage__view { flex: 1 1 auto; min-height: 0; height: auto; position: relative; }
   .preview-stage__view > .dieline-view { padding: 6px 8px 8px; overflow-y: auto; overscroll-behavior: contain; }
   .preview-stage__overlay { position: static; transform: none; max-width: none; padding: 0 8px 6px; }
+  .preview-orbit { top: 8px; right: 8px; min-height: 44px; box-shadow: none; }
   .fold-slider { gap: 4px 8px; padding: 4px 8px; box-shadow: none; }
   .fold-slider__play { width: 44px; height: 44px; font-size: 14px; }
   .fold-slider__skip { width: 40px; height: 40px; font-size: 13px; }
