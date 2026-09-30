@@ -470,9 +470,9 @@ describe('whole-bag artwork layers', () => {
     store().addWrapLayer(artwork('blob:bg'));
     store().addWrapLayer(artwork('blob:logo'));
     const before = layers()[0];
-    // 200 × 400 × 150: wrap 700 mm → the centre may move up to ±350 mm.
+    // 200 × 400 × 150: the wrap is cyclic with period 700 mm → offsetX wraps into [−350, 350) (999 ≡ 299).
     store().setPanelPlacement(target(1), { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
-    expect(layers()[1].placement).toMatchObject({ offsetX: 350 });
+    expect(layers()[1].placement).toMatchObject({ offsetX: 299 });
     expect(layers()[0]).toBe(before);
     const snapshot = config();
     store().setPanelPlacement(wrapLayerTarget('missing'), DEFAULT_PLACEMENT);

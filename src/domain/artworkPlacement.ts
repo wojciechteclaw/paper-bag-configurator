@@ -20,7 +20,27 @@ import type { ArtworkPlacement, ArtworkRotation, Dimensions, PanelPosition } fro
 export type Size2 = { width: number; height: number };
 
 /** Axis-aligned rectangle in panel-local mm (x, y = bottom-left corner). */
-export type PanelArtworkArea = { x: number; y: number; width: number; height: number };
+export type PanelArtworkArea = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /**
+   * The area repeats horizontally with period `width` (the whole-bag wrap around the bag, docs/SPEC.md §3a): the
+   * image centre may cross either end and continues at the other one, so `offsetX` is wrapped into one period
+   * instead of being clamped (`normalizePlacement`).
+   */
+  periodicX?: boolean;
+};
+
+/** Size of an artwork area as the editing helpers need it (offsets are relative to its centre). */
+export type ArtworkAreaSize = Size2 & { periodicX?: boolean };
+
+/** `value` wrapped into [−period / 2, period / 2). */
+export function wrapIntoPeriod(value: number, period: number): number {
+  if (!(period > 0)) return value;
+  return value - period * Math.floor((value + period / 2) / period) + 0;
+}
 
 /**
  * Texture transform in the three.js convention (`texture.repeat`, `texture.offset`, `texture.rotation` in radians,
@@ -218,7 +238,7 @@ export function toCustomPlacement(placement: ArtworkPlacement): Extract<ArtworkP
  * image never disappears entirely), rotation snapped to 90° steps, non-finite numbers reset, a missing
  * `extendToBottom` (older data) read as false.
  */
-export function normalizePlacement(placement: ArtworkPlacement, area: Size2): ArtworkPlacement {
+export function normalizePlacement(placement: ArtworkPlacement, area: ArtworkAreaSize): ArtworkPlacement {
   const extendToBottom = placement.extendToBottom === true;
   if (placement.mode === 'FILL') return { mode: 'FILL', extendToBottom };
   const finite = (value: number, fallback: number) => (Number.isFinite(value) ? value : fallback);
@@ -229,7 +249,9 @@ export function normalizePlacement(placement: ArtworkPlacement, area: Size2): Ar
     : ROTATIONS[((Math.round(finite(placement.rotation, 0) / 90) % 4) + 4) % 4];
   return {
     mode: 'CUSTOM',
-    offsetX: clamp(finite(placement.offsetX, 0), -halfW, halfW),
+    offsetX: area.periodicX
+      ? wrapIntoPeriod(finite(placement.offsetX, 0), area.width)
+      : clamp(finite(placement.offsetX, 0), -halfW, halfW),
     offsetY: clamp(finite(placement.offsetY, 0), -halfH, halfH),
     scale: clamp(finite(placement.scale, 1), ARTWORK_PLACEMENT_RULES.minScale, ARTWORK_PLACEMENT_RULES.maxScale),
     rotation,
@@ -237,18 +259,18 @@ export function normalizePlacement(placement: ArtworkPlacement, area: Size2): Ar
   };
 }
 
-export function movePlacement(placement: ArtworkPlacement, dx: number, dy: number, area: Size2): ArtworkPlacement {
+export function movePlacement(placement: ArtworkPlacement, dx: number, dy: number, area: ArtworkAreaSize): ArtworkPlacement {
   const custom = toCustomPlacement(placement);
   return normalizePlacement({ ...custom, offsetX: custom.offsetX + dx, offsetY: custom.offsetY + dy }, area);
 }
 
-export function scalePlacement(placement: ArtworkPlacement, factor: number, area: Size2): ArtworkPlacement {
+export function scalePlacement(placement: ArtworkPlacement, factor: number, area: ArtworkAreaSize): ArtworkPlacement {
   const custom = toCustomPlacement(placement);
   return normalizePlacement({ ...custom, scale: custom.scale * factor }, area);
 }
 
 /** Rotates by 90° counter-clockwise (or clockwise with `direction = -1`), keeping the centre. */
-export function rotatePlacement(placement: ArtworkPlacement, area: Size2, direction: 1 | -1 = 1): ArtworkPlacement {
+export function rotatePlacement(placement: ArtworkPlacement, area: ArtworkAreaSize, direction: 1 | -1 = 1): ArtworkPlacement {
   const custom = toCustomPlacement(placement);
   const index = ROTATIONS.indexOf(custom.rotation);
   return normalizePlacement({ ...custom, rotation: ROTATIONS[(index + direction + 4) % 4] }, area);
@@ -263,7 +285,7 @@ export function rotatePlacement(placement: ArtworkPlacement, area: Size2, direct
 export function alignPlacement(
   placement: ArtworkPlacement,
   alignment: ArtworkAlignment,
-  area: Size2,
+  area: ArtworkAreaSize,
   image: Size2,
 ): ArtworkPlacement {
   const custom = toCustomPlacement(placement);

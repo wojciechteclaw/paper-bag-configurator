@@ -3,6 +3,7 @@
 
 import { getWrapLayerId, type ResolvedPanelArtworks } from '../domain/artworkLayout';
 import { computePanelUvTransform, uvTransformToPanelMatrix, type Affine2 } from '../domain/artworkPlacement';
+import { DIELINE_RULES } from '../domain/config/productionRules';
 import { getArtworkClipRect } from '../domain/dieline';
 import type {
   CreaseFold,
@@ -56,6 +57,8 @@ export type SceneImage = {
   extendToBottom: boolean;
   /** Image outline (4 corners, SVG space) — selection frame and handles. */
   corners: [number, number][];
+  /** Position of the layer in its stack (0 = bottom), for drawing order. */
+  stackIndex?: number;
 };
 
 export type DielineScene = {
@@ -186,10 +189,11 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
   for (const segment of dieline.segments) {
     if (segment.x1 - segment.x0 <= 0) continue;
     const panelSize = getPanelSize(segment.panel, dieline.dimensions);
-    // Layers bottom → top: later images are drawn over earlier ones.
-    for (const { artwork, placement, area, target } of artworks[segment.panel].layers) {
-      // The artwork area (wall, or wall + bottom allowance with extendToBottom; for a whole-bag layer the whole wall
-      // row in this panel's coordinates) drives the mapping; the clip stays per column.
+    // Layers bottom → top: later images are drawn over earlier ones. A whole-bag layer may have two entries on a wall
+    // (two copies of the cyclic wrap).
+    for (const { artwork, placement, area, target, clipX, stackIndex } of artworks[segment.panel].layers) {
+      // The artwork area (wall, or wall + bottom allowance with extendToBottom; for a whole-bag layer the wrap area in
+      // this panel's coordinates, shifted to this copy) drives the mapping; the clip stays per column.
       const uv = computePanelUvTransform(panelSize, artwork, placement, area);
       const p = uvTransformToPanelMatrix(panelSize, uv);
       // texture t = (ix, 1 − iy) for image unit-square point (ix, iy); sheet = panel + shift; SVG y = H − sheet y.
@@ -212,11 +216,21 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
         fmt(matrix.a * ix + matrix.c * iy + matrix.e),
         fmt(matrix.b * ix + matrix.d * iy + matrix.f),
       ]);
-      const clip = svgRect(`clip-${segment.id}`, getArtworkClipRect(dieline, segment, placement.extendToBottom));
-      // A whole-bag layer's copy in a column it does not reach (e.g. an image on FRONT seen from the LEFT column) is
-      // left out: nothing to draw, edit or embed.
+      // Column clip (wall + crease overprint / bleed, down to the bottom line or the allowance), limited to this copy's
+      // extent for a whole-bag layer (widened by the crease overprint, like a column edge, so neighbouring copies
+      // overlap slightly instead of leaving a hairline gap at the fold).
+      const columnClip = getArtworkClipRect(dieline, segment, placement.extendToBottom);
+      const overprint = DIELINE_RULES.creaseOverprint;
+      const clipX0 = clipX ? Math.max(columnClip.x, clipX.x0 + shiftX - overprint) : columnClip.x;
+      const clipX1 = clipX
+        ? Math.min(columnClip.x + columnClip.width, clipX.x1 + shiftX + overprint)
+        : columnClip.x + columnClip.width;
+      if (clipX1 <= clipX0) continue;
+      const clip = svgRect(`clip-${segment.id}`, { ...columnClip, x: clipX0, width: clipX1 - clipX0 });
+      // A copy that does not reach this column is left out: nothing to draw, edit or embed.
       if (!overlaps(corners, clip)) continue;
-      // Artwork area within this column (for a whole-bag layer the part of the wrap area on this wall).
+      // Artwork area shown when selected: the wall (and allowance); a whole-bag layer's area is widened to the whole
+      // wall row when merged (the wrap is cyclic, it covers every wall).
       const areaX0 = Math.max(area.x + shiftX, segment.x0);
       const areaX1 = Math.min(area.x + area.width + shiftX, segment.x1);
       columnImages.push({
@@ -230,11 +244,15 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
         area: svgRect(`area-${segment.id}`, { x: areaX0, y: area.y + shiftY, width: Math.max(0, areaX1 - areaX0), height: area.height }),
         extendToBottom: placement.extendToBottom,
         corners,
+        ...(stackIndex !== undefined ? { stackIndex } : {}),
       });
     }
   }
-  // Every wall lists the same whole-bag layers in the same order (bottom → top).
-  const images = mergeWrapImages(columnImages, artworks.FRONT.layers.map((layer) => layer.target));
+  const wallColumns = dieline.segments.filter((segment) => segment.x1 - segment.x0 > 0);
+  const images = mergeWrapImages(columnImages, {
+    x0: Math.min(...wallColumns.map((segment) => segment.x0)),
+    x1: Math.max(...wallColumns.map((segment) => segment.x1)),
+  });
 
   return {
     sheet: { ...dieline.sheet },
@@ -290,15 +308,18 @@ function overlaps(corners: [number, number][], clip: SceneRect): boolean {
 }
 
 /**
- * Merges the column images of each whole-bag layer. The wrap starts at FRONT's left edge, so on the sheet (columns
- * LEFT | FRONT | RIGHT | BACK) FRONT, RIGHT and BACK share one sheet matrix — their clips are adjacent (each overlaps its
- * neighbour by the crease overprint) with equal vertical extent, so their union is one rectangle — while the LEFT
- * column shows the END of the wrap: the same image shifted left by the wrap width (2W + 2D). A layer therefore yields
- * at most two images: the FRONT…BACK part (`artwork-WRAP-<id>`) and the LEFT part (`artwork-WRAP-<id>-LEFT`), each only
- * where the layer is visible. Both are edited as one layer (same target). Layers keep their order (bottom → top),
- * after any wall images.
+ * Merges the column images of each whole-bag layer. The wrap is cyclic and starts at FRONT's left edge, while the sheet
+ * columns run LEFT | FRONT | RIGHT | BACK: columns whose copies sit at the same sheet position share one matrix and
+ * their clips are adjacent (each overlaps its neighbour by the crease overprint) with equal vertical extent, so their
+ * union is one rectangle. Typically:
+ * - FRONT…BACK (and LEFT, for an image crossing the LEFT | FRONT corner — LEFT lies directly left of FRONT on the sheet)
+ *   → one image (`artwork-WRAP-<id>`, the group containing FRONT);
+ * - the LEFT column showing the END of the wrap (the same image shifted by the wrap width) → `artwork-WRAP-<id>-LEFT`;
+ * - other groups → `artwork-WRAP-<id>-<first wall>`.
+ * All images of a layer are edited as one (same target) and keep the layer order (bottom → top), after wall images.
+ * `row` = sheet x extent of the wall columns: the selection area of a whole-bag layer (it covers every wall).
  */
-function mergeWrapImages(images: SceneImage[], layerOrder: readonly ArtworkTarget[]): SceneImage[] {
+function mergeWrapImages(images: SceneImage[], row: { x0: number; x1: number }): SceneImage[] {
   const groups = new Map<string, { layerId: string; images: SceneImage[] }>();
   for (const image of images) {
     const layerId = getWrapLayerId(image.target);
@@ -310,24 +331,25 @@ function mergeWrapImages(images: SceneImage[], layerOrder: readonly ArtworkTarge
   }
   if (groups.size === 0) return images;
   const merged: SceneImage[] = [];
+  const used = new Set<string>();
   for (const { layerId, images: group } of groups.values()) {
     const first = group[0];
-    const suffix = first.panel === 'LEFT' ? '-LEFT' : '';
+    const base = group.some((image) => image.panel === 'FRONT') ? '' : `-${first.panel}`;
+    let suffix = base;
+    for (let n = 2; used.has(`${layerId}${suffix}`); n++) suffix = `${base}-${n}`;
+    used.add(`${layerId}${suffix}`);
     const minX = Math.min(...group.map((image) => image.clip.x));
     const maxX = Math.max(...group.map((image) => image.clip.x + image.clip.width));
-    const areaMinX = Math.min(...group.map((image) => image.area.x));
-    const areaMaxX = Math.max(...group.map((image) => image.area.x + image.area.width));
     merged.push({
       ...first,
       id: `artwork-WRAP-${layerId}${suffix}`,
       segment: 'WRAP',
       clip: { ...first.clip, id: `clip-WRAP-${layerId}${suffix}`, x: fmt(minX), width: fmt(maxX - minX) },
-      area: { ...first.area, id: `area-WRAP-${layerId}${suffix}`, x: fmt(areaMinX), width: fmt(areaMaxX - areaMinX) },
+      area: { ...first.area, id: `area-WRAP-${layerId}${suffix}`, x: fmt(row.x0), width: fmt(row.x1 - row.x0) },
     });
   }
   // Groups were created column by column (LEFT first), so restore the layer order (stable sort).
-  const rank = (image: SceneImage) => layerOrder.indexOf(image.target);
-  merged.sort((a, b) => rank(a) - rank(b));
+  merged.sort((a, b) => (a.stackIndex ?? 0) - (b.stackIndex ?? 0));
   return [...images.filter((image) => getWrapLayerId(image.target) === null), ...merged];
 }
 

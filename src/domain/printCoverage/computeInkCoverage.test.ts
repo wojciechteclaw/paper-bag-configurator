@@ -214,11 +214,12 @@ describe('computeInkCoverage', () => {
         WRAP_PANEL_ORDER.map((position) => [
           position,
           resolved[position].layers.map(
-            (layer, i): CoveragePanelInput => ({
-              imageSize: { width: samples[i].width, height: samples[i].height },
+            (layer): CoveragePanelInput => ({
+              imageSize: { width: samples[layer.stackIndex!].width, height: samples[layer.stackIndex!].height },
               placement: layer.placement,
               area: layer.area,
-              sample: samples[i],
+              clipX: layer.clipX,
+              sample: samples[layer.stackIndex!],
             }),
           ),
         ]),
@@ -286,6 +287,25 @@ describe('computeInkCoverage', () => {
       expect(result.colors[0].area).toBeCloseTo(700 * 400, -3); // red on the walls (grid cells straddle the bottom line)
       expect(result.colors[1].area).toBeCloseTo(700 * 90, -3); // blue only on the bottom allowance
       expect(result.panels.FRONT?.printArea).toBeCloseTo(200 * 490, 6);
+    });
+
+    it('counts an image straddling the LEFT | FRONT corner on both walls, once (cyclic wrap)', () => {
+      // 100 × 100 mm red square centred on FRONT's left edge (wrap x 0 ≡ 700), y 150…250.
+      const result = computeInkCoverage({
+        dieline,
+        panels: wrapInputs([
+          {
+            rows: [[RED]],
+            placement: { mode: 'CUSTOM', offsetX: -350, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false },
+          },
+        ]),
+        paperColor: 'WHITE',
+        pantoneColors: palette,
+      });
+      expect(result.panels.FRONT?.inkArea).toBeCloseTo(50 * 100, -2);
+      expect(result.panels.LEFT?.inkArea).toBeCloseTo(50 * 100, -2);
+      expect(result.panels.RIGHT?.inkArea).toBe(0);
+      expect(result.inkArea).toBeCloseTo(100 * 100, -2);
     });
   });
 });

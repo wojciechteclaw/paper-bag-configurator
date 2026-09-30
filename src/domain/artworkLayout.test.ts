@@ -27,6 +27,9 @@ import {
   fillPlacement,
   getArtworkRect,
   getPanelArtworkArea,
+  movePlacement,
+  normalizePlacement,
+  wrapIntoPeriod,
 } from './artworkPlacement';
 import { MAX_WRAP_ARTWORK_LAYERS } from './config/productCatalog';
 import { buildDieline } from './dieline';
@@ -72,8 +75,8 @@ describe('wrap geometry', () => {
 
   it('covers the four walls (glue flap excluded), plus the bottom allowance when extended', () => {
     const dimensions = { width: 200, height: 400, depth: 150 };
-    expect(getWrapArtworkArea(dimensions, { extendToBottom: false })).toEqual({ x: 0, y: 0, width: 700, height: 400 });
-    expect(getWrapArtworkArea(dimensions, { extendToBottom: true })).toEqual({ x: 0, y: -90, width: 700, height: 490 });
+    expect(getWrapArtworkArea(dimensions, { extendToBottom: false })).toEqual({ x: 0, y: 0, width: 700, height: 400, periodicX: true });
+    expect(getWrapArtworkArea(dimensions, { extendToBottom: true })).toEqual({ x: 0, y: -90, width: 700, height: 490, periodicX: true });
     expect(getArtworkTargetSize(wrapLayerTarget('a'), dimensions)).toEqual({ width: 700, height: 400 });
     expect(getArtworkTargetSize('LEFT', dimensions)).toEqual({ width: 150, height: 400 });
     expect(getArtworkTargetArea('FRONT', dimensions, { extendToBottom: true })).toEqual(
@@ -84,6 +87,7 @@ describe('wrap geometry', () => {
       y: -90,
       width: 700,
       height: 490,
+      periodicX: true,
     });
   });
 });
@@ -113,7 +117,8 @@ describe('getWrapLayers / migration of the pre-layer wrapArtwork', () => {
     const target = wrapLayerTarget(layers[0].id);
     expect(getActiveArtworkTargets(configuration)).toEqual([target]);
     expect(getArtworkSlot(configuration, target).artwork).toBe(legacyArtwork);
-    expect(resolvePanelArtwork(configuration, 'FRONT').layers).toHaveLength(1);
+    // Rotated contain: a 280 mm wide image centred on the wrap (x 210…490) — on RIGHT and BACK only.
+    expect(Object.values(resolvePanelArtworks(configuration)).map((p) => p.layers.length)).toEqual([0, 1, 0, 1]);
   });
 
   it('migrates an empty legacy slot (and data without any wrap field) to no layers', () => {
@@ -153,7 +158,7 @@ describe('resolvePanelArtwork', () => {
     configuration.wrapLayers = [createWrapLayer(artwork('kept-wrap'))];
     const resolved = resolvePanelArtworks(configuration);
     expect(resolved.FRONT.layers).toEqual([
-      { target: 'FRONT', artwork: configuration.panels.FRONT.artwork, placement: configuration.panels.FRONT.placement, area: { x: 0, y: 0, width: 200, height: 400 } },
+      { target: 'FRONT', artwork: configuration.panels.FRONT.artwork, placement: configuration.panels.FRONT.placement, area: { x: 0, y: 0, width: 200, height: 400 }, stackIndex: 0 },
     ]);
     expect(resolved.BACK.layers).toEqual([]);
     expect(resolved.BACK.extendsToBottom).toBe(false);
@@ -173,12 +178,12 @@ describe('resolvePanelArtwork', () => {
       expect(resolved[position].layers[1].placement).toBe(logo.placement);
       expect(resolved[position].extendsToBottom).toBe(true);
     }
-    expect(resolved.FRONT.layers[0].area).toEqual({ x: 0, y: 0, width: 700, height: 400 });
-    expect(resolved.RIGHT.layers[0].area).toEqual({ x: -200, y: 0, width: 700, height: 400 });
-    expect(resolved.BACK.layers[0].area).toEqual({ x: -350, y: 0, width: 700, height: 400 });
-    expect(resolved.LEFT.layers[0].area).toEqual({ x: -550, y: 0, width: 700, height: 400 });
+    expect(resolved.FRONT.layers[0].area).toEqual({ x: 0, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.RIGHT.layers[0].area).toEqual({ x: -200, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.BACK.layers[0].area).toEqual({ x: -350, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.LEFT.layers[0].area).toEqual({ x: -550, y: 0, width: 700, height: 400, periodicX: true });
     // Each layer has its own "extend to bottom".
-    expect(resolved.LEFT.layers[1].area).toEqual({ x: -550, y: -90, width: 700, height: 490 });
+    expect(resolved.LEFT.layers[1].area).toEqual({ x: -550, y: -90, width: 700, height: 490, periodicX: true });
     expect(getActiveArtworkTargets(configuration)).toEqual(configuration.wrapLayers.map((l) => wrapLayerTarget(l.id)));
   });
 
@@ -259,5 +264,65 @@ describe('getNewWrapLayerPlacement', () => {
       expect(rect.height).toBeCloseTo(200);
       expect(placement.extendToBottom).toBe(extendToBottom);
     }
+  });
+});
+
+describe('cyclic wrap (period 2W + 2D = 700 mm)', () => {
+  /** A 100 × 100 mm logo (contain 400 mm × 0.25) centred at wrap x = 350 + offsetX, y = 200. */
+  function logoAt(offsetX: number): BagConfiguration {
+    const configuration = createConfiguration('BLOCK');
+    configuration.artworkLayout = 'WRAP';
+    configuration.wrapLayers = [
+      createWrapLayer(artwork('logo', 100, 100), { mode: 'CUSTOM', offsetX, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
+    ];
+    return configuration;
+  }
+  const walls = (configuration: BagConfiguration) =>
+    Object.fromEntries(WRAP_PANEL_ORDER.map((p) => [p, resolvePanelArtwork(configuration, p).layers.map((l) => l.clipX)]));
+
+  it('shows an image straddling the LEFT | FRONT corner on both walls, continuous across the corner', () => {
+    const configuration = logoAt(-350); // centre at FRONT's left edge (wrap x 0 ≡ 700)
+    expect(walls(configuration)).toEqual({
+      FRONT: [{ x0: -50, x1: 50 }],
+      RIGHT: [],
+      BACK: [],
+      LEFT: [{ x0: 100, x1: 200 }], // the copy one period further: LEFT's last 50 mm
+    });
+    const leftEdge = textureAt(configuration, 'LEFT', 150, 123);
+    const frontStart = textureAt(configuration, 'FRONT', 0, 123);
+    expect(leftEdge[0]).toBeCloseTo(0.5);
+    expect(frontStart[0]).toBeCloseTo(0.5);
+    expect(leftEdge[1]).toBeCloseTo(frontStart[1]);
+  });
+
+  it('continues an image past the end of the wrap (LEFT’s right edge) onto FRONT', () => {
+    const configuration = logoAt(349); // centre at wrap x 699
+    expect(walls(configuration)).toEqual({ FRONT: [{ x0: -51, x1: 49 }], RIGHT: [], BACK: [], LEFT: [{ x0: 99, x1: 199 }] });
+    expect(textureAt(configuration, 'FRONT', 0, 200)[0]).toBeCloseTo(0.51);
+  });
+
+  it('limits an image wider than the bag to one period, so its copies never overlap', () => {
+    const configuration = logoAt(0);
+    configuration.wrapLayers[0].placement = { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 3, rotation: 0, extendToBottom: false }; // 1200 mm
+    for (const position of WRAP_PANEL_ORDER) {
+      const copies = resolvePanelArtwork(configuration, position).layers.map((l) => l.clipX!);
+      for (const copy of copies) expect(copy.x1 - copy.x0).toBeCloseTo(700);
+      if (copies.length === 2) expect(copies[1].x0).toBeCloseTo(copies[0].x1);
+    }
+  });
+
+  it('keeps a FILL layer a single copy per wall (exactly one period)', () => {
+    const configuration = wrapConfiguration();
+    for (const position of WRAP_PANEL_ORDER) expect(resolvePanelArtwork(configuration, position).layers).toHaveLength(1);
+  });
+
+  it('wraps offsetX into one period instead of clamping, so a drag across either end is continuous', () => {
+    const area = getWrapArtworkArea({ width: 200, height: 400, depth: 150 }, { extendToBottom: false });
+    const start = { mode: 'CUSTOM', offsetX: -340, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false } as const;
+    const moved = movePlacement(start, -20, 0, area);
+    expect(moved).toMatchObject({ offsetX: 340 }); // −360 ≡ 340: centre from wrap x 10 to 690 ≡ −10
+    expect(movePlacement(moved, 20, 0, area)).toMatchObject({ offsetX: -340 });
+    expect(normalizePlacement({ ...start, offsetX: 350 }, area)).toMatchObject({ offsetX: -350 });
+    expect(wrapIntoPeriod(-1050, 700)).toBe(-350);
   });
 });

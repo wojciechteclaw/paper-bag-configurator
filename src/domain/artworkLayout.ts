@@ -15,8 +15,14 @@
 // the bottom allowance, y ∈ [−a, H], exactly like a single wall (§4f). Each layer has its own placement and its own
 // "extend to bottom". On the sheet (columns LEFT | FRONT | RIGHT | BACK | glue flap) the LEFT column comes first, so it
 // shows the END of the image; the glue flap is never printed [K].
+//
+// The wrap is CYCLIC (client bug report 30.09.2026: an image must move naturally across the LEFT | FRONT corner): the
+// image of a layer repeats at x + k·P (P = 2W + 2D), each copy limited to one period around the image centre
+// (`getWrapImageExtent`). The wrap area is only the reference for FILL / fit / align / centring and the vertical clip;
+// horizontally a copy is clipped to the wall and its `clipX`. `offsetX` wraps into one period (`periodicX`) instead
+// of being clamped, so dragging across either end is continuous.
 
-import { getPanelArtworkArea, normalizePlacement, type PanelArtworkArea, type Size2 } from './artworkPlacement';
+import { getArtworkRect, getPanelArtworkArea, normalizePlacement, type PanelArtworkArea, type Size2 } from './artworkPlacement';
 import { DEFAULT_ARTWORK_LAYOUT, MAX_WRAP_ARTWORK_LAYERS } from './config/productCatalog';
 import { getBottomAllowance } from './geometry/tube';
 import { getPanelSize } from './panels';
@@ -52,8 +58,19 @@ export type ResolvedArtworkLayer = {
   target: ArtworkTarget;
   artwork: Artwork;
   placement: ArtworkPlacement;
-  /** Artwork area of the placement in this wall's panel-local mm (may extend beyond the wall, e.g. for a wrap). */
+  /**
+   * Artwork area of the placement in this wall's panel-local mm (may extend beyond the wall, e.g. for a wrap). It is
+   * the reference for FILL / scale / offsets and clips the image VERTICALLY; horizontally the image is clipped to the
+   * wall (sheet column) and to `clipX`.
+   */
   area: PanelArtworkArea;
+  /**
+   * Whole-bag layers only: horizontal extent of this copy of the cyclic wrap (panel-local mm) — the image clipped to
+   * one wrap period around its centre, so neighbouring copies (x ± P) never overlap. Absent: the wall clips alone.
+   */
+  clipX?: { x0: number; x1: number };
+  /** Position of the layer in its stack (0 = bottom); a whole-bag layer keeps it on every wall and copy. */
+  stackIndex?: number;
 };
 
 /** Artwork of one wall: its layers, bottom → top (empty = bare paper). */
@@ -67,6 +84,10 @@ export type ResolvedPanelArtwork = {
 export type ResolvedPanelArtworks = Record<PanelPosition, ResolvedPanelArtwork>;
 
 const WRAP_TARGET_PREFIX = 'WRAP:';
+/** Copies of the cyclic wrap that can reach a wall (the image centre lies within one period). */
+const WRAP_COPIES = [-1, 0, 1] as const;
+/** Overlaps thinner than this (mm) do not count as "visible on the wall". */
+const WRAP_EPSILON = 1e-6;
 const NO_LAYERS: readonly WrapArtworkLayer[] = Object.freeze([]);
 const EMPTY_SLOT = Object.freeze({ artwork: null, placement: Object.freeze({ mode: 'FILL', extendToBottom: false }) }) as {
   artwork: Artwork | null;
@@ -174,9 +195,27 @@ export function getWrapArtworkArea(
   placement: Pick<ArtworkPlacement, 'extendToBottom'>,
 ): PanelArtworkArea {
   const { width, height } = getWrapSize(dimensions);
-  if (!placement.extendToBottom) return { x: 0, y: 0, width, height };
+  if (!placement.extendToBottom) return { x: 0, y: 0, width, height, periodicX: true };
   const a = getBottomAllowance(dimensions);
-  return { x: 0, y: -a, width, height: height + a };
+  return { x: 0, y: -a, width, height: height + a, periodicX: true };
+}
+
+/**
+ * Horizontal extent of a whole-bag layer's image in wrap coordinates, limited to ONE period (2W + 2D) around the
+ * image centre: the cyclic wrap repeats it at x ± P, and an image wider than the bag must not overlap itself. FILL
+ * covers exactly [0, P].
+ */
+export function getWrapImageExtent(
+  dimensions: Dimensions,
+  image: Size2,
+  placement: ArtworkPlacement,
+): { x0: number; x1: number } {
+  const area = getWrapArtworkArea(dimensions, placement);
+  const period = area.width;
+  const rect = getArtworkRect(area, image, placement, area);
+  const half = (rect.rotation === 90 || rect.rotation === 270 ? rect.height : rect.width) / 2;
+  const reach = Math.min(half, period / 2);
+  return { x0: rect.center.x - reach, x1: rect.center.x + reach };
 }
 
 /** Visible size an artwork target is printed on: the wall, or the whole wall row for a whole-bag layer. */
@@ -261,15 +300,34 @@ export function resolvePanelArtwork(configuration: ArtworkSource, position: Pane
   const { dimensions } = configuration;
   let layers: ResolvedArtworkLayer[];
   if (getArtworkLayout(configuration) === 'WRAP') {
-    const shift = getWrapPanelOffset(position, dimensions);
-    layers = getWrapLayers(configuration).map(({ id, artwork, placement }) => {
+    // The wrap is cyclic with period P = 2W + 2D (it runs around the bag): a layer's image shows at x + k·P. Every
+    // copy that reaches this wall becomes an entry (usually one; two when the image crosses FRONT's left edge — the
+    // LEFT | FRONT corner — seen from LEFT's side, or when it is wider than the wall's neighbours allow).
+    const wallX0 = getWrapPanelOffset(position, dimensions);
+    const wallX1 = wallX0 + getPanelSize(position, dimensions).width;
+    layers = [];
+    getWrapLayers(configuration).forEach(({ id, artwork, placement }, stackIndex) => {
       const area = getWrapArtworkArea(dimensions, placement);
-      return { target: wrapLayerTarget(id), artwork, placement, area: { ...area, x: area.x - shift } };
+      const extent = getWrapImageExtent(dimensions, artwork, placement);
+      for (const k of WRAP_COPIES) {
+        const x0 = extent.x0 + k * area.width;
+        const x1 = extent.x1 + k * area.width;
+        if (Math.min(x1, wallX1) - Math.max(x0, wallX0) <= WRAP_EPSILON) continue;
+        const shift = k * area.width - wallX0;
+        layers.push({
+          target: wrapLayerTarget(id),
+          artwork,
+          placement,
+          area: { ...area, x: area.x + shift },
+          clipX: { x0: x0 - wallX0, x1: x1 - wallX0 },
+          stackIndex,
+        });
+      }
     });
   } else {
     const { artwork, placement } = configuration.panels[position];
     layers = artwork
-      ? [{ target: position, artwork, placement, area: getPanelArtworkArea(position, dimensions, placement) }]
+      ? [{ target: position, artwork, placement, area: getPanelArtworkArea(position, dimensions, placement), stackIndex: 0 }]
       : [];
   }
   return { position, layers, extendsToBottom: layers.some((layer) => layer.placement.extendToBottom === true) };

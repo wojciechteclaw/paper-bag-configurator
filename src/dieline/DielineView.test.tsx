@@ -175,6 +175,23 @@ describe('DielineView', () => {
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
+  it('nudges a whole-bag layer across the LEFT | FRONT corner without stopping (cyclic wrap)', () => {
+    render(<DielineView />);
+    act(() => {
+      store().setArtworkLayout('WRAP');
+      const id = store().addWrapLayer(
+        createArtwork({ fileName: 'bg.png', fileUrl: 'blob:bg', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 10 }),
+      )!;
+      // Centre 5 mm right of FRONT's left edge (wrap x 5 of 700).
+      store().setPanelPlacement(wrapLayerTarget(id), { mode: 'CUSTOM', offsetX: -345, offsetY: 0, scale: 0.1, rotation: 0, extendToBottom: false });
+    });
+    const button = screen.getByRole('button', { name: /Grafika: Cała torba, warstwa 1/ });
+    fireEvent.keyDown(button, { key: 'ArrowLeft', shiftKey: true }); // −10 mm → wrap x −5 ≡ 695 (end of LEFT)
+    expect(store().configuration.wrapLayers[0].placement).toMatchObject({ offsetX: 345 });
+    fireEvent.keyDown(button, { key: 'ArrowRight', shiftKey: true });
+    expect(store().configuration.wrapLayers[0].placement).toMatchObject({ offsetX: -345 });
+  });
+
   it('switches labels with the language', async () => {
     render(<DielineView />);
     await act(() => i18n.changeLanguage('en'));
