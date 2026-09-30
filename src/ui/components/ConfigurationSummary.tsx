@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot } from '../../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { createNumberFormatter } from '../../i18n/numberFormat';
+import { getBagWeight } from '../../domain/bagWeight';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { ExportActions } from './ExportActions';
 
@@ -52,6 +53,15 @@ export function ConfigurationSummary() {
             {t(`paper.types.${paper.type}`)}, {t(`paper.${paper.color}`)}, {paper.grammage} {t('paper.grammageUnit')},{' '}
             {t('summary.fsc')}: {t(paper.fscCertified ? 'summary.yes' : 'summary.no')}, {t('summary.moistureBarrier')}:{' '}
             {t(paper.moistureBarrier ? 'summary.yes' : 'summary.no')}
+          </dd>
+
+          <dt>{t('paper.weight')}</dt>
+          <dd>
+            {t('paper.weightValue', {
+              grams: createNumberFormatter(i18n.resolvedLanguage ?? i18n.language, { maximumFractionDigits: 1 })(
+                getBagWeight(configuration).grams,
+              ),
+            })}
           </dd>
 
           <dt>{t('summary.handle')}</dt>

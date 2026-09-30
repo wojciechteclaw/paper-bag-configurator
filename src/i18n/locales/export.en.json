@@ -34,6 +34,7 @@
       "paperType": "Paper type",
       "paperColor": "Paper colour",
       "grammage": "Grammage",
+      "bagWeight": "Bag weight without handles",
       "fsc": "FSC® certified",
       "moistureBarrier": "Moisture barrier",
       "handleVariant": "Handle variant",

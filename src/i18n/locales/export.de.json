@@ -34,6 +34,7 @@
       "paperType": "Papiersorte",
       "paperColor": "Papierfarbe",
       "grammage": "Grammatur",
+      "bagWeight": "Gewicht der Tüte ohne Griffe",
       "fsc": "FSC®-zertifiziert",
       "moistureBarrier": "Feuchtigkeitsbarriere",
       "handleVariant": "Griffvariante",

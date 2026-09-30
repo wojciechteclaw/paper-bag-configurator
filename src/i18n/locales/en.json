@@ -143,7 +143,10 @@
       "GREASEPROOF": "Greaseproof"
     },
     "grammageRange": "Range for the selected handle: {{min}}–{{max}} g/m², in steps of {{step}} g/m²",
-    "moistureBarrier": "Moisture barrier"
+    "moistureBarrier": "Moisture barrier",
+    "weight": "Bag weight (without handles)",
+    "weightValue": "≈ {{grams}} g",
+    "weightNote": "Blank paper ({{area}} m²) × grammage — without handles, patches and glue."
   },
   "print": {
     "label": "Print",

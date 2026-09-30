@@ -143,7 +143,10 @@
       "GREASEPROOF": "Fettdichtes Papier"
     },
     "grammageRange": "Bereich für den gewählten Griff: {{min}}–{{max}} g/m², in Schritten von {{step}} g/m²",
-    "moistureBarrier": "Feuchtigkeitsbarriere"
+    "moistureBarrier": "Feuchtigkeitsbarriere",
+    "weight": "Gewicht der Tüte (ohne Griffe)",
+    "weightValue": "≈ {{grams}} g",
+    "weightNote": "Papier des Zuschnitts ({{area}} m²) × Grammatur — ohne Griffe, Verstärkungen und Leim."
   },
   "print": {
     "label": "Druck",

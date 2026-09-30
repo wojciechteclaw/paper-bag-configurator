@@ -143,7 +143,10 @@
       "GREASEPROOF": "Tłuszczoszczelny"
     },
     "grammageRange": "Zakres dla wybranego uchwytu: {{min}}–{{max}} g/m², co {{step}} g/m²",
-    "moistureBarrier": "Bariera na wilgoć"
+    "moistureBarrier": "Bariera na wilgoć",
+    "weight": "Waga torby (bez uchwytów)",
+    "weightValue": "≈ {{grams}} g",
+    "weightNote": "Papier wykroju ({{area}} m²) × gramatura — bez uchwytów, łatek i kleju."
   },
   "print": {
     "label": "Nadruk",

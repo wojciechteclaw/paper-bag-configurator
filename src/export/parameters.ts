@@ -1,6 +1,7 @@
 // Parameter list of the configuration, shared by the PDF product sheet and the Excel "Parameters" sheet.
 // Pure: configuration + dieline in, localized rows out (values stay numeric where they are numbers).
 
+import { getBagWeight } from '../domain/bagWeight';
 import { BAG_TYPES } from '../domain/config/productCatalog';
 import { getHandlePatchSize, type Dieline } from '../domain/dieline';
 import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../domain/geometry/handles';
@@ -53,6 +54,7 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     row('paperType', t(`paper.types.${paper.type}`)),
     row('paperColor', t(`paper.${paper.color}`)),
     row('grammage', paper.grammage, t('paper.grammageUnit')),
+    row('bagWeight', Math.round(getBagWeight(configuration).grams * 10) / 10, 'g'),
     row('fsc', yesNo(paper.fscCertified)),
     row('moistureBarrier', yesNo(paper.moistureBarrier)),
   ];

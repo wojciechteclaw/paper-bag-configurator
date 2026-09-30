@@ -1,18 +1,21 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getBagWeight } from '../../domain/bagWeight';
 import { BAG_TYPES } from '../../domain/config/productCatalog';
 import { getHandleVariantDefinition } from '../../domain/handleVariants';
+import { createNumberFormatter } from '../../i18n/numberFormat';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { InfoTip } from './InfoTip';
 
 /** Paper options; types, grammage range and moisture barrier come from the current handle variant. */
 export function PaperConfigurator() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const idPrefix = useId();
   const grammageId = `${idPrefix}-grammage`;
   const productType = useConfigurationStore((s) => s.configuration.productType);
   const handle = useConfigurationStore((s) => s.configuration.handle);
   const paper = useConfigurationStore((s) => s.configuration.paper);
+  const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
   const setPaperType = useConfigurationStore((s) => s.setPaperType);
   const setPaperColor = useConfigurationStore((s) => s.setPaperColor);
   const setGrammage = useConfigurationStore((s) => s.setGrammage);
@@ -23,6 +26,10 @@ export function PaperConfigurator() {
   const { paperTypes, grammage, moistureBarrierAvailable } = getHandleVariantDefinition(definition, handle);
   const grammages: number[] = [];
   for (let g = grammage.min; g <= grammage.max; g += grammage.step) grammages.push(g);
+  const weight = getBagWeight({ dimensions, paper });
+  const language = i18n.resolvedLanguage ?? i18n.language;
+  const formatGrams = createNumberFormatter(language, { maximumFractionDigits: 1 });
+  const formatArea = createNumberFormatter(language, { maximumFractionDigits: 3 });
 
   return (
     <fieldset>
@@ -83,6 +90,12 @@ export function PaperConfigurator() {
           {t('paper.grammageRange', { min: grammage.min, max: grammage.max, step: grammage.step })}
         </InfoTip>
       </div>
+
+      <p className="paper-weight">
+        {t('paper.weight')}: <strong>{t('paper.weightValue', { grams: formatGrams(weight.grams) })}</strong>
+        <br />
+        <small>{t('paper.weightNote', { area: formatArea(weight.blankAreaM2) })}</small>
+      </p>
 
       <label className="choice">
         <input type="checkbox" checked={paper.fscCertified} onChange={(e) => setFscCertified(e.target.checked)} />

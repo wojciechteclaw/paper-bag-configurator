@@ -34,6 +34,7 @@
       "paperType": "Rodzaj papieru",
       "paperColor": "Kolor papieru",
       "grammage": "Gramatura",
+      "bagWeight": "Waga torby bez uchwytów",
       "fsc": "Certyfikat FSC®",
       "moistureBarrier": "Bariera na wilgoć",
       "handleVariant": "Wariant uchwytu",
