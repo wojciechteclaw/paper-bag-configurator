@@ -219,7 +219,7 @@
       "label": "Anordnung der Druckmotive",
       "PER_PANEL": "Eigenes Motiv für jede Wand",
       "WRAP": "Motiv für die ganze Tasche (Ebenen)",
-      "wrapNote": "Das Motiv läuft rund um die Tasche: {{order}} — ab der linken Kante der Vorderseite (die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ jeder Ebene stellen Sie in der Ansicht Stanzkontur ein.",
+      "wrapNote": "Das Motiv läuft rund um die Tasche: {{order}} — in der Reihenfolge der Stanzkontur, ab der linken Kante der linken Seite (Naht; die Klebelasche bleibt unbedruckt). Position, Skalierung und „Bis zum Boden verlängern“ jeder Ebene stellen Sie in der Ansicht Stanzkontur ein.",
       "keptPanels": "Die Motive der einzelnen Wände bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt.",
       "keptWrap": "Die Ebenen des Motivs für die ganze Tasche bleiben erhalten und kehren beim Umschalten zurück; in dieser Anordnung werden sie nicht gedruckt."
     },

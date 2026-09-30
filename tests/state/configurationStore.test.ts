@@ -484,9 +484,9 @@ describe('whole-bag artwork layers', () => {
     const second = store().addWrapLayer(artwork('blob:logo')); // 100 × 200 px
     expect(layers().map((layer) => layer.id)).toEqual([first, second]);
     expect(layers()[0].placement).toEqual(DEFAULT_PLACEMENT);
-    // 200 × 400 × 150: FRONT is wrap x ∈ [0, 200] → centre 100 mm = offset −250 from the 700 mm wrap centre; a 1:2
+    // 200 × 400 × 150: FRONT is wrap x ∈ [150, 350] → centre 250 mm = offset −100 from the 700 mm wrap centre; a 1:2
     // image contained in the 200 × 400 wall is 200 × 400 mm = the same as contain in the wrap (scale 1).
-    expect(layers()[1].placement).toMatchObject({ mode: 'CUSTOM', offsetX: -250, offsetY: 0, scale: 1, rotation: 0 });
+    expect(layers()[1].placement).toMatchObject({ mode: 'CUSTOM', offsetX: -100, offsetY: 0, scale: 1, rotation: 0 });
     expect(config().panels.FRONT.artwork).toBeNull();
   });
 

@@ -219,7 +219,7 @@
       "label": "Układ grafik",
       "PER_PANEL": "Osobna grafika na każdą ściankę",
       "WRAP": "Grafika na całą torbę (warstwy)",
-      "wrapNote": "Grafiki biegną dookoła torby: {{order}} — od lewej krawędzi przodu (zakładka klejowa bez nadruku). Położenie, skalę i „Rozciągnij na dno” każdej warstwy ustawisz w widoku Wykrój.",
+      "wrapNote": "Grafiki biegną dookoła torby: {{order}} — w kolejności wykroju, od lewej krawędzi lewego boku (szew; zakładka klejowa bez nadruku). Położenie, skalę i „Rozciągnij na dno” każdej warstwy ustawisz w widoku Wykrój.",
       "keptPanels": "Grafiki poszczególnych ścianek są zachowane i wrócą po przełączeniu układu; w tym układzie nie są drukowane.",
       "keptWrap": "Warstwy grafiki całej torby są zachowane i wrócą po przełączeniu układu; w tym układzie nie są drukowane."
     },

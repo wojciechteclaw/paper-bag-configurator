@@ -119,9 +119,11 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
   `PER_PANEL`) + `BagConfiguration.wrapLayers` — uporządkowana lista warstw (§3b), każda z tym samym `Artwork` i tym
   samym `ArtworkPlacement` (FILL / CUSTOM, `extendToBottom`) co na ściance. Brak pól w starszych danych = `PER_PANEL`
   (`getArtworkLayout`, `getWrapLayers`).
-- **Mapowanie (decyzja klienta [K] 30.09.2026):** grafika **zaczyna się na lewej krawędzi przodu** i biegnie dookoła
-  torby: **FRONT | RIGHT | BACK | LEFT** (x = 0 na lewej krawędzi przodu; LEFT jest ostatni i kończy się na narożniku
-  przód / lewy bok). **Zakładka klejowa bez nadruku [K]** (idzie pod spód; poza 2 mm zachodzenia jak przy każdej
+- **Mapowanie (decyzja klienta [K] 30.09.2026, „tak jak wykrój”):** grafika **zaczyna się na lewej (wolnej)
+  krawędzi lewego boku** (szew) i biegnie w kolejności arkusza **LEFT | FRONT | RIGHT | BACK** (x = 0 na wolnej krawędzi
+  LEFT; BACK jest ostatni i kończy się na szwie przy zakładce klejowej), więc na wykroju leży 1:1 na kolumnach ścianek.
+  „Wyrównaj do lewej” dosuwa obraz do wolnej krawędzi LEFT, FILL zaczyna obraz na LEFT. (Poprawka: wcześniejsze „od
+  lewej krawędzi przodu” było błędnym odczytaniem.) **Zakładka klejowa bez nadruku [K]** (idzie pod spód; poza 2 mm zachodzenia jak przy każdej
   ściance). Obszar grafiki = `(2W + 2D) × H` (`getWrapArtworkArea`); **góra** = górna krawędź torby (+ spad 3 mm na
   wykroju); **dno**: przełącznik „Rozciągnij na dno” (osobno dla każdej warstwy) — obszar `(2W + 2D) × (H + a)`,
   grafika wchodzi w zapas na dno pod wszystkimi ściankami (klapy, trójkąty, uszy), jak w §4f. FILL rozciąga obraz na
@@ -129,8 +131,8 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
 - **Grafika cykliczna (zgłoszenie klienta 30.09.2026: „nie mogę przesunąć obrazka na przełamanie pomiędzy lewą a
   przednią ścianką”):** torba to obwód, więc grafika warstwy powtarza się co `P = 2W + 2D` — obraz leży w x + k·P,
   a każda kopia jest ograniczona do jednego okresu wokół środka obrazu (obraz szerszy niż torba nie nachodzi sam na
-  siebie; `getWrapImageExtent`). Obraz przesunięty w lewo za lewą krawędź przodu pojawia się na końcu lewego boku
-  (i odwrotnie). Obszar grafiki jest już tylko odniesieniem dla FILL / dopasowania / wyrównania / środka i przycina
+  siebie; `getWrapImageExtent`). Obraz przesunięty w lewo za wolną krawędź lewego boku pojawia się na końcu tyłu
+  (szew BACK | LEFT), i odwrotnie; przez narożniki wewnątrz rzędu (np. LEFT | FRONT) przechodzi w sposób ciągły. Obszar grafiki jest już tylko odniesieniem dla FILL / dopasowania / wyrównania / środka i przycina
   **pionowo** (z „Rozciągnij na dno” lub bez); **poziomo** kopię przycina ścianka (kolumna) i jej zasięg (`clipX`).
   `offsetX` warstwy jest zawijany do jednego okresu `[−P/2, P/2)` (`periodicX` w obszarze, `normalizePlacement`) zamiast
   przycinania, więc przeciąganie przez narożnik jest ciągłe (obraz nie skacze, zmienia się tylko zapis przesunięcia).
@@ -138,13 +140,12 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
   każdej ścianki listę warstw (od spodu) z grafiką, placementem i obszarem grafiki w jej współrzędnych — dla warstwy
   całej torby osobny wpis na każdą kopię widoczną na ściance (zwykle jeden, dwa przy obrazie na narożniku), z polami
   `clipX` (zasięg kopii) i `stackIndex` (miejsce w stosie). Obszar to szerszy obszar przesunięty o położenie ścianki
-  dookoła torby (`getWrapPanelOffset`: FRONT 0, RIGHT W, BACK W + D, LEFT 2W + D) i o k·P. Renderer 3D (ścianki, części
+  dookoła torby (`getWrapPanelOffset`: LEFT 0, FRONT D, RIGHT D + W, BACK 2D + W) i o k·P. Renderer 3D (ścianki, części
   dna, elementy arkusza), wykrój 2D, pokrycie farbą i eksport korzystają z tego samego `computePanelUvTransform`, więc
-  obraz jest ciągły na wszystkich krawędziach ścianek (także na narożniku LEFT | FRONT) i łamie się na bigach.
-- **Wykrój 2D:** kolumny arkusza pozostają w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka**. Kolumny, w których
-  kopie leżą w tym samym miejscu arkusza, tworzą jeden obraz: FRONT…BACK, a obraz przechodzący przez narożnik LEFT |
-  FRONT (lewy bok leży na arkuszu tuż na lewo od przodu) — jeden obraz przez obie kolumny. Kolumna LEFT z końcem grafiki
-  i obraz na szwie BACK | LEFT (rozdzielony między końce arkusza) to osobne elementy tego samego obrazu. Przycięcie:
+  obraz jest ciągły na wszystkich krawędziach ścianek (także na szwie BACK | LEFT) i łamie się na bigach.
+- **Wykrój 2D:** kolumny arkusza **LEFT | FRONT | RIGHT | BACK | zakładka** — grafika leży na nich 1:1 (ta sama
+  kolejność), więc warstwa to zwykle jeden obraz przez wszystkie kolumny, do których sięga. Tylko obraz na szwie
+  BACK | LEFT (na końcach grafiki) jest rozdzielony między końce arkusza — dwa elementy tego samego obrazu. Przycięcie:
   kolumna (+ 2 mm zachodzenia / spad) ∩ zasięg kopii (+ 2 mm); zakładka klejowa zawsze bez nadruku. Elementy niewidoczne
   są pomijane. Przeciąganie / skalowanie / klawisze działają na warstwie — wszystkie jej elementy przesuwają się razem.
   Obszar zaznaczonej warstwy to wszystkie ścianki. Plik użyty kilka razy jest osadzany w SVG raz (`<image>` w `<defs>`
@@ -543,8 +544,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
   (ł → l). Osadzić font Unicode?
 - Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?
 - ~~Grafika na całą torbę (§3a): gdzie zaczyna się grafika (szew / kolejność arkusza czy przód)?~~ — rozstrzygnięte
-  [K] (30.09.2026): **od lewej krawędzi przodu**, dookoła torby FRONT | RIGHT | BACK | LEFT; na wykroju kolumna LEFT
-  pokazuje koniec grafiki (§3a).
+  [K] (30.09.2026, „tak jak wykrój”): **od wolnej krawędzi lewego boku**, w kolejności arkusza LEFT | FRONT | RIGHT |
+  BACK; grafika leży na wykroju 1:1 (§3a). (Wcześniejszy zapis „od lewej krawędzi przodu” był błędnym odczytaniem.)
 - ~~Grafika na całą torbę: czy zakładka klejowa może być zadrukowana?~~ — rozstrzygnięte [K] (30.09.2026): **nie**,
   zakładka idzie pod spód i zostaje bez nadruku (dla wszystkich warstw; 2 mm zachodzenia jak przy ściankach).
 - Warstwy grafiki (§3b) — przyjęte założenia do potwierdzenia: (1) limit 8 warstw; (2) nowa warstwa po pierwszej

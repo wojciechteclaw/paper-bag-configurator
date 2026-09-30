@@ -38,9 +38,9 @@ describe('ArtworkConfigurator — artwork layout', () => {
     expect(screen.queryByRole('button', { name: /^Ścianka / })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Dodaj warstwę grafiki całej torby' })).toBeInTheDocument();
     expect(screen.getByText(/Brak warstw/)).toBeInTheDocument();
-    // Wrap size 2W + 2D × H, layer count and the order around the bag (from FRONT's left edge).
+    // Wrap size 2W + 2D × H, layer count and the order around the bag (sheet order, from LEFT's free edge).
     expect(screen.getByText(`700 × 400 mm · 0 z ${MAX_WRAP_ARTWORK_LAYERS}`)).toBeInTheDocument();
-    expect(screen.getByText(/Przednia \| Prawa \| Tylna \| Lewa — od lewej krawędzi przodu/)).toBeInTheDocument();
+    expect(screen.getByText(/Lewa \| Przednia \| Prawa \| Tylna — w kolejności wykroju, od lewej krawędzi lewego boku/)).toBeInTheDocument();
   });
 
   it('tells the user that artwork of the inactive layout is kept', () => {

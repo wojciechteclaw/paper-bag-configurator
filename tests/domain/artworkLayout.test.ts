@@ -61,10 +61,13 @@ function textureAt(configuration: BagConfiguration, position: PanelPosition, x: 
 }
 
 describe('wrap geometry', () => {
-  it('runs around the bag from the left edge of FRONT (client decision): FRONT | RIGHT | BACK | LEFT', () => {
+  it('runs around the bag in sheet order from the free edge of LEFT (client decision): LEFT | FRONT | RIGHT | BACK', () => {
     const { dimensions } = createConfiguration('BLOCK');
-    expect(WRAP_PANEL_ORDER).toEqual(['FRONT', 'RIGHT', 'BACK', 'LEFT']);
-    expect(WRAP_PANEL_ORDER.map((p) => getWrapPanelOffset(p, dimensions))).toEqual([0, 200, 350, 550]);
+    expect(WRAP_PANEL_ORDER).toEqual(['LEFT', 'FRONT', 'RIGHT', 'BACK']);
+    expect(WRAP_PANEL_ORDER.map((p) => getWrapPanelOffset(p, dimensions))).toEqual([0, 150, 350, 500]);
+    // The wrap lies 1:1 on the dieline wall columns.
+    const dieline = buildDieline({ dimensions, handle: null });
+    for (const segment of dieline.segments) expect(getWrapPanelOffset(segment.panel, dimensions)).toBe(segment.x0);
   });
 
   it('keeps the sheet order LEFT | FRONT | RIGHT | BACK for the dieline columns and per-wall listings', () => {
@@ -117,8 +120,8 @@ describe('getWrapLayers / migration of the pre-layer wrapArtwork', () => {
     const target = wrapLayerTarget(layers[0].id);
     expect(getActiveArtworkTargets(configuration)).toEqual([target]);
     expect(getArtworkSlot(configuration, target).artwork).toBe(legacyArtwork);
-    // Rotated contain: a 280 mm wide image centred on the wrap (x 210…490) — on RIGHT and BACK only.
-    expect(Object.values(resolvePanelArtworks(configuration)).map((p) => p.layers.length)).toEqual([0, 1, 0, 1]);
+    // Rotated contain: a 280 mm wide image centred on the wrap (x 210…490) — on FRONT and RIGHT only.
+    expect(Object.values(resolvePanelArtworks(configuration)).map((p) => p.layers.length)).toEqual([1, 0, 0, 1]);
   });
 
   it('migrates an empty legacy slot (and data without any wrap field) to no layers', () => {
@@ -178,20 +181,20 @@ describe('resolvePanelArtwork', () => {
       expect(resolved[position].layers[1].placement).toBe(logo.placement);
       expect(resolved[position].extendsToBottom).toBe(true);
     }
-    expect(resolved.FRONT.layers[0].area).toEqual({ x: 0, y: 0, width: 700, height: 400, periodicX: true });
-    expect(resolved.RIGHT.layers[0].area).toEqual({ x: -200, y: 0, width: 700, height: 400, periodicX: true });
-    expect(resolved.BACK.layers[0].area).toEqual({ x: -350, y: 0, width: 700, height: 400, periodicX: true });
-    expect(resolved.LEFT.layers[0].area).toEqual({ x: -550, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.LEFT.layers[0].area).toEqual({ x: 0, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.FRONT.layers[0].area).toEqual({ x: -150, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.RIGHT.layers[0].area).toEqual({ x: -350, y: 0, width: 700, height: 400, periodicX: true });
+    expect(resolved.BACK.layers[0].area).toEqual({ x: -500, y: 0, width: 700, height: 400, periodicX: true });
     // Each layer has its own "extend to bottom".
-    expect(resolved.LEFT.layers[1].area).toEqual({ x: -550, y: -90, width: 700, height: 490, periodicX: true });
+    expect(resolved.BACK.layers[1].area).toEqual({ x: -500, y: -90, width: 700, height: 490, periodicX: true });
     expect(getActiveArtworkTargets(configuration)).toEqual(configuration.wrapLayers.map((l) => wrapLayerTarget(l.id)));
   });
 
-  it('maps a FILL layer continuously around the bag: FRONT starts at t = 0, LEFT ends at t = 1', () => {
+  it('maps a FILL layer continuously around the bag: LEFT starts at t = 0, BACK ends at t = 1', () => {
     const configuration = wrapConfiguration();
-    expect(textureAt(configuration, 'FRONT', 0, 0)).toEqual([0, 0]);
-    expect(textureAt(configuration, 'LEFT', 150, 400)[0]).toBeCloseTo(1);
-    expect(textureAt(configuration, 'LEFT', 150, 400)[1]).toBeCloseTo(1);
+    expect(textureAt(configuration, 'LEFT', 0, 0)).toEqual([0, 0]);
+    expect(textureAt(configuration, 'BACK', 200, 400)[0]).toBeCloseTo(1);
+    expect(textureAt(configuration, 'BACK', 200, 400)[1]).toBeCloseTo(1);
     // Right edge of each wall = left edge of the next one around the bag.
     for (let i = 0; i < WRAP_PANEL_ORDER.length - 1; i++) {
       const wall = WRAP_PANEL_ORDER[i];
@@ -201,8 +204,8 @@ describe('resolvePanelArtwork', () => {
       expect(right[0]).toBeCloseTo(left[0]);
       expect(right[1]).toBeCloseTo(left[1]);
     }
-    // LEFT starts 550 mm into the 700 mm wrap.
-    expect(textureAt(configuration, 'LEFT', 0, 0)[0]).toBeCloseTo(550 / 700);
+    // FRONT starts 150 mm into the 700 mm wrap.
+    expect(textureAt(configuration, 'FRONT', 0, 0)[0]).toBeCloseTo(150 / 700);
   });
 
   it('extends a layer over the bottom allowance of every wall (the image bottom at y = −a)', () => {
@@ -216,9 +219,9 @@ describe('resolvePanelArtwork', () => {
   it('keeps a CUSTOM layer placement centred on the whole wrap, not on each wall', () => {
     const configuration = wrapConfiguration();
     configuration.wrapLayers[0].placement = containPlacement(); // 1400 × 800 px in 700 × 400 mm: exactly fills
-    expect(textureAt(configuration, 'FRONT', 0, 0)[0]).toBeCloseTo(0);
-    // The wrap centre (350 mm) lies 150 mm into BACK.
-    expect(textureAt(configuration, 'BACK', 0, 200)[0]).toBeCloseTo(0.5);
+    expect(textureAt(configuration, 'LEFT', 0, 0)[0]).toBeCloseTo(0);
+    // The wrap centre (350 mm) is the FRONT | RIGHT corner.
+    expect(textureAt(configuration, 'RIGHT', 0, 200)[0]).toBeCloseTo(0.5);
   });
 
   it('reads older data without the layout fields as per-wall artwork', () => {
@@ -257,8 +260,8 @@ describe('getNewWrapLayerPlacement', () => {
       const placement = getNewWrapLayerPlacement(dimensions, { width: 100, height: 100 }, 2, extendToBottom);
       const area = getWrapArtworkArea(dimensions, { extendToBottom });
       const rect = getArtworkRect(area, { width: 100, height: 100 }, placement, area);
-      // A square image contained in the 200 × 400 mm FRONT wall: 200 × 200 mm around its centre (100, 200).
-      expect(rect.center.x).toBeCloseTo(100);
+      // A square image contained in the 200 × 400 mm FRONT wall (wrap x 150…350): 200 × 200 mm around (250, 200).
+      expect(rect.center.x).toBeCloseTo(250);
       expect(rect.center.y).toBeCloseTo(200);
       expect(rect.width).toBeCloseTo(200);
       expect(rect.height).toBeCloseTo(200);
@@ -280,25 +283,31 @@ describe('cyclic wrap (period 2W + 2D = 700 mm)', () => {
   const walls = (configuration: BagConfiguration) =>
     Object.fromEntries(WRAP_PANEL_ORDER.map((p) => [p, resolvePanelArtwork(configuration, p).layers.map((l) => l.clipX)]));
 
-  it('shows an image straddling the LEFT | FRONT corner on both walls, continuous across the corner', () => {
-    const configuration = logoAt(-350); // centre at FRONT's left edge (wrap x 0 ≡ 700)
+  it('shows an image straddling the BACK | LEFT seam (the wrap ends) on both walls, continuous across the seam', () => {
+    const configuration = logoAt(-350); // centre at LEFT's free edge (wrap x 0 ≡ 700, BACK's end)
     expect(walls(configuration)).toEqual({
-      FRONT: [{ x0: -50, x1: 50 }],
+      LEFT: [{ x0: -50, x1: 50 }],
+      FRONT: [],
       RIGHT: [],
-      BACK: [],
-      LEFT: [{ x0: 100, x1: 200 }], // the copy one period further: LEFT's last 50 mm
+      BACK: [{ x0: 150, x1: 250 }], // the copy one period further: BACK's last 50 mm
     });
-    const leftEdge = textureAt(configuration, 'LEFT', 150, 123);
-    const frontStart = textureAt(configuration, 'FRONT', 0, 123);
-    expect(leftEdge[0]).toBeCloseTo(0.5);
-    expect(frontStart[0]).toBeCloseTo(0.5);
-    expect(leftEdge[1]).toBeCloseTo(frontStart[1]);
+    const backEdge = textureAt(configuration, 'BACK', 200, 123);
+    const leftStart = textureAt(configuration, 'LEFT', 0, 123);
+    expect(backEdge[0]).toBeCloseTo(0.5);
+    expect(leftStart[0]).toBeCloseTo(0.5);
+    expect(backEdge[1]).toBeCloseTo(leftStart[1]);
   });
 
-  it('continues an image past the end of the wrap (LEFT’s right edge) onto FRONT', () => {
+  it('continues an image past the end of the wrap (BACK’s right edge) onto LEFT', () => {
     const configuration = logoAt(349); // centre at wrap x 699
-    expect(walls(configuration)).toEqual({ FRONT: [{ x0: -51, x1: 49 }], RIGHT: [], BACK: [], LEFT: [{ x0: 99, x1: 199 }] });
-    expect(textureAt(configuration, 'FRONT', 0, 200)[0]).toBeCloseTo(0.51);
+    expect(walls(configuration)).toEqual({ LEFT: [{ x0: -51, x1: 49 }], FRONT: [], RIGHT: [], BACK: [{ x0: 149, x1: 249 }] });
+    expect(textureAt(configuration, 'LEFT', 0, 200)[0]).toBeCloseTo(0.51);
+  });
+
+  it('shows an image on the LEFT | FRONT corner (inside the wrap) on both walls', () => {
+    const configuration = logoAt(-200); // centre at wrap x 150
+    expect(walls(configuration)).toEqual({ LEFT: [{ x0: 100, x1: 200 }], FRONT: [{ x0: -50, x1: 50 }], RIGHT: [], BACK: [] });
+    expect(textureAt(configuration, 'LEFT', 150, 123)[0]).toBeCloseTo(textureAt(configuration, 'FRONT', 0, 123)[0]);
   });
 
   it('limits an image wider than the bag to one period, so its copies never overlap', () => {
