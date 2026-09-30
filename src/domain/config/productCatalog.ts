@@ -59,6 +59,8 @@ export type BagTypeDefinition = {
   paperColors: PaperColor[];
   print: { technologies: PrintTechnology[]; maxColors: number };
   packaging: PackagingType[];
+  /** Width s of the longitudinal glue flap (seam overlap), mm — configurable per bag (client [K], 30.09.2026). */
+  glueFlap: { min: number; max: number; default: number };
 };
 
 const size = (width: number, depth: number, height: number, sizeClass?: StandardSizeClass): StandardSize => ({
@@ -146,6 +148,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     type: 'BLOCK',
     available: true,
     defaultDimensions: { width: 200, height: 400, depth: 150 },
+    glueFlap: { min: 10, max: 20, default: 10 },
     limits: {
       width: { min: 75, max: 450 },
       height: { min: 170, max: 470 },
@@ -161,6 +164,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     type: 'FOLDED',
     available: false,
     defaultDimensions: { width: 200, height: 400, depth: 150 },
+    glueFlap: { min: 10, max: 20, default: 15 },
     limits: {
       width: { min: 75, max: 450 },
       height: { min: 170, max: 470 },

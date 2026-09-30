@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo } from 'react';
 import { resolvePanelArtworks } from '../domain/artworkLayout';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
+import { getGlueFlapWidth } from '../domain/glueFlap';
 import { BACKGROUND_COLOR } from './camera';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { StudioLighting } from './lighting';
@@ -30,6 +31,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
       <StudioLighting />
       <BagModel
         dimensions={dimensions}
+        glueFlapWidth={getGlueFlapWidth(configuration)}
         paperColor={configuration.paper.color}
         artworks={artworks}
         handle={configuration.handle}

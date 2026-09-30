@@ -68,7 +68,7 @@ export function getHandlePatchSize(handle: Handle, width: number): { width: numb
 }
 
 export function buildDieline(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'>,
+  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth'>>,
   options: DielineOptions = {},
 ): Dieline {
   const { dimensions, handle } = configuration;
@@ -76,7 +76,7 @@ export function buildDieline(
   const rules = DIELINE_RULES;
   const a = getBottomAllowance(dimensions);
   const h = Math.min(D / 2, H);
-  const s = Math.max(0, options.glueFlapWidth ?? rules.glueFlapWidth);
+  const s = Math.max(0, options.glueFlapWidth ?? configuration.glueFlapWidth ?? rules.glueFlapWidth);
 
   const sheetWidth = 2 * W + 2 * D + s;
   const sheetHeight = H + a;

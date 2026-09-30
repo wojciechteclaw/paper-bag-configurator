@@ -7,6 +7,7 @@ import type { StandardSize } from '../../domain/config/productCatalog';
 import type { Dimensions } from '../../domain/types';
 import { getDimensionWarnings, getMinTrapezoidWidth } from '../../domain/validation/bottom';
 import { validateDimensionValue } from '../../domain/validation/dimensions';
+import { getGlueFlapWidth } from '../../domain/glueFlap';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { DimensionIcon } from './DimensionIcon';
 import { InfoTip } from './InfoTip';
@@ -177,11 +178,63 @@ export function DimensionsForm() {
           </div>
         );
       })}
+      <GlueFlapField />
       {warnings.map((warning) => (
         <p key={warning} className="warning" role="status" data-warning={warning}>
           {t(`dimensions.warnings.${warning}`, { minWidth: getMinTrapezoidWidth(dimensions.depth) })}
         </p>
       ))}
     </fieldset>
+  );
+}
+
+/** Width s of the longitudinal glue flap (seam overlap), whole mm in the bag type's range; committed on blur / Enter. */
+function GlueFlapField() {
+  const { t } = useTranslation();
+  const id = `${useId()}-glueFlap`;
+  const productType = useConfigurationStore((s) => s.configuration.productType);
+  const value = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
+  const setGlueFlapWidth = useConfigurationStore((s) => s.setGlueFlapWidth);
+  const [draft, setDraft] = useState<string | undefined>(undefined);
+  const { min, max } = BAG_TYPES[productType].glueFlap;
+
+  const commit = () => {
+    if (draft === undefined) return;
+    setGlueFlapWidth(parseNumberDraft(draft));
+    setDraft(undefined);
+  };
+  const change = (raw: string) => {
+    setDraft(raw);
+    const next = parseNumberDraft(raw);
+    if (Number.isInteger(next) && next >= min && next <= max) setGlueFlapWidth(next);
+  };
+
+  return (
+    <div className="field field--dimension">
+      <label htmlFor={id}>
+        <span aria-hidden="true" className="field__icon-spacer" />
+        <span>{t('dimensions.glueFlap')}</span>
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        step={1}
+        value={draft ?? String(value)}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => change(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setDraft(undefined);
+        }}
+      />
+      <span>{t('dimensions.unit')}</span>
+      <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: t('dimensions.glueFlap') })}>
+        {t('dimensions.glueFlapInfo', { min, max })}
+      </InfoTip>
+    </div>
   );
 }

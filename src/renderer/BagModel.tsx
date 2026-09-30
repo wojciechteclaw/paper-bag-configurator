@@ -1,4 +1,5 @@
 import { Html, Line } from '@react-three/drei';
+import { DIELINE_RULES } from '../domain/config/productionRules';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { BackSide, FrontSide, type BufferGeometry, type Group, type InterleavedBufferAttribute, type Texture } from 'three';
@@ -69,6 +70,8 @@ type LineRef = ComponentRef<typeof Line>;
 
 type BagModelProps = {
   dimensions: Dimensions;
+  /** Glue flap width s, mm (default: DIELINE_RULES.glueFlapWidth). */
+  glueFlapWidth?: number;
   paperColor: PaperColor;
   /**
    * What every wall shows — its artwork layers (bottom → top), each with placement and artwork area
@@ -212,6 +215,7 @@ function useWallTexture(
 
 export function BagModel({
   dimensions,
+  glueFlapWidth = DIELINE_RULES.glueFlapWidth,
   paperColor,
   artworks,
   handle,
@@ -223,8 +227,8 @@ export function BagModel({
   const dims = useMemo(() => ({ width, height, depth }), [width, height, depth]);
   const palette = PAPER_PALETTES[paperColor] ?? PAPER_PALETTES.WHITE;
 
-  const meshes = useMemo(() => createBagMeshes(dims), [dims]);
-  const assemblyMeshes = useMemo(() => createAssemblyMeshes(dims), [dims]);
+  const meshes = useMemo(() => createBagMeshes(dims, glueFlapWidth), [dims, glueFlapWidth]);
+  const assemblyMeshes = useMemo(() => createAssemblyMeshes(dims, glueFlapWidth), [dims, glueFlapWidth]);
   // Every distinct image is loaded once for the whole bag (a whole-bag layer is shown by all four walls).
   const urls = useMemo(
     () => Object.values(artworks).flatMap((panel) => panel.layers.map((layer) => layer.artwork.fileUrl)),
@@ -250,14 +254,20 @@ export function BagModel({
   useEffect(() => () => assemblyMeshes.forEach((m) => m.geometry.dispose()), [assemblyMeshes]);
 
   // Panel boundaries + the paper edges on the inside of the bottom (seen through the open top only).
-  const edgeSpecs = useMemo(() => [...getEdgeSpecs(dims), ...getInnerBottomEdgeSpecs(dims)], [dims]);
+  const edgeSpecs = useMemo(
+    () => [...getEdgeSpecs(dims), ...getInnerBottomEdgeSpecs(dims, glueFlapWidth)],
+    [dims, glueFlapWidth],
+  );
   const creaseSpecs = useMemo(() => getCreaseSpecs(dims), [dims]);
   const edgePoints = useMemo(() => placeholderPoints(edgeSpecs.length), [edgeSpecs]);
   const creasePoints = useMemo(() => placeholderPoints(creaseSpecs.length), [creaseSpecs]);
-  const assemblyLines = useMemo(() => getAssemblyLineSpecs(dims), [dims]);
+  const assemblyLines = useMemo(() => getAssemblyLineSpecs(dims, glueFlapWidth), [dims, glueFlapWidth]);
   const sheetCutPoints = useMemo(() => placeholderPoints(assemblyLines.cut.length), [assemblyLines]);
   const sheetCreasePoints = useMemo(() => placeholderPoints(assemblyLines.crease.length), [assemblyLines]);
-  const debugEdges = useMemo(() => (debugLines ? getAssemblyDebugEdges(dims) : []), [debugLines, dims]);
+  const debugEdges = useMemo(
+    () => (debugLines ? getAssemblyDebugEdges(dims, glueFlapWidth) : []),
+    [debugLines, dims, glueFlapWidth],
+  );
   const debugPoints = useMemo(() => placeholderPoints(debugEdges.length), [debugEdges]);
   const debugRef = useRef<LineRef>(null);
   const debugLabels = useRef<(Group | null)[]>([]);
@@ -284,7 +294,7 @@ export function BagModel({
       // Html labels are DOM overlays: they ignore the hidden group, so toggle them explicitly.
       for (const element of debugLabelElements.current) if (element) element.style.display = assembling ? '' : 'none';
       if (assembling) {
-        const frame = getAssemblyFrame(dims, q);
+        const frame = getAssemblyFrame(dims, q, glueFlapWidth);
         for (const mesh of assemblyMeshes) updateAssemblyMesh(mesh, frame);
         writeAssemblyLine(sheetCutRef.current, assemblyLines.cut, frame);
         writeAssemblyLine(sheetCreaseRef.current, assemblyLines.crease, frame);
@@ -319,7 +329,7 @@ export function BagModel({
         group.scale.set(1, 1, squash);
       }
     },
-    [dims, meshes, assemblyMeshes, edgeSpecs, creaseSpecs, assemblyLines, debugEdges],
+    [dims, glueFlapWidth, meshes, assemblyMeshes, edgeSpecs, creaseSpecs, assemblyLines, debugEdges],
   );
 
   // New geometry (dimension change), new line buffers or (re)mounted handles → pose them before the browser paints.

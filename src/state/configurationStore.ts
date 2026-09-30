@@ -19,6 +19,7 @@ import {
 import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
 import { createConfiguration, createHandle, createWrapLayer } from '../domain/factories';
+import { constrainGlueFlapWidth, getGlueFlapWidth } from '../domain/glueFlap';
 import {
   constrainPaperToVariant,
   getHandleVariantDefinition,
@@ -53,6 +54,8 @@ type ConfigurationState = {
   setProductType: (type: BagType) => void;
   /** Clamps into the effective limits (depth ≤ width) and snaps to the 5 mm step. */
   setDimension: (key: keyof Dimensions, value: number) => void;
+  /** Glue flap width s, mm; clamped into the bag type's range (`BAG_TYPES[type].glueFlap`). */
+  setGlueFlapWidth: (value: number) => void;
   /**
    * Applies a standard size of the current handle variant. Sizes outside the dimension limits are ignored
    * (never silently clamped into a different size). Returns whether the size was applied.
@@ -171,6 +174,9 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update(({ dimensions, productType }) => ({
         dimensions: { ...dimensions, [key]: constrainDimension(key, value, dimensions, BAG_TYPES[productType].limits) },
       })),
+
+    setGlueFlapWidth: (value) =>
+      update((c) => ({ glueFlapWidth: constrainGlueFlapWidth(value, c.productType, getGlueFlapWidth(c)) })),
 
     applyStandardSize: (sizeId) => {
       const { configuration } = get();

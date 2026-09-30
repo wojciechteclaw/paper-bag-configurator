@@ -33,6 +33,8 @@
     "width": "Breite",
     "height": "Höhe",
     "depth": "Tiefe",
+    "glueFlap": "Klebelasche (s)",
+    "glueFlapInfo": "Breite der Längsnahtlasche: {{min}}–{{max}} mm, in 1-mm-Schritten. Ändert die Zuschnittbreite und das Gewicht der Tüte.",
     "unit": "mm",
     "range": "{{min}}–{{max}} mm",
     "lock": {

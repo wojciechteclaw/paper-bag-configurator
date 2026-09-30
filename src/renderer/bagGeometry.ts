@@ -256,8 +256,8 @@ const NO_UV = (): [number, number] => [0, 0];
  * (W > 2E), the FRONT and BACK trapezoids —, each at its own layer offset so the real overlaps read as layers, exactly
  * like the sheet pieces at the end of the assembly. Inner face only, plain paper (the print is on the outside).
  */
-export function createInnerBottomMeshes(dimensions: Dimensions): PanelMesh[] {
-  return getInnerVisibleBottomPieces(dimensions, DIELINE_RULES.glueFlapWidth)
+export function createInnerBottomMeshes(dimensions: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): PanelMesh[] {
+  return getInnerVisibleBottomPieces(dimensions, glueFlapWidth)
     .filter((piece) => piece.visibleParts.length > 0)
     .map((piece) => {
       const parts: MeshPart[] = piece.visibleParts.map((polygon) => ({ region: 'BOTTOM', polygon, uvOf: NO_UV }));
@@ -266,11 +266,11 @@ export function createInnerBottomMeshes(dimensions: Dimensions): PanelMesh[] {
 }
 
 /** Walls + the bottom's outer pieces (seen from below) and inner pieces (seen from inside): everything BagModel renders. */
-export function createBagMeshes(dimensions: Dimensions): PanelMesh[] {
+export function createBagMeshes(dimensions: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): PanelMesh[] {
   return [
     ...(['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).map((id) => createPanelMesh(id, dimensions)),
     ...createBottomPieceMeshes(dimensions),
-    ...createInnerBottomMeshes(dimensions),
+    ...createInnerBottomMeshes(dimensions, glueFlapWidth),
   ];
 }
 
@@ -367,8 +367,8 @@ export function getCreaseSpecs(d: Dimensions): LineSpec[] {
  * end between them, the glue flap strip), each BOTTOM_INNER_LINE_LIFT_MM inside the face of its piece: visible through
  * the open top, hidden from below behind the outer layers. Drawn with the panel edges (same visual language).
  */
-export function getInnerBottomEdgeSpecs(d: Dimensions): LineSpec[] {
-  return getInnerBottomEdges(d, DIELINE_RULES.glueFlapWidth).map(({ piece, segment }) => ({
+export function getInnerBottomEdgeSpecs(d: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): LineSpec[] {
+  return getInnerBottomEdges(d, glueFlapWidth).map(({ piece, segment }) => ({
     panel: 'BOTTOM',
     region: 'BOTTOM',
     from: [segment.from.x, segment.from.y],

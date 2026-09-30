@@ -399,3 +399,6 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .swatch-suggestions .swatch { display: inline-block; flex: none; }
 .swatch-suggestions__delta { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .swatch-suggestions__add { padding: 1px 8px; font-size: 12px; }
+
+/* Glue flap field: aligns with the dimension rows that carry a 3D icon. */
+.field__icon-spacer { display: inline-block; width: 28px; flex: none; }

@@ -33,6 +33,8 @@
     "width": "Szerokość",
     "height": "Wysokość",
     "depth": "Głębokość",
+    "glueFlap": "Zakładka klejowa (s)",
+    "glueFlapInfo": "Szerokość zakładki szwu wzdłużnego: {{min}}–{{max}} mm, co 1 mm. Zmienia szerokość arkusza wykroju i wagę torby.",
     "unit": "mm",
     "range": "{{min}}–{{max}} mm",
     "lock": {

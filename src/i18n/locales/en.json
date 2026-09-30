@@ -33,6 +33,8 @@
     "width": "Width",
     "height": "Height",
     "depth": "Depth",
+    "glueFlap": "Glue flap (s)",
+    "glueFlapInfo": "Width of the longitudinal seam overlap: {{min}}–{{max}} mm, in 1 mm steps. Changes the blank width and the bag weight.",
     "unit": "mm",
     "range": "{{min}}–{{max}} mm",
     "lock": {

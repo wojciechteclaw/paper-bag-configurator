@@ -53,6 +53,7 @@ export function createConfiguration(productType: BagType = 'BLOCK'): BagConfigur
     wrapLayers: [],
     print: { technology: 'FLEXO', pantoneColors: [], colorAnalysis: { ...COLOR_ANALYSIS_DEFAULTS } },
     packaging: 'CARTON',
+    glueFlapWidth: definition.glueFlap.default,
   };
 }
 

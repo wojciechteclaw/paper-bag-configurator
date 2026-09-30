@@ -7,6 +7,7 @@ import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
 import { getSheetViewExtent } from './assemblyGeometry';
 import { BagModel } from './BagModel';
+import { getGlueFlapWidth } from '../domain/glueFlap';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
@@ -107,7 +108,8 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
     () => (handle ? getHandleLayout(handle, dimensions).loopHeight * MM_TO_SCENE : 0),
     [handle, dimensions],
   );
-  const sheet = useMemo(() => getSheetViewExtent(dimensions), [dimensions]);
+  const glueFlapWidth = getGlueFlapWidth(configuration);
+  const sheet = useMemo(() => getSheetViewExtent(dimensions, glueFlapWidth), [dimensions, glueFlapWidth]);
   const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
   // While the bag is assembled from the sheet, fit the (flat, much wider) sheet; otherwise the bag.
   const assembling = assemblyProgress < 1;
@@ -125,6 +127,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
 
       <BagModel
         dimensions={dimensions}
+        glueFlapWidth={glueFlapWidth}
         paperColor={paper.color}
         artworks={artworks}
         handle={configuration.handle}

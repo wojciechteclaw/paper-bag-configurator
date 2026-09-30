@@ -14,8 +14,10 @@ export type BagWeight = {
 const MM2_PER_M2 = 1_000_000;
 
 /** Weight of the bag's paper without handles (handle loops and patches are separate parts, glue is ignored). */
-export function getBagWeight(configuration: Pick<BagConfiguration, 'dimensions' | 'paper'>): BagWeight {
-  const dieline = buildDieline({ dimensions: configuration.dimensions, handle: null });
+export function getBagWeight(
+  configuration: Pick<BagConfiguration, 'dimensions' | 'paper'> & Partial<Pick<BagConfiguration, 'glueFlapWidth'>>,
+): BagWeight {
+  const dieline = buildDieline({ dimensions: configuration.dimensions, handle: null, glueFlapWidth: configuration.glueFlapWidth });
   const blankAreaM2 = dieline.cuts.reduce((sum, polygon) => sum + Math.abs(polygonArea(polygon)), 0) / MM2_PER_M2;
   return { blankAreaM2, grams: blankAreaM2 * configuration.paper.grammage };
 }

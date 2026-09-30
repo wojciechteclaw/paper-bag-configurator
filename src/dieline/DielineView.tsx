@@ -19,6 +19,7 @@ import {
 } from '../domain/artworkPlacement';
 import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
+import { getGlueFlapWidth } from '../domain/glueFlap';
 import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
 import { useConfiguratorUiStore } from '../state/configuratorUiStore';
@@ -115,7 +116,8 @@ export function DielineView() {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<Drag | null>(null);
 
-  const dieline = useMemo(() => buildDieline({ dimensions, handle }), [dimensions, handle]);
+  const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
+  const dieline = useMemo(() => buildDieline({ dimensions, handle, glueFlapWidth }), [dimensions, handle, glueFlapWidth]);
   const scene = useMemo(
     () =>
       buildDielineScene(dieline, artworks, {

@@ -51,8 +51,8 @@ const smoothstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-export function getAssemblyFrame(dimensions: Dimensions, assemblyProgress: number): AssemblyFrame {
-  const pose = getAssemblyPose(dimensions, assemblyProgress);
+export function getAssemblyFrame(dimensions: Dimensions, assemblyProgress: number, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): AssemblyFrame {
+  const pose = getAssemblyPose(dimensions, assemblyProgress, glueFlapWidth);
   return { pose, layerFade: smoothstep(0.3, 0.4, pose.assemblyProgress) };
 }
 
@@ -85,8 +85,8 @@ function wallUv(panel: PanelPosition, dimensions: Dimensions) {
 }
 
 /** Meshes of every sheet piece (built once per dimension set; posing only rewrites positions). */
-export function createAssemblyMeshes(dimensions: Dimensions): AssemblyMesh[] {
-  return getAssemblyPieces(dimensions).map((piece) => {
+export function createAssemblyMeshes(dimensions: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): AssemblyMesh[] {
+  return getAssemblyPieces(dimensions, glueFlapWidth).map((piece) => {
     const artworkPanel = piece.panel === 'GLUE' ? null : piece.panel;
     const uvOf = artworkPanel ? wallUv(artworkPanel, dimensions) : () => [0, 0] as [number, number];
     const local: number[] = [];
@@ -127,9 +127,14 @@ type SheetSegment = { from: Point2; to: Point2 };
  * Splits sheet segments wherever they cross a piece edge and attaches every part to the first piece under its midpoint
  * (panel-local coordinates of its column; walls come first, so a line on a wall / zone boundary rides on the wall).
  */
-function toPieceLines(segments: readonly SheetSegment[], dimensions: Dimensions, pieces: readonly AssemblyPiece[]): AssemblyLineSpec[] {
+function toPieceLines(
+  segments: readonly SheetSegment[],
+  dimensions: Dimensions,
+  pieces: readonly AssemblyPiece[],
+  glueFlapWidth: number,
+): AssemblyLineSpec[] {
   const a = getBottomAllowance(dimensions);
-  const s = DIELINE_RULES.glueFlapWidth;
+  const s = glueFlapWidth;
   const origins = getAssemblySheetOrigins(dimensions);
   const columns: { panel: AssemblySheetPanel; x0: number; x1: number }[] = [
     { panel: 'LEFT', x0: origins.LEFT, x1: origins.FRONT },
@@ -180,15 +185,18 @@ function toPieceLines(segments: readonly SheetSegment[], dimensions: Dimensions,
 }
 
 /** Cut outline (chamfered glue flap included) and all creases of the dieline, as lines on the assembly pieces. */
-export function getAssemblyLineSpecs(dimensions: Dimensions): { cut: AssemblyLineSpec[]; crease: AssemblyLineSpec[] } {
-  const dieline = buildDieline({ dimensions, handle: null });
-  const pieces = getAssemblyPieces(dimensions);
+export function getAssemblyLineSpecs(
+  dimensions: Dimensions,
+  glueFlapWidth: number = DIELINE_RULES.glueFlapWidth,
+): { cut: AssemblyLineSpec[]; crease: AssemblyLineSpec[] } {
+  const dieline = buildDieline({ dimensions, handle: null, glueFlapWidth });
+  const pieces = getAssemblyPieces(dimensions, glueFlapWidth);
   const cutSegments = dieline.cuts.flatMap((polygon) =>
     polygon.map((from, i) => ({ from, to: polygon[(i + 1) % polygon.length] })),
   );
   return {
-    cut: toPieceLines(cutSegments, dimensions, pieces),
-    crease: toPieceLines(dieline.creases, dimensions, pieces),
+    cut: toPieceLines(cutSegments, dimensions, pieces, glueFlapWidth),
+    crease: toPieceLines(dieline.creases, dimensions, pieces, glueFlapWidth),
   };
 }
 
@@ -196,12 +204,12 @@ export function getAssemblyLineSpecs(dimensions: Dimensions): { cut: AssemblyLin
  * Debug aid (`?lines`): every distinct edge of the bottom-zone pieces (creases, cuts, the ears' bend lines), numbered
  * 1… in sheet order (left → right, top → bottom), each carried by the first piece that has it.
  */
-export function getAssemblyDebugEdges(dimensions: Dimensions): AssemblyLineSpec[] {
+export function getAssemblyDebugEdges(dimensions: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): AssemblyLineSpec[] {
   const origins = getAssemblySheetOrigins(dimensions);
   const seen = new Set<string>();
   const edges: (AssemblyLineSpec & { sx: number; sy: number })[] = [];
   const r = (x: number) => Math.round(x * 1000) / 1000;
-  for (const piece of getAssemblyPieces(dimensions)) {
+  for (const piece of getAssemblyPieces(dimensions, glueFlapWidth)) {
     if (!piece.allowance) continue;
     const ox = origins[piece.panel];
     piece.polygon.forEach((p, i) => {
@@ -245,8 +253,8 @@ export function getAssemblyHandleMatrix(frame: AssemblyFrame, wall: 'FRONT' | 'B
 }
 
 /** Extent of the flat sheet for the camera fit, mm: bounding radius and centre height above the floor. */
-export function getSheetViewExtent(dimensions: Dimensions): { radius: number; centreY: number } {
-  const dieline = buildDieline({ dimensions, handle: null });
+export function getSheetViewExtent(dimensions: Dimensions, glueFlapWidth: number = DIELINE_RULES.glueFlapWidth): { radius: number; centreY: number } {
+  const dieline = buildDieline({ dimensions, handle: null, glueFlapWidth });
   const { width, height } = dieline.sheet;
   return { radius: 0.5 * Math.hypot(width, height), centreY: height / 2 };
 }

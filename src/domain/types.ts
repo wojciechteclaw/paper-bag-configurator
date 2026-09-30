@@ -205,4 +205,9 @@ export type BagConfiguration = {
   wrapLayers: WrapArtworkLayer[];
   print: PrintSpec;
   packaging: PackagingType;
+  /**
+   * Width s of the longitudinal glue flap, mm (range per bag type: `BAG_TYPES[type].glueFlap`). Missing in data saved
+   * before 30.09.2026 — read it through `getGlueFlapWidth`.
+   */
+  glueFlapWidth: number;
 };
