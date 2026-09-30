@@ -237,8 +237,9 @@ z pionu na linię dna przodu: punkt `(0, t)` → `(t, 0)`. To dokładnie odbicie
 (obrót o 180°): ucho ląduje na trapezie w obszarze `(0,0),(E,0),(E,E)`, **po wewnętrznej stronie trapezu** (inaczej
 krawędź łącząca je z klapą boku przechodziłaby przez trapez). Faza C obraca trapez razem z uchem (krawędź leży na osi
 obrotu). W trakcie fazy B kąt 3D między krawędzią a przekątną spada poniżej 45° (do 0 przy β = 45°), więc ucho zgina
-się wzdłuż dwusiecznej swojego narożnika (`EAR_BEND_ANGLE` = 22,5°, zgięcie papieru, nie big) — **na zewnątrz torby**
-(decyzja klienta 29.09.2026; do środka ucho kładłoby się na obracającą się klapę boku). Zawiasy są domknięte w każdej
+się wzdłuż dwusiecznej swojego narożnika (`EAR_BEND_ANGLE` = 22,5°, zgięcie papieru, nie big) — **do środka torby**
+(decyzja klienta 30.09.2026, zmiana z „na zewnątrz” z 29.09; przy β = 45° część narożna ucha leży w płaszczyźnie
+obracającej się klapy boku). Zawiasy są domknięte w każdej
 chwili (testy `assemblyKinematics.test.ts`).
 
 **V / M w strefie dna [W]:** C1 V (strefa obraca się do środka), C9 **V** (ucho kładzie się niezadrukowaną stroną na

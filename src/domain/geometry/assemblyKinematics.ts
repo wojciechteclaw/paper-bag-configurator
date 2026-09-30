@@ -23,8 +23,9 @@
 // The ears: while a side zone turns by β, the tube corner edge it shares with the ear sweeps from vertical onto the
 // wall's bottom line, but the ear's 45° corner (edge ↔ diagonal) can only follow rigidly at β = 0 and β = 90°. In
 // between the 3D angle between the edge and the diagonal drops below 45° (to 0 at β = 45°), so the ear bends along the
-// bisector of its corner (EAR_BEND_ANGLE = 22.5°, a paper bend, not a crease) OUTWARDS, away from the bag (client [K]:
-// inwards it would fold onto the side flap turning in behind it); at β = 90° it lies flat again, turned over over its
+// bisector of its corner (EAR_BEND_ANGLE = 22.5°, a paper bend, not a crease) INWARDS, into the bag (client [K],
+// 30.09.2026; it then passes the side flap turning in beside it — at β = 45° the ear's corner part lies in the
+// flap's plane); at β = 90° it lies flat again, turned over over its
 // diagonal, in the plane of its trapezoid — in the stack between the side flap and the trapezoid (layer order). With that one bend every hinge stays closed at every
 // q: tube edges C2 / C3, bottom line C1, the tube corner edges in the zones, the 45° creases C9 and the ear bends.
 
@@ -333,14 +334,14 @@ function earTransforms(
   const out2 = 1 - (2 * cosB * cosB) / (1 + g);
   let x = normalize(base);
   if (out2 > 1e-12) {
-    // Bend OUTWARDS, away from the bag (client [K], 29.09.2026): the ear then never folds onto / through the side
-    // flap turning in behind it (inwards it would lie in the side flap's plane at β = 45°).
-    const outward = rotateVec(trapezoid.r, { x: 0, y: 0, z: 1 });
+    // Bend INWARDS, into the bag (client [K], 30.09.2026 — revised from outwards): the ear folds in together with the
+    // side flap (at β = 45° its corner part lies in the flap's plane).
+    const inward = rotateVec(trapezoid.r, { x: 0, y: 0, z: -1 });
     const cd = cross(c, d);
     const len = Math.hypot(cd.x, cd.y, cd.z);
-    const sign = Math.sign(dot(cd, outward)) || 1;
-    // c ∥ d (β = 45° in phase B): any normal of c; take the outward one.
-    const n = len > 1e-9 ? normalize({ x: cd.x * sign, y: cd.y * sign, z: cd.z * sign }) : normalize(add(outward, c, -dot(outward, c)));
+    const sign = Math.sign(dot(cd, inward)) || 1;
+    // c ∥ d (β = 45° in phase B): any normal of c; take the inward one.
+    const n = len > 1e-9 ? normalize({ x: cd.x * sign, y: cd.y * sign, z: cd.z * sign }) : normalize(add(inward, c, -dot(inward, c)));
     x = normalize(add({ x: base.x * k, y: base.y * k, z: base.z * k }, n, Math.sqrt(out2)));
   }
   const perp = (v: Vec3, axis: Vec3) => normalize(add(v, axis, -dot(v, axis)));

@@ -323,15 +323,15 @@ describe('hinge continuity during the assembly (paper never cut)', () => {
     }
   });
 
-  it('turns the corner triangles over their 45° crease, bending OUTWARDS while the sides go in (client [K])', () => {
+  it('turns the corner triangles over their 45° crease, bending INWARDS while the sides go in (client [K])', () => {
     // Mid phase B (β = 45°): the tube corner edge lies along the crease; the triangle is folded double on its bend,
-    // bulging away from the bag (z > 0 in front of FRONT, z < −D behind BACK) — never into the side flap.
+    // bulging into the bag (z < 0 behind FRONT, z > −D in front of BACK).
     for (const q of [0.45, 0.5, 0.55]) {
       const pose = getAssemblyPose(dims, q);
-      expect(at(pose, 'FRONT_EAR_LEFT_CORNER', bend, -E).z).toBeGreaterThan(1);
-      expect(at(pose, 'FRONT_EAR_RIGHT_CORNER', 200 - bend, -E).z).toBeGreaterThan(1);
-      expect(at(pose, 'BACK_EAR_RIGHT_CORNER', bend, -E).z).toBeLessThan(-150 - 1);
-      expect(at(pose, 'BACK_EAR_LEFT_CORNER', 200 - bend, -E).z).toBeLessThan(-150 - 1);
+      expect(at(pose, 'FRONT_EAR_LEFT_CORNER', bend, -E).z).toBeLessThan(-1);
+      expect(at(pose, 'FRONT_EAR_RIGHT_CORNER', 200 - bend, -E).z).toBeLessThan(-1);
+      expect(at(pose, 'BACK_EAR_RIGHT_CORNER', bend, -E).z).toBeGreaterThan(-150 + 1);
+      expect(at(pose, 'BACK_EAR_LEFT_CORNER', 200 - bend, -E).z).toBeGreaterThan(-150 + 1);
     }
     // End of phase B: the triangle lies flat on the inside of its (still vertical) trapezoid, turned over its diagonal.
     const sidesIn = getAssemblyPose(dims, 0.6);
