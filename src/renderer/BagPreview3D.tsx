@@ -1,7 +1,7 @@
 import { ContactShadows, OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Vector3, type PerspectiveCamera } from 'three';
+import { TOUCH, Vector3, type PerspectiveCamera } from 'three';
 import { resolvePanelArtworks } from '../domain/artworkLayout';
 import { getHandleLayout } from '../domain/geometry/handles';
 import type { BagConfiguration } from '../domain/types';
@@ -24,6 +24,11 @@ type ControlsLike = { target: Vector3; minDistance: number; maxDistance: number;
 /** Seconds of the camera glide between the bag fit and the (larger) flat-sheet fit. */
 const CAMERA_GLIDE_S = 0.7;
 
+const ORBIT_TOUCHES = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN };
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
 type Glide = { fromTarget: Vector3; toTarget: Vector3; fromDistance: number; toDistance: number; radius: number; t: number };
 
 /**
@@ -36,6 +41,9 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
   const get = useThree((s) => s.get);
   // Subscribed only to re-run the fit once OrbitControls registers as the default controls.
   const controlsReady = useThree((s) => s.controls !== null);
+  // Refit when the canvas shape changes noticeably (phone rotated, layout switched between side by side and stacked):
+  // a tall, narrow canvas needs a larger distance. Rounded so small resizes keep the user's zoom.
+  const aspect = useThree((s) => Math.round((s.size.width / Math.max(1, s.size.height)) * 10) / 10);
   const glide = useRef<Glide | null>(null);
   const fittedWithControls = useRef(false);
 
@@ -44,7 +52,7 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
     const camera = state.camera as PerspectiveCamera;
     const controls = state.controls as unknown as ControlsLike | null;
     const target = new Vector3(0, targetY, 0);
-    const distance = fitDistance(camera, radius);
+    const distance = fitDistance({ fov: camera.fov, aspect: state.size.width / Math.max(1, state.size.height) }, radius);
     if (!controls || !fittedWithControls.current) {
       const direction = controls ? camera.position.clone().sub(controls.target) : DEFAULT_VIEW_DIRECTION.clone();
       if (direction.lengthSq() < 1e-9) direction.copy(DEFAULT_VIEW_DIRECTION);
@@ -66,9 +74,10 @@ function CameraFit({ targetY, radius }: { targetY: number; radius: number }) {
       fromDistance: camera.position.distanceTo(controls.target),
       toDistance: distance,
       radius,
-      t: 0,
+      // prefers-reduced-motion: jump to the new fit instead of gliding.
+      t: prefersReducedMotion() ? 1 : 0,
     };
-  }, [targetY, radius, get, controlsReady]);
+  }, [targetY, radius, aspect, get, controlsReady]);
 
   useFrame((state, delta) => {
     const g = glide.current;
@@ -168,7 +177,9 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
 
       {/* Below every bottom layer so the shadow plane never draws over the bottom seen through the open top. */}
       <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d, assembling ? 2 * sheet.radius * MM_TO_SCENE : 0) * 4} blur={2.4} far={h} />
-      <OrbitControls makeDefault />
+      {/* Touch: one finger orbits, two fingers pinch-zoom and pan. The canvas takes all touches (touch-action: none),
+          so on phones the page scrolls from the configuration below / beside the sticky preview (index.css). */}
+      <OrbitControls makeDefault touches={ORBIT_TOUCHES} />
       <CameraFit targetY={targetY} radius={radius} />
     </Canvas>
   );

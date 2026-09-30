@@ -16,6 +16,18 @@ const stepButton = (name: string) => screen.getByRole('button', { name: new RegE
 const heading = () => screen.getByRole('heading', { level: 2 });
 
 describe('BagConfigurator step navigation', () => {
+  it('marks the list item of the current step (phones show only its label) and keeps every label accessible', () => {
+    const { container } = render(<BagConfigurator />);
+    const current = () => [...container.querySelectorAll('.stepper li.is-current')];
+    expect(current()).toHaveLength(1);
+    expect(current()[0]).toHaveTextContent('Typ i wymiary');
+    fireEvent.click(screen.getByRole('button', { name: /Dalej/ }));
+    expect(current()).toHaveLength(1);
+    expect(current()[0]).toHaveTextContent('Papier i uchwyt');
+    // Labels of the other steps are only hidden visually (CSS), so the buttons keep their names.
+    expect(stepButton('Podsumowanie')).toBeInTheDocument();
+  });
+
   it('starts on step 1 with the type selector and dimensions', () => {
     render(<BagConfigurator />);
     expect(heading()).toHaveTextContent('Krok 1 z 5');

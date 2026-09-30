@@ -60,7 +60,8 @@ export function BagConfigurator() {
       <nav aria-label={t('steps.navLabel')}>
         <ol className="stepper">
           {CONFIGURATOR_STEPS.map((id, i) => (
-            <li key={id}>
+            // On phones only the current step shows its label (CSS); the others keep it for screen readers.
+            <li key={id} className={id === step ? 'is-current' : undefined}>
               <button
                 type="button"
                 className={i < index ? 'stepper__step is-done' : 'stepper__step'}

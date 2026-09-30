@@ -42,6 +42,7 @@
       "sheetWidth": "arkusz {{value}} mm",
       "sheetHeight": "arkusz {{value}} mm"
     },
+    "legendToggle": "Legenda",
     "legend": {
       "cut": "cięcie",
       "crease": "big",

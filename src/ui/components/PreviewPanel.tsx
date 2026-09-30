@@ -19,11 +19,14 @@ export function PreviewPanel() {
 
   return (
     <div className="preview-stage">
-      {show3D ? (
-        <BagPreview3D configuration={configuration} foldProgress={foldProgress} assemblyProgress={assemblyProgress} />
-      ) : (
-        <DielineView />
-      )}
+      {/* Desktop: fills the stage under the floating controls; narrow screens: between them (index.css). */}
+      <div className="preview-stage__view">
+        {show3D ? (
+          <BagPreview3D configuration={configuration} foldProgress={foldProgress} assemblyProgress={assemblyProgress} />
+        ) : (
+          <DielineView />
+        )}
+      </div>
       <div className="preview-stage__top">
         <PreviewModeSwitcher />
       </div>

@@ -86,6 +86,8 @@ h1, h2, h3, legend, .subheading { color: var(--heading); }
 }
 .app-header h1::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background: var(--brand); }
 .app-header__actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+/* Title left, the buttons and the language switcher packed on the right. */
+.app-header h1 { margin-right: auto; }
 
 /* Project file actions (docs/SPEC.md §4h): compact header buttons + a message popover under them. */
 .project-actions { position: relative; }
@@ -197,13 +199,6 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .configurator__step h2 { font: 700 19px/1.3 var(--font-display); margin: 0 0 14px; display: flex; flex-direction: column; gap: 2px; }
 .configurator__step h2 small { font: 400 12px/1.4 var(--font-body); color: var(--muted); }
 .configurator__nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
-
-/* Tablet and below: configuration above the preview */
-@media (max-width: 900px) {
-  .app-layout { grid-template-columns: 1fr; }
-  .config-panel { border-right: none; border-bottom: 1px solid var(--border); }
-  .preview-panel { position: relative; height: 60vh; }
-}
 
 /* Dimension fields */
 .field--dimension { grid-template-columns: 140px 1fr auto auto; }
@@ -336,7 +331,8 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .fold-slider__phase { min-width: 15em; font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 /* 2D modes: keep the dieline toolbar clear of the floating mode switcher. */
-.preview-stage > .dieline-view { padding: 60px 16px 12px; }
+.preview-stage__view { width: 100%; height: 100%; }
+.preview-stage__view > .dieline-view { padding: 60px 16px 12px; }
 
 /* Preview mode switcher (segmented control, SPEC §4c) */
 .preview-stage__top {
@@ -393,6 +389,7 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .coverage__palette { margin-top: 12px; }
 .coverage__palette > summary { cursor: pointer; font: 700 14px/1.3 var(--font-display); color: var(--heading); }
 .coverage__palette > summary small { font: 400 12px/1.4 var(--font-body); color: var(--muted); }
+.coverage__table-scroll { max-width: 100%; overflow-x: auto; }
 .coverage__table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 13px; }
 .coverage__table th, .coverage__table td { padding: 3px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .coverage__table thead th {
@@ -441,3 +438,174 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 
 /* Glue flap field: aligns with the dimension rows that carry a 3D icon. */
 .field__icon-spacer { display: inline-block; width: 28px; flex: none; }
+
+/* Info buttons stay small visually but get a 44 px touch target. */
+.infotip__button { position: relative; }
+.infotip__button::before { content: ''; position: absolute; inset: -12px; }
+
+/*
+ * ———— Tablets and phones (≤ 900 px) ————
+ * Preview on top, sticky (--preview-h of the viewport, small-viewport units so the canvas does not resize when the
+ * browser bars show / hide); the configuration scrolls below it with a sticky Back / Next bar. The 3D canvas and the
+ * dieline take all touches on themselves (orbit / pinch), so the page scrolls from the configuration area.
+ */
+@media (max-width: 900px) {
+  :root { --preview-h: 48vh; --gutter: 16px; }
+  /* The 2D editor needs room for its toolbars: a taller preview while it is shown. */
+  :root:has(.preview-panel .dieline-view) { --preview-h: 62vh; }
+  @supports (height: 1svh) {
+    :root { --preview-h: 48svh; }
+    :root:has(.preview-panel .dieline-view) { --preview-h: 62svh; }
+  }
+
+  /* Top bar: title + language switcher, then the project and demo buttons in one horizontally scrollable row. */
+  .app-header { flex-wrap: wrap; gap: 0 8px; padding: 4px var(--gutter) 0; }
+  .app-header h1 { flex: 1 1 0; min-width: 0; font-size: 16px; overflow-wrap: anywhere; hyphens: auto; }
+  .lang-switcher { order: 1; }
+  .lang-switcher button { min-width: 40px; min-height: 44px; padding: 4px 6px; }
+  .app-header__actions {
+    order: 2; flex: 1 0 100%; flex-wrap: nowrap; justify-content: flex-start; gap: 8px;
+    margin: 0 calc(-1 * var(--gutter)); padding: 4px var(--gutter) 8px;
+    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-padding-inline: var(--gutter);
+  }
+  .app-header__actions::-webkit-scrollbar { display: none; }
+  /* A fade stuck to the right edge hints that the row scrolls (a pseudo-element, not a mask: a mask would also hide
+     the fixed save / load message inside the row). */
+  .app-header__actions::after {
+    content: ''; position: sticky; right: 0; flex: none; align-self: stretch;
+    width: 28px; margin-left: -20px; background: linear-gradient(to right, transparent, var(--surface)); pointer-events: none;
+  }
+  .project-actions__buttons { gap: 8px; }
+  .header-button, .demo-button { flex: none; min-height: 44px; }
+  /* The save / load message cannot hang below a scrolling row: it becomes a toast at the top of the screen. */
+  .project-actions .project-message {
+    position: fixed; top: 8px; left: var(--gutter); right: var(--gutter); z-index: 50; width: auto; max-width: none;
+  }
+
+  /* Layout: sticky preview first, configuration below. */
+  .app-layout { display: flex; flex-direction: column; }
+  .preview-panel {
+    order: -1; position: sticky; top: 0; z-index: 3; height: var(--preview-h);
+    border-bottom: 1px solid var(--border); box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
+  }
+  .config-panel { overflow: visible; border-right: none; padding: 16px var(--gutter) 0; }
+  /* Focused fields and the step heading scroll clear of the sticky preview and the sticky nav bar. */
+  .config-panel :is(input, select, textarea, button, summary, h2, [tabindex]) {
+    scroll-margin-top: calc(var(--preview-h) + 12px); scroll-margin-bottom: 80px;
+  }
+
+  /* Wizard: sticky Back / Next bar with large buttons. */
+  .configurator__nav {
+    position: sticky; bottom: 0; z-index: 2; margin: 16px calc(-1 * var(--gutter)) 0;
+    padding: 8px var(--gutter) calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -2px 8px rgb(0 0 0 / 6%);
+  }
+  .configurator__nav button { flex: 1 1 0; min-height: 44px; }
+  .stepper__step { min-height: 48px; }
+
+  /* Forms: 44 px touch targets; 16 px text in fields so iOS does not zoom on focus. */
+  .field input, .field select, .pantone-form input, .coverage__merge select { min-height: 44px; font-size: 16px; }
+  .choice { min-height: 44px; }
+  .choice-group { gap: 0; }
+  .choice-group--inline { gap: 0 16px; }
+  input[type='radio'], input[type='checkbox'] { width: 20px; height: 20px; flex: none; }
+  .variant-card { min-height: 44px; }
+  .artwork-preview__actions button, .wrap-layer__actions button, .swatch-library__row button,
+  .swatch-suggestions__add, .json-actions button, .pantone-form button, .swatch-library__actions button {
+    min-height: 44px; padding-left: 12px; padding-right: 12px;
+  }
+  .pantone-list li { min-height: 36px; }
+  .pantone-list button { min-width: 36px; min-height: 36px; }
+  .infotip__bubble { max-width: min(260px, calc(100vw - 48px)); font-size: 13px; }
+
+  /* Preview: mode switcher, view and fold slider stacked (not floating) so the bag is fitted to the visible area. */
+  .preview-stage { display: flex; flex-direction: column; }
+  .preview-stage__top { order: -1; position: static; transform: none; width: auto; max-width: none; padding: 6px 8px 0; }
+  .preview-modes {
+    flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; box-shadow: none;
+  }
+  .preview-modes::-webkit-scrollbar { display: none; }
+  .preview-modes__option { flex: 1 0 auto; min-height: 40px; padding: 5px 10px; }
+  .preview-stage__view { flex: 1 1 auto; min-height: 0; height: auto; position: relative; }
+  .preview-stage__view > .dieline-view { padding: 6px 8px 8px; overflow-y: auto; overscroll-behavior: contain; }
+  .preview-stage__overlay { position: static; transform: none; max-width: none; padding: 0 8px 6px; }
+  .fold-slider { gap: 4px 8px; padding: 4px 8px; box-shadow: none; }
+  .fold-slider__play { width: 44px; height: 44px; font-size: 14px; }
+  .fold-slider__skip { width: 40px; height: 40px; font-size: 13px; }
+  .fold-slider input[type='range'] { flex: 1 1 100px; width: auto; min-width: 90px; height: 40px; margin: 0; }
+  .fold-slider__phase { flex-basis: 100%; min-width: 0; white-space: normal; text-align: center; line-height: 1.3; }
+
+  /* Dialogs */
+  .dialog { max-height: calc(100vh - 32px); overflow-y: auto; padding: 16px; }
+  .dialog__actions { flex-wrap: wrap; }
+  .dialog__actions button { flex: 1 1 auto; min-height: 44px; }
+}
+
+/* Phones (≤ 600 px) */
+@media (max-width: 600px) {
+  /* Step tabs: numbers only, the current step also shows its label (all labels stay for screen readers). */
+  .stepper { display: flex; gap: 4px; margin-bottom: 14px; }
+  .stepper li { flex: 0 0 44px; }
+  .stepper li.is-current { flex: 1 1 auto; min-width: 0; }
+  .stepper li.is-current .stepper__step { flex-direction: row; justify-content: center; gap: 8px; }
+  .stepper li:not(.is-current) .stepper__label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .stepper__step { justify-content: center; }
+  .stepper__label { font-size: 13px; }
+
+  /* Preview modes: compact so all five usually fit; still scrollable when a language needs more room. */
+  .preview-modes__option { padding: 4px 5px; font-size: 11px; letter-spacing: 0.01em; }
+
+  .variant-cards { grid-template-columns: minmax(0, 1fr); }
+  .field { grid-template-columns: minmax(84px, 110px) minmax(0, 1fr) auto; }
+  .field--dimension { grid-template-columns: minmax(0, 132px) minmax(0, 1fr) auto auto; }
+  .field--standard-size { grid-template-columns: minmax(0, 132px) minmax(0, 1fr) auto; }
+  .summary { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .summary dd { margin-bottom: 8px; }
+  .coverage__row { grid-template-columns: 16px minmax(0, 1fr) minmax(40px, 1fr) 52px; }
+
+  /* Fold slider: the "Fold" caption is read from the slider's label by screen readers; visually the % suffices. */
+  .fold-slider label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .fold-slider { position: relative; }
+}
+
+/* Phones in landscape: configuration and preview side by side, the preview sticky at full height. */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 560px) {
+  /* The preview is beside the configuration: nothing to scroll clear of. (Separate rules: a selector list with :has()
+     would be dropped entirely by browsers without :has().) */
+  :root { --preview-h: 0px; }
+  :root:has(.preview-panel .dieline-view) { --preview-h: 0px; }
+  @supports (height: 1svh) {
+    :root { --preview-h: 0px; }
+    :root:has(.preview-panel .dieline-view) { --preview-h: 0px; }
+  }
+  .app-layout { display: grid; grid-template-columns: minmax(0, 9fr) minmax(0, 11fr); align-items: start; }
+  /* Like desktop: the full height minus the (non-sticky) header, so the fold slider is visible before scrolling. */
+  .preview-panel {
+    grid-column: 2; grid-row: 1; height: calc(100vh - 52px);
+    border-bottom: none; border-left: 1px solid var(--border); box-shadow: none;
+  }
+  @supports (height: 1svh) {
+    .preview-panel { height: calc(100svh - 52px); }
+  }
+  .config-panel { grid-column: 1; grid-row: 1; }
+  /* One header row: title, the scrollable button row, language switcher (52 px, subtracted from the preview height). */
+  .app-header { flex-wrap: nowrap; height: 52px; padding-block: 0; }
+  .app-header h1 { flex: none; white-space: nowrap; }
+  .app-header__actions { order: 0; flex: 1 1 auto; min-width: 0; margin: 0; padding: 4px 0; }
+  .preview-modes__option { padding: 4px 5px; font-size: 11px; letter-spacing: 0.01em; }
+  .fold-slider label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .fold-slider { position: relative; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
