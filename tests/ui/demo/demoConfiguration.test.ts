@@ -42,13 +42,13 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     for (let i = 1; i <= DEMO_COUNT; i++) expect(CONFIGS[`/public/demo${i}/config.json`]).toBeDefined();
   });
 
-  it('Demo 4: block-bottom bag 250 × 200 × 400, white 100 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
+  it('Demo 4: block-bottom bag 250 × 200 × 400, brown recycled 80 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
     const result = await loadDemoConfiguration(4, '/');
     expect(result).toEqual({ missing: [], total: 4 });
     const c = config();
     expect(c.productType).toBe('BLOCK');
     expect(c.dimensions).toEqual({ width: 250, height: 400, depth: 200 });
-    expect(c.paper).toMatchObject({ color: 'WHITE', grammage: 100, fscCertified: true });
+    expect(c.paper).toMatchObject({ type: 'RECYCLED', color: 'BROWN', grammage: 80, fscCertified: true });
     expect(c.handle?.type).toBe('FLAT_PAPER');
     (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position, i) => {
       expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo4/image-${i + 1}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
