@@ -13,7 +13,7 @@
     "demoHints": {
       "1": "Demo 1 (public/demo1): XL block-bottom bag 320 × 220 × 400 mm, white kraft 70 g/m² FSC, twisted handle, whole-sheet artwork",
       "2": "Demo 2 (public/demo2): gusseted bag 150 + 60 × 250 mm, white kraft 40 g/m² FSC, whole-sheet artwork",
-      "3": "Demo 3 (public/demo3): gusseted bag 250 + 100 × 320 mm, brown greaseproof paper 50 g/m² FSC, rectangular window 140 × 185 mm, 110 mm above the bottom (perforated PP film), whole-bag artwork",
+      "3": "Demo 3 (public/demo3): gusseted bag 250 + 100 × 320 mm, brown greaseproof paper 50 g/m² FSC, rectangular window 140 × 190 mm, 105 mm above the bottom (perforated PP film), whole-bag artwork",
       "4": "Demo 4 (public/demo4): block-bottom bag 250 × 180 × 420 mm, brown recycled paper 80 g/m² FSC, flat paper handle, “wave” artwork on the walls, extended to the bottom"
     },
     "demoHintGeneric": "Load the example from {{folder}} (config.json + images)"
