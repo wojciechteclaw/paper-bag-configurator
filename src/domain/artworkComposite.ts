@@ -23,6 +23,8 @@ export type CompositeLayerInput = {
   artwork: Pick<Artwork, 'fileUrl' | 'width' | 'height'>;
   placement: ArtworkPlacement;
   area: PanelArtworkArea;
+  /** Horizontal extent of this copy of a cyclic whole-bag layer (panel-local mm); absent = the wall clips alone. */
+  clipX?: { x0: number; x1: number };
 };
 
 export type CompositeLayerPlan = {
@@ -97,9 +99,10 @@ export function planArtworkComposite(
   for (const layer of layers) {
     const { width: iw, height: ih } = layer.artwork;
     if (!(iw > 0 && ih > 0) || !positive(panelSize)) continue;
-    // Clip: the layer's artwork area within the frame, in canvas px.
-    const x0 = Math.max(frame.x, layer.area.x);
-    const x1 = Math.min(frame.x + frame.width, layer.area.x + layer.area.width);
+    // Clip, in canvas px: horizontally the wall (the frame) and the copy extent, vertically the artwork area (a layer
+    // without "extend to bottom" never reaches below the bottom line).
+    const x0 = Math.max(frame.x, layer.clipX?.x0 ?? frame.x);
+    const x1 = Math.min(frame.x + frame.width, layer.clipX?.x1 ?? frame.x + frame.width);
     const y0 = Math.max(frame.y, layer.area.y);
     const y1 = Math.min(top, layer.area.y + layer.area.height);
     if (x1 <= x0 || y1 <= y0) continue;

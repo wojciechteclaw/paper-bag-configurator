@@ -22,10 +22,12 @@ export async function loadCoverageInputs(artworks: ResolvedPanelArtworks): Promi
   const entries = await Promise.all(
     PANEL_POSITIONS.map(async (position) => {
       const layers = await Promise.all(
-        artworks[position].layers.map(async ({ artwork, placement, area }): Promise<CoveragePanelInput | null> => {
+        artworks[position].layers.map(async ({ artwork, placement, area, clipX }): Promise<CoveragePanelInput | null> => {
           usedUrls.add(artwork.fileUrl);
           const sample = await loadArtworkSample(artwork);
-          return sample ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, sample } : null;
+          return sample
+            ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, ...(clipX ? { clipX } : {}), sample }
+            : null;
         }),
       );
       if (layers.some((layer) => layer === null)) unavailablePanels.push(position);

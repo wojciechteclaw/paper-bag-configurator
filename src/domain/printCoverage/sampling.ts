@@ -34,6 +34,11 @@ export type CoveragePanelInput = {
    * wall row for a whole-bag layer, docs/SPEC.md §3a). Omitted: the panel's own area (`getPanelArtworkArea`).
    */
   area?: PanelArtworkArea;
+  /**
+   * Horizontal extent of this copy of a cyclic whole-bag layer, panel-local mm (`ResolvedArtworkLayer.clipX`). The area
+   * clips vertically only; horizontally the sampled column (the wall) and this extent do.
+   */
+  clipX?: { x0: number; x1: number };
   sample: PixelSample;
 };
 
@@ -95,8 +100,8 @@ function prepareLayer(
     ry: repeat[1],
     ox: offset[0],
     oy: offset[1],
-    x0: area.x,
-    x1: area.x + area.width,
+    x0: layer.clipX?.x0 ?? Number.NEGATIVE_INFINITY,
+    x1: layer.clipX?.x1 ?? Number.POSITIVE_INFINITY,
     y0: area.y,
     y1: area.y + area.height,
   };
@@ -104,7 +109,7 @@ function prepareLayer(
 
 /** Pixel of `layer` at panel point (x, y) / panel UV (u, v), or −1 outside its area or image. */
 function pixelAt(layer: PreparedLayer, x: number, y: number, u: number, v: number): number {
-  if (x < layer.x0 || x > layer.x1 || y < layer.y0 || y > layer.y1) return -1;
+  if (x < layer.x0 || x >= layer.x1 || y < layer.y0 || y > layer.y1) return -1;
   // t = diag(repeat)·R(−θ)·uv + offset (three.js uv transform with centre (0, 0)).
   const tx = layer.rx * (layer.c * u + layer.s * v) + layer.ox;
   const ty = layer.ry * (-layer.s * u + layer.c * v) + layer.oy;

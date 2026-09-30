@@ -94,18 +94,29 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
   wykroju); **dno**: przełącznik „Rozciągnij na dno” (osobno dla każdej warstwy) — obszar `(2W + 2D) × (H + a)`,
   grafika wchodzi w zapas na dno pod wszystkimi ściankami (klapy, trójkąty, uszy), jak w §4f. FILL rozciąga obraz na
   cały obszar; CUSTOM (przesunięcie / skala / obrót / wyrównanie) liczy się względem środka całego obszaru.
+- **Grafika cykliczna (zgłoszenie klienta 30.09.2026: „nie mogę przesunąć obrazka na przełamanie pomiędzy lewą a
+  przednią ścianką”):** torba to obwód, więc grafika warstwy powtarza się co `P = 2W + 2D` — obraz leży w x + k·P,
+  a każda kopia jest ograniczona do jednego okresu wokół środka obrazu (obraz szerszy niż torba nie nachodzi sam na
+  siebie; `getWrapImageExtent`). Obraz przesunięty w lewo za lewą krawędź przodu pojawia się na końcu lewego boku
+  (i odwrotnie). Obszar grafiki jest już tylko odniesieniem dla FILL / dopasowania / wyrównania / środka i przycina
+  **pionowo** (z „Rozciągnij na dno” lub bez); **poziomo** kopię przycina ścianka (kolumna) i jej zasięg (`clipX`).
+  `offsetX` warstwy jest zawijany do jednego okresu `[−P/2, P/2)` (`periodicX` w obszarze, `normalizePlacement`) zamiast
+  przycinania, więc przeciąganie przez narożnik jest ciągłe (obraz nie skacze, zmienia się tylko zapis przesunięcia).
 - **Jedna ścieżka dla wszystkich odbiorców:** `resolvePanelArtwork(s)` (`src/domain/artworkLayout.ts`) zwraca dla
-  każdej ścianki listę warstw (od spodu) z grafiką, placementem i obszarem grafiki w jej współrzędnych; warstwa całej
-  torby to po prostu szerszy obszar przesunięty o położenie ścianki dookoła torby (`getWrapPanelOffset`: FRONT 0,
-  RIGHT W, BACK W + D, LEFT 2W + D). Renderer 3D (ścianki, części dna, elementy arkusza), wykrój 2D, pokrycie farbą i
-  eksport korzystają z tego samego `computePanelUvTransform`, więc obraz jest ciągły na krawędziach ścianek (także na
-  narożniku LEFT | FRONT) i łamie się na bigach.
-- **Wykrój 2D:** kolumny arkusza pozostają w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka**, więc kolumna LEFT
-  pokazuje **koniec** grafiki. Każda warstwa jest rysowana najwyżej dwa razy (ten sam obraz): część FRONT…BACK (jedna
-  macierz, przycięta od lewej krawędzi przodu do zawiasu zakładki + 2 mm) oraz część LEFT (ten sam obraz przesunięty
-  o `2W + 2D`, przycięty do kolumny LEFT ze spadem). Część, której w danej kolumnie nie widać, jest pomijana.
-  Przeciąganie / skalowanie / klawisze działają na warstwie (współrzędne całej torby od lewej krawędzi przodu) —
-  obie części przesuwają się razem. Plik użyty dwa razy jest osadzany w SVG raz (`<image>` w `<defs>` + `<use>`).
+  każdej ścianki listę warstw (od spodu) z grafiką, placementem i obszarem grafiki w jej współrzędnych — dla warstwy
+  całej torby osobny wpis na każdą kopię widoczną na ściance (zwykle jeden, dwa przy obrazie na narożniku), z polami
+  `clipX` (zasięg kopii) i `stackIndex` (miejsce w stosie). Obszar to szerszy obszar przesunięty o położenie ścianki
+  dookoła torby (`getWrapPanelOffset`: FRONT 0, RIGHT W, BACK W + D, LEFT 2W + D) i o k·P. Renderer 3D (ścianki, części
+  dna, elementy arkusza), wykrój 2D, pokrycie farbą i eksport korzystają z tego samego `computePanelUvTransform`, więc
+  obraz jest ciągły na wszystkich krawędziach ścianek (także na narożniku LEFT | FRONT) i łamie się na bigach.
+- **Wykrój 2D:** kolumny arkusza pozostają w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka**. Kolumny, w których
+  kopie leżą w tym samym miejscu arkusza, tworzą jeden obraz: FRONT…BACK, a obraz przechodzący przez narożnik LEFT |
+  FRONT (lewy bok leży na arkuszu tuż na lewo od przodu) — jeden obraz przez obie kolumny. Kolumna LEFT z końcem grafiki
+  i obraz na szwie BACK | LEFT (rozdzielony między końce arkusza) to osobne elementy tego samego obrazu. Przycięcie:
+  kolumna (+ 2 mm zachodzenia / spad) ∩ zasięg kopii (+ 2 mm); zakładka klejowa zawsze bez nadruku. Elementy niewidoczne
+  są pomijane. Przeciąganie / skalowanie / klawisze działają na warstwie — wszystkie jej elementy przesuwają się razem.
+  Obszar zaznaczonej warstwy to wszystkie ścianki. Plik użyty kilka razy jest osadzany w SVG raz (`<image>` w `<defs>`
+  + `<use>`).
 - **Przełączanie układu** nie usuwa grafik drugiego układu (wracają po przełączeniu; UI o tym informuje), ale
   drukowane / liczone / eksportowane są tylko grafiki aktywnego układu. JSON konfiguracji zawiera oba sloty.
 
@@ -132,8 +143,9 @@ każdą można osobno przesuwać / skalować / obracać / wyrównać na wykroju;
   `alignPanelArtwork`, `setPanelExtendToBottom`, `fillPanelPlacement`, `resetPanelPlacement`). Zaznaczenie do edycji
   to stan widoku (`configuratorUiStore.selectedArtwork`), wspólny dla listy warstw i edytora wykroju.
 - **3D:** ścianka z jedną warstwą — jak dotąd (widok wspólnej tekstury obrazu z własną transformacją UV). Ścianka z
-  kilkoma warstwami — **jedna tekstura z płótna (canvas) na ściankę**: warstwy rysowane od spodu, każda przycięta do
-  swojego obszaru (bez „Rozciągnij na dno” nie wchodzi pod linię dna), plan kompozycji liczony w domenie
+  kilkoma warstwami — **jedna tekstura z płótna (canvas) na ściankę**: warstwy (i kopie cyklicznego obrazu) rysowane od spodu,
+  przycięte poziomo do ścianki i zasięgu kopii, pionowo do obszaru (bez „Rozciągnij na dno” nie wchodzi pod linię
+  dna), plan kompozycji liczony w domenie
   (`planArtworkComposite`, `src/domain/artworkComposite.ts`: ramka = ścianka + zapas na dno, jeśli któraś warstwa go
   obejmuje; macierz i przycięcie każdej warstwy z `computePanelUvTransform`). Kompozyt mapowany jak jedna grafika FILL
   na ramkę, więc części dna i arkusza działają bez zmian, bez nakładania siatek (brak z-fightingu). Rozdzielczość wg
@@ -413,6 +425,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Pokrycie farbą: ~~czy grafika w zapasie na dno ma być wliczana?~~ — rozstrzygnięte w §4f (liczona przy „Rozciągnij na dno”). Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
 - ~~Wykrój: rozmiar łatki uchwytu i rozstaw końców~~ — rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod
   górną krawędzią (`y ∈ [H − 40, H − 20]`), rozstaw końców zawsze 80 mm, taśma płaska 20 mm (`docs/PRODUCTION.md` §5, §9.5).
+- Grafika cykliczna (§3a): obraz szerszy niż obwód torby (`2W + 2D`) jest przycinany do jednego obwodu wokół swojego
+  środka (żeby nie nachodził sam na siebie). Czy tak, czy np. blokować skalę powyżej obwodu?
 - Wykrój PDF: standardowe fonty jsPDF nie mają polskich znaków spoza WinAnsi — teksty w PDF są transliterowane
   (ł → l). Osadzić font Unicode?
 - Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?

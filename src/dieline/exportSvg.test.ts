@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePanelArtworks, wrapLayerTarget } from '../domain/artworkLayout';
-import { containPlacement, fillPlacement } from '../domain/artworkPlacement';
+import { getWrapArtworkArea, resolvePanelArtworks, wrapLayerTarget } from '../domain/artworkLayout';
+import { containPlacement, fillPlacement, movePlacement } from '../domain/artworkPlacement';
 import { buildDieline } from '../domain/dieline';
 import { createArtwork, createConfiguration, createWrapLayer } from '../domain/factories';
 import type { Artwork, ArtworkPlacement } from '../domain/types';
@@ -228,11 +228,12 @@ describe('whole-bag artwork layers on the dieline (SPEC §3a, §3b)', () => {
     // Main part: wrap x 0 at FRONT's left edge (sheet 150), clipped from FRONT (−2 mm overprint) to the glue-flap hinge (+2).
     expect(xRange(main.corners)).toEqual([150, 850]);
     expect(main.clip).toMatchObject({ x: 148, width: 554 });
-    expect(main.area).toMatchObject({ x: 150, y: 0, width: 550, height: 400 });
+    // Selection area of a whole-bag layer: every wall column (the wrap is cyclic).
+    expect(main.area).toMatchObject({ x: 0, y: 0, width: 700, height: 400 });
     // LEFT part: the same image shifted by the wrap width, so the wrap's last 150 mm land on LEFT.
     expect(xRange(left.corners)).toEqual([-550, 150]);
     expect(left.clip).toMatchObject({ x: -3, width: 155 });
-    expect(left.area).toMatchObject({ x: 0, width: 150 });
+    expect(left.area).toMatchObject({ x: 0, width: 700 });
     expect(scene.allowances.every((a) => !a.printed)).toBe(true);
   });
 
@@ -279,6 +280,47 @@ describe('whole-bag artwork layers on the dieline (SPEC §3a, §3b)', () => {
     expect(logo.extendToBottom).toBe(false);
     expect(logo.clip.y + logo.clip.height).toBeCloseTo(402); // bottom line (SVG y 400) + 2 mm overprint
     expect(scene.allowances.every((a) => a.printed)).toBe(true);
+  });
+
+  const logo = (offsetX: number): ArtworkPlacement => ({ mode: 'CUSTOM', offsetX, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false });
+
+  it('draws an image straddling the LEFT | FRONT corner as ONE image across both columns (cyclic wrap)', () => {
+    // 100 mm logo centred on FRONT's left edge = the LEFT | FRONT column boundary at sheet x 150.
+    const { scene, ids } = wrapScene([{ artwork: image('logo', 100, 100), placement: logo(-350) }]);
+    expect(scene.images).toHaveLength(1);
+    const [img] = scene.images;
+    expect(img.id).toBe(`artwork-WRAP-${ids[0]}`);
+    expect(xRange(img.corners)).toEqual([100, 200]);
+    // LEFT's copy and FRONT's copy share the sheet position: the clip spans both columns.
+    expect(img.clip.x).toBeLessThanOrEqual(100);
+    expect(img.clip.x + img.clip.width).toBeGreaterThanOrEqual(200);
+  });
+
+  it('continues an image past the end of the wrap onto FRONT (it lies left of FRONT on the sheet)', () => {
+    const { scene } = wrapScene([{ artwork: image('logo', 100, 100), placement: logo(349) }]); // centre at wrap x 699
+    expect(scene.images).toHaveLength(1);
+    expect(xRange(scene.images[0].corners)).toEqual([99, 199]);
+  });
+
+  it('splits an image straddling the BACK | LEFT corner between the sheet ends (the glue-flap seam)', () => {
+    const { scene, ids } = wrapScene([{ artwork: image('logo', 100, 100), placement: logo(200) }]); // centre at wrap x 550
+    expect(scene.images.map((i) => i.id).sort()).toEqual([`artwork-WRAP-${ids[0]}-BACK`, `artwork-WRAP-${ids[0]}-LEFT`].sort());
+    const back = scene.images.find((i) => i.id.endsWith('-BACK'))!;
+    const left = scene.images.find((i) => i.id.endsWith('-LEFT'))!;
+    expect(xRange(back.corners)).toEqual([650, 750]);
+    expect(back.clip.x + back.clip.width).toBe(702); // stops at the glue-flap hinge (+ overprint): the flap stays unprinted
+    expect(xRange(left.corners)).toEqual([-50, 50]);
+  });
+
+  it('moves continuously when a drag crosses the LEFT | FRONT corner (same image, shifted by the drag)', () => {
+    const area = getWrapArtworkArea(createConfiguration('BLOCK').dimensions, { extendToBottom: false });
+    const before = wrapScene([{ artwork: image('logo', 100, 100), placement: logo(-340) }]); // centre at wrap x 10
+    const moved = movePlacement(logo(-340), -20, 0, area); // centre at wrap x −10 ≡ 690
+    expect(moved).toMatchObject({ offsetX: 340 });
+    const after = wrapScene([{ artwork: image('logo', 100, 100), placement: moved }]);
+    expect(after.scene.images).toHaveLength(1);
+    const shift = xRange(after.scene.images[0].corners)[0] - xRange(before.scene.images[0].corners)[0];
+    expect(shift).toBeCloseTo(-20);
   });
 });
 

@@ -54,11 +54,12 @@ describe('planArtworkComposite', () => {
     expect(apply(logo.matrix, 100, 100).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([150, 250]);
   });
 
-  it('clips each layer to its own artwork area within the frame (no extension: never below the bottom line)', () => {
+  it('clips each layer vertically to its artwork area and horizontally to the wall and its copy extent', () => {
     const { panelSize, layers } = layeredFront();
     const plan = planArtworkComposite(panelSize, layers, { maxLongSidePx: 490 });
     expect(plan.layers[0].clip).toEqual({ x: 0, y: 0, width: 200, height: 490 });
-    expect(plan.layers[1].clip).toEqual({ x: 0, y: 0, width: 200, height: 400 });
+    // The logo copy spans wrap x 50…150 only; without extension it never reaches below the bottom line.
+    expect(plan.layers[1].clip).toEqual({ x: 50, y: 0, width: 100, height: 400 });
   });
 
   it('follows the rotation of a placement', () => {
@@ -89,7 +90,7 @@ describe('planArtworkComposite', () => {
       panelSize,
       [
         { artwork: { fileUrl: 'blob:0', width: 0, height: 0 }, placement: fillPlacement(), area: { x: 0, y: 0, width: 200, height: 400 } },
-        { artwork: { fileUrl: 'blob:1', width: 10, height: 10 }, placement: fillPlacement(), area: { x: 300, y: 0, width: 200, height: 400 } },
+        { artwork: { fileUrl: 'blob:1', width: 10, height: 10 }, placement: fillPlacement(), area: { x: 0, y: 0, width: 200, height: 400 }, clipX: { x0: 300, x1: 500 } },
         { artwork: { fileUrl: 'blob:2', width: 10, height: 10 }, placement: fillPlacement(), area: { x: 0, y: 0, width: 200, height: 400 } },
       ],
       { maxLongSidePx: 400 },
@@ -97,5 +98,26 @@ describe('planArtworkComposite', () => {
     expect(plan.layers.map((layer) => layer.artwork.fileUrl)).toEqual(['blob:2']);
     // Tiny images still give at least 1 px per mm.
     expect(plan.pixelsPerMm).toBeCloseTo(1);
+  });
+
+  it('draws a logo straddling the LEFT | FRONT corner on both walls (cyclic wrap)', () => {
+    const configuration = createConfiguration('BLOCK');
+    configuration.artworkLayout = 'WRAP';
+    configuration.wrapLayers = [
+      createWrapLayer(image('bg', 1400, 800), fillPlacement()),
+      // 100 mm logo centred on FRONT's left edge (wrap x 0 ≡ 700).
+      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -350, offsetY: 0, scale: 0.25, rotation: 0, extendToBottom: false }),
+    ];
+    const plan = (position: 'FRONT' | 'LEFT') =>
+      planArtworkComposite(getPanelSize(position, configuration.dimensions), resolvePanelArtwork(configuration, position).layers, {
+        maxLongSidePx: 400,
+      });
+    const front = plan('FRONT');
+    const left = plan('LEFT');
+    expect(front.layers[1].clip).toEqual({ x: 0, y: 0, width: 50, height: 400 });
+    expect(left.layers[1].clip).toEqual({ x: 100, y: 0, width: 50, height: 400 });
+    // FRONT: image x 50 px (its middle) at the wall's left edge; LEFT: the same image point at the wall's right edge.
+    expect(apply(front.layers[1].matrix, 50, 50).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([0, 200]);
+    expect(apply(left.layers[1].matrix, 50, 50).map((v) => Math.round(v * 1e6) / 1e6)).toEqual([150, 200]);
   });
 });
