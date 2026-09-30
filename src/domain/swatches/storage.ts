@@ -73,15 +73,8 @@ function readSwatch(value: unknown): Swatch | null {
   };
 }
 
-/** Inverse of `serializeSwatchLibrary`; null for anything that is not a valid stored library (never throws). */
-export function deserializeSwatchLibrary(text: string | null | undefined): SwatchLibrary | null {
-  if (!text) return null;
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    return null;
-  }
+/** A stored library object (format v1), or null when invalid. */
+function readLibrary(data: unknown): SwatchLibrary | null {
   if (typeof data !== 'object' || data === null) return null;
   const stored = data as Partial<StoredLibrary>;
   if (stored.v !== FORMAT_VERSION || typeof stored.name !== 'string' || typeof stored.fileName !== 'string') return null;
@@ -101,4 +94,60 @@ export function deserializeSwatchLibrary(text: string | null | undefined): Swatc
     }
   }
   return { name: stored.name, fileName: stored.fileName, swatches, skipped };
+}
+
+function parseJson(text: string | null | undefined): unknown {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** Inverse of `serializeSwatchLibrary`; null for anything that is not a valid stored library (never throws). */
+export function deserializeSwatchLibrary(text: string | null | undefined): SwatchLibrary | null {
+  return readLibrary(parseJson(text));
+}
+
+/** Storage container of several libraries (v2): `{ v: 2, libraries: [<v1 library object>…] }`. */
+const CONTAINER_VERSION = 2;
+
+/**
+ * Serializes libraries in order while they fit into `maxChars` together (docs/SPEC.md §4g); a library that does not
+ * fit is left out (it stays session-only) and later, smaller ones may still be stored. `stored[i]` tells whether
+ * `libraries[i]` is in `text`; `text` is null when nothing is stored.
+ */
+export function packSwatchLibraries(
+  libraries: readonly SwatchLibrary[],
+  maxChars: number,
+): { text: string | null; stored: boolean[] } {
+  const head = `{"v":${CONTAINER_VERSION},"libraries":[`;
+  const tail = ']}';
+  const parts: string[] = [];
+  let length = head.length + tail.length;
+  const stored = libraries.map((library) => {
+    const part = serializeSwatchLibrary(library);
+    const extra = part.length + (parts.length > 0 ? 1 : 0);
+    if (length + extra > maxChars) return false;
+    parts.push(part);
+    length += extra;
+    return true;
+  });
+  return { text: parts.length > 0 ? head + parts.join(',') + tail : null, stored };
+}
+
+/**
+ * Libraries from storage: the v2 container, or a single v1 library (the format before several libraries were
+ * allowed — migrated transparently). Invalid entries are dropped; invalid data gives []. Never throws.
+ */
+export function deserializeSwatchLibraries(text: string | null | undefined): SwatchLibrary[] {
+  const data = parseJson(text);
+  if (typeof data !== 'object' || data === null) return [];
+  const container = data as { v?: unknown; libraries?: unknown };
+  if (container.v === CONTAINER_VERSION && Array.isArray(container.libraries)) {
+    return container.libraries.map(readLibrary).filter((library): library is SwatchLibrary => library !== null);
+  }
+  const single = readLibrary(data);
+  return single ? [single] : [];
 }

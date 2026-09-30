@@ -254,9 +254,16 @@ export const SWATCH_LIBRARY_RULES = {
   accept: '.ase,application/octet-stream',
   /** Files above this size are rejected before reading (a full Pantone guide is a few hundred kB). */
   maxFileSizeBytes: 5 * 1024 * 1024,
-  /** Colour entries kept at most; the rest is skipped (counted). */
+  /** Colour entries kept at most per library; the rest is skipped (counted). */
   maxEntries: 20_000,
-  /** Serialized library larger than this (UTF-16 chars) is kept for the session only, not in localStorage. */
+  /** Libraries loaded at the same time (client [K] 30.09.2026: several, e.g. Coated + Uncoated). */
+  maxLibraries: 8,
+  /** Colours in all loaded libraries together; an import that would exceed it is rejected. */
+  maxTotalColors: 50_000,
+  /**
+   * Budget (UTF-16 chars) of all libraries in localStorage together. Libraries are stored in import order while they
+   * fit; the rest is kept for the session only.
+   */
   maxStoredChars: 2_000_000,
   /** Nearest library swatches listed per detected artwork colour. */
   suggestionsPerColor: 2,

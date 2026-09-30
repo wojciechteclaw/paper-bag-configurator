@@ -36,6 +36,9 @@ export type SwatchLibrary = {
   skipped: Partial<Record<SwatchSkipReason, number>>;
 };
 
+/** A swatch of the combined pool of all loaded libraries, with the name of the library it comes from. */
+export type PooledSwatch = Swatch & { library: string };
+
 export function countSkipped(library: Pick<SwatchLibrary, 'skipped'>): number {
   return Object.values(library.skipped).reduce((sum, n) => sum + (n ?? 0), 0);
 }

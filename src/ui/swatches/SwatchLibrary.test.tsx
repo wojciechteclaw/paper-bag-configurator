@@ -34,7 +34,7 @@ const chooseFile = (file: File) => fireEvent.change(screen.getByLabelText('Plik 
 beforeEach(async () => {
   await i18n.changeLanguage('pl');
   useConfigurationStore.setState({ configuration: createConfiguration('BLOCK') });
-  useSwatchLibraryStore.getState().clearLibrary();
+  useSwatchLibraryStore.getState().clearLibraries();
   localStorage.clear();
 });
 
@@ -51,7 +51,7 @@ describe('swatch library import (Nadruk i produkcja)', () => {
     // Not part of the configuration.
     expect(JSON.stringify(config())).not.toContain('Solid Coated');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Usuń wzornik' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Usuń wzornik Solid Coated' }));
     expect(screen.getByText(/Brak wzornika/)).toBeInTheDocument();
     expect(localStorage.getItem(SWATCH_LIBRARY_STORAGE_KEY)).toBeNull();
   });
@@ -64,13 +64,41 @@ describe('swatch library import (Nadruk i produkcja)', () => {
     expect(screen.getByText(/Wzornik „Mine”/)).toBeInTheDocument();
   });
 
+  it('loads several libraries at once, each listed with its own remove button; the same file name replaces', async () => {
+    render(<ProductionOptions />);
+    const uncoated = buildAse([{ kind: 'color', name: 'PANTONE 186 U', model: 'RGB ', values: [0.8, 0.3, 0.35] }]);
+    fireEvent.change(screen.getByLabelText('Plik wzornika kolorów (.ase)'), {
+      target: { files: [aseFile(libraryBytes()), aseFile(uncoated, 'Solid Uncoated.ase')] },
+    });
+    expect(await screen.findByText('Wzornik „Solid Uncoated” (Solid Uncoated.ase): 1 kolor.')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Wczytane wzorniki' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+
+    chooseFile(aseFile(uncoated, 'solid coated.ase'));
+    expect(await screen.findByText('Wzornik „solid coated” (solid coated.ase): 1 kolor.')).toBeInTheDocument();
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Usuń wzornik Solid Uncoated' }));
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(useSwatchLibraryStore.getState().libraries.map((l) => l.fileName)).toEqual(['solid coated.ase']);
+  });
+
+  it('reports an import over the library limit with the file name', async () => {
+    for (let i = 0; i < SWATCH_LIBRARY_RULES.maxLibraries; i++) useSwatchLibraryStore.getState().importAse(`L${i}.ase`, libraryBytes());
+    render(<ProductionOptions />);
+    chooseFile(aseFile(libraryBytes(), 'Extra.ase'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      `Extra.ase: Można wczytać maks. ${SWATCH_LIBRARY_RULES.maxLibraries} wzorników — usuń któryś, aby dodać nowy.`,
+    );
+  });
+
   it('rejects files over the size limit before reading them', async () => {
     render(<ProductionOptions />);
     const file = aseFile(libraryBytes());
     Object.defineProperty(file, 'size', { value: SWATCH_LIBRARY_RULES.maxFileSizeBytes + 1 });
     chooseFile(file);
     expect(await screen.findByRole('alert')).toHaveTextContent('Plik jest za duży (maks. 5 MB).');
-    expect(useSwatchLibraryStore.getState().library).toBeNull();
+    expect(useSwatchLibraryStore.getState().libraries).toEqual([]);
   });
 
   it('uses the library colour as the preview when adding a code it contains, and marks it', () => {
@@ -78,7 +106,7 @@ describe('swatch library import (Nadruk i produkcja)', () => {
     render(<ProductionOptions />);
     const input = screen.getByLabelText('Kod Pantone');
     fireEvent.change(input, { target: { value: 'pms 7621 c' } });
-    expect(screen.getByText(/We wzorniku: PANTONE 7621 C/)).toBeInTheDocument();
+    expect(screen.getByText(/We wzorniku „Solid Coated”: PANTONE 7621 C/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Dodaj' }));
     expect(config().print.pantoneColors).toEqual([{ code: 'pms 7621 c', hex: '#123456' }]);
     expect(screen.getByText('z wzornika')).toHaveAttribute('title', 'Kolor podglądu z wzornika „Solid Coated”');
@@ -125,6 +153,7 @@ describe('nearest library swatches of detected artwork colours', () => {
     expect(within(table).getByText('PANTONE 186 C')).toBeInTheDocument();
     expect(within(table).getByText('ΔE00 0')).toBeInTheDocument();
     expect(within(table).getByText('PANTONE 485 C')).toBeInTheDocument();
+    expect(within(table).getAllByText('Solid Coated')).toHaveLength(2); // library of each suggestion
     expect(within(table).queryByText('PANTONE 7621 C')).not.toBeInTheDocument();
 
     fireEvent.click(within(table).getByRole('button', { name: 'Dodaj PANTONE 186 C do kolorów nadruku', hidden: true }));

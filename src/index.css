@@ -360,6 +360,11 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .swatch-library { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--border); }
 .swatch-library__actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
 .swatch-library__status { margin: 4px 0; font-weight: 600; }
+.swatch-library__list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.swatch-library__item { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface-muted); }
+.swatch-library__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.swatch-library__row button { padding: 1px 8px; font-size: 12px; }
+.swatch-suggestions__library { color: var(--muted); font-size: 11px; }
 .swatch-library small { display: block; }
 .pantone-form__library { display: inline-flex; align-items: center; gap: 4px; }
 .pantone-form__library .swatch { display: inline-block; flex: none; }
