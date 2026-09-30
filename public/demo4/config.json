@@ -2,8 +2,8 @@
   "id": "demo-4",
   "productType": "BLOCK",
   "dimensions": {
-    "width": 180,
-    "height": 400,
+    "width": 250,
+    "height": 420,
     "depth": 180
   },
   "paper": {
@@ -33,14 +33,14 @@
         "id": "6206c064-7b15-44d8-9af0-4f73c7ba473b",
         "fileName": "image-1.webp",
         "fileUrl": "image-1.webp",
-        "width": 2953,
-        "height": 6083,
-        "sizeBytes": 0,
+        "width": 1530,
+        "height": 3570,
+        "sizeBytes": 10344,
         "mimeType": "image/webp"
       },
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     },
     "BACK": {
@@ -50,14 +50,14 @@
         "id": "9e0072e5-4a02-439d-a310-abd7729116e4",
         "fileName": "image-2.webp",
         "fileUrl": "image-2.webp",
-        "width": 2953,
-        "height": 6083,
-        "sizeBytes": 0,
+        "width": 2126,
+        "height": 3570,
+        "sizeBytes": 16180,
         "mimeType": "image/webp"
       },
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     },
     "LEFT": {
@@ -67,14 +67,18 @@
         "id": "bb628a59-1649-482d-9ca6-3b6108fd626e",
         "fileName": "image-3.webp",
         "fileUrl": "image-3.webp",
-        "width": 2362,
-        "height": 6083,
-        "sizeBytes": 0,
+        "width": 1530,
+        "height": 3570,
+        "sizeBytes": 10856,
         "mimeType": "image/webp"
       },
       "placement": {
-        "mode": "FILL",
-        "extendToBottom": true
+        "mode": "CUSTOM",
+        "offsetX": 0,
+        "offsetY": 0.7379421221864959,
+        "scale": 1,
+        "rotation": 0,
+        "extendToBottom": false
       }
     },
     "RIGHT": {
@@ -84,14 +88,14 @@
         "id": "5c4cdcdc-410e-4401-b46c-1e9bda523371",
         "fileName": "image-4.webp",
         "fileUrl": "image-4.webp",
-        "width": 2362,
-        "height": 6083,
-        "sizeBytes": 0,
+        "width": 2125,
+        "height": 3570,
+        "sizeBytes": 18456,
         "mimeType": "image/webp"
       },
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     }
   },
