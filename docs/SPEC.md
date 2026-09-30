@@ -553,8 +553,14 @@ grafika / warstwa) **jest** zapisywany w pliku (decyzja klienta [K] 30.09.2026) 
   wykrój: jeden palec przesuwa arkusz lub grafikę, dwa palce — zoom i przesuwanie).
 - **Telefon poziomo (≤ 900 × ≤ 560 px):** konfiguracja i podgląd obok siebie (45 / 55 %), podgląd przyklejony na
   pełną wysokość pod nagłówkiem.
-- **Górny pasek:** tytuł + język, pod nimi przewijany poziomo rząd „Zapisz / Wczytaj projekt” i „Demo 1–4”
-  (w poziomie jeden rząd); komunikat zapisu / wczytania jako powiadomienie u góry ekranu.
+- **Górny pasek (≤ 900 px, prośba klienta [K] 30.09.2026: „menu nawigacyjne … albo plik rozwijany demo”):** jeden
+  rząd — tytuł, język, przycisk menu ☰ (44 × 44 px; od 421 px z napisem „Menu”). Menu rozwijane pod paskiem: sekcja
+  „Projekt” („Zapisz projekt”, „Wczytaj projekt” — zamykają menu) i „Przykłady (demo)” — Demo 1…N z krótkim opisem
+  (`app.demoHints`); podczas wczytywania pozycja pokazuje „Wczytywanie…”, po udanym wczytaniu menu się zamyka, przy
+  błędzie / brakujących obrazkach zostaje otwarte z komunikatem w pozycji. Dostępność: przycisk z `aria-expanded` /
+  `aria-controls`, fokus na pierwszą pozycję po otwarciu, Esc zamyka i wraca na przycisk, kliknięcie lub fokus poza
+  menu zamyka. Komunikat zapisu / wczytania jako powiadomienie u góry ekranu (widoczne także przy zamkniętym menu).
+  Desktop: te same przyciski w jednym rzędzie jak dotąd.
 - **Kroki (≤ 600 px):** numery kroków, bieżący krok z nazwą. Pola ≥ 44 px, tekst pól 16 px, karty wyboru w jednej
   kolumnie; warstwy i legenda wykroju zwijane. `prefers-reduced-motion` wyłącza przejścia CSS i animację dopasowania
   kamery.

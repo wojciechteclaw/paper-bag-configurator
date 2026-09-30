@@ -85,9 +85,16 @@ h1, h2, h3, legend, .subheading { color: var(--heading); }
   font: 700 20px/1.2 var(--font-display); letter-spacing: 0.03em; text-transform: uppercase;
 }
 .app-header h1::after { content: ''; position: absolute; left: 0; bottom: 0; width: 50px; height: 3px; background: var(--brand); }
-.app-header__actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 /* Title left, the buttons and the language switcher packed on the right. */
 .app-header h1 { margin-right: auto; }
+/* Header menu (AppHeader / HeaderMenu): on desktop the ☰ toggle is hidden and the panel is the row of header buttons;
+   the ≤ 900 px block turns it into a drop-down menu. */
+.header-menu__toggle { display: none; }
+.header-menu__panel, .header-menu__section, .demo-list {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end;
+}
+.header-menu__heading, .demo-button__description, .demo-button__status { display: none; }
+.demo-list { margin: 0; padding: 0; list-style: none; }
 
 /* Project file actions (docs/SPEC.md §4h): compact header buttons + a message popover under them. */
 .project-actions { position: relative; }
@@ -470,26 +477,63 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
     :root:has(.preview-panel .dieline-view) { --preview-h: 62svh; }
   }
 
-  /* Top bar: title + language switcher, then the project and demo buttons in one horizontally scrollable row. */
-  .app-header { flex-wrap: wrap; gap: 0 8px; padding: 4px var(--gutter) 0; }
-  .app-header h1 { flex: 1 1 0; min-width: 0; font-size: 16px; overflow-wrap: anywhere; hyphens: auto; }
-  .lang-switcher { order: 1; }
+  /* Top bar in one row: title, language switcher and the ☰ menu (client [K] 30.09.2026). */
+  .app-header { z-index: 4; flex-wrap: nowrap; gap: 8px; padding: 4px var(--gutter); }
+  .app-header h1 { flex: 1 1 0; min-width: 0; margin-right: 0; font-size: 16px; overflow-wrap: anywhere; hyphens: auto; }
+  .lang-switcher { order: 1; flex: none; }
   .lang-switcher button { min-width: 40px; min-height: 44px; padding: 4px 6px; }
-  .app-header__actions {
-    order: 2; flex: 1 0 100%; flex-wrap: nowrap; justify-content: flex-start; gap: 8px;
-    margin: 0 calc(-1 * var(--gutter)); padding: 4px var(--gutter) 8px;
-    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-padding-inline: var(--gutter);
+  .header-menu { order: 2; flex: none; }
+  .header-menu__toggle {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 44px; min-height: 44px;
+    padding: 8px 12px; color: var(--heading);
+    font: 700 13px/1 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase;
   }
-  .app-header__actions::-webkit-scrollbar { display: none; }
-  /* A fade stuck to the right edge hints that the row scrolls (a pseudo-element, not a mask: a mask would also hide
-     the fixed save / load message inside the row). */
-  .app-header__actions::after {
-    content: ''; position: sticky; right: 0; flex: none; align-self: stretch;
-    width: 28px; margin-left: -20px; background: linear-gradient(to right, transparent, var(--surface)); pointer-events: none;
+  .header-menu__toggle[aria-expanded='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  /* ☰, turning into × while open. */
+  .header-menu__icon { position: relative; display: block; width: 16px; height: 12px; flex: none; }
+  .header-menu__icon::before, .header-menu__icon::after {
+    content: ''; position: absolute; left: 0; width: 16px; height: 2px; background: currentColor;
+    transition: transform var(--transition), box-shadow var(--transition), top var(--transition);
   }
-  .project-actions__buttons { gap: 8px; }
-  .header-button, .demo-button { flex: none; min-height: 44px; }
-  /* The save / load message cannot hang below a scrolling row: it becomes a toast at the top of the screen. */
+  .header-menu__icon::before { top: 0; box-shadow: 0 5px 0 currentColor; }
+  .header-menu__icon::after { top: 10px; }
+  [aria-expanded='true'] > .header-menu__icon::before { top: 5px; box-shadow: none; transform: rotate(45deg); }
+  [aria-expanded='true'] > .header-menu__icon::after { top: 5px; transform: rotate(-45deg); }
+
+  /* The drop-down: full width under the header, scrolls if taller than the screen. */
+  .header-menu__panel {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+    flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 16px;
+    max-height: calc(100vh - 56px); overflow-y: auto; overscroll-behavior: contain;
+    padding: 12px var(--gutter) 16px; background: var(--surface);
+    border-top: 1px solid var(--border); box-shadow: 0 8px 16px rgb(0 0 0 / 14%);
+  }
+  @supports (height: 1svh) {
+    .header-menu__panel { max-height: calc(100svh - 56px); }
+  }
+  /* Closed: hidden but mounted (buttons keep their state); the save / load toast and the confirmation dialog inside
+     the menu stay visible on their own. */
+  .header-menu__panel:not(.is-open) { visibility: hidden; }
+  .header-menu__panel .project-message, .header-menu__panel .dialog-backdrop { visibility: visible; }
+  .header-menu__section, .demo-list { flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 8px; }
+  .header-menu__heading {
+    display: block; margin: 0; color: var(--muted);
+    font: 700 12px/1.3 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .project-actions__buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .header-button { min-height: 44px; white-space: normal; }
+  /* Demo items: "DEMO N" and the demo's description; a status line when loading failed or images are missing. */
+  .demo-button { display: grid; gap: 2px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; }
+  .demo-button__description {
+    display: block; color: var(--text); font: 400 13px/1.35 var(--font-body); letter-spacing: 0; text-transform: none;
+  }
+  .demo-button__description::first-letter { text-transform: uppercase; }
+  .demo-button:hover:not(:disabled) .demo-button__description { color: inherit; }
+  .demo-button__status:not(:empty) {
+    display: block; color: var(--error); font: 600 12px/1.35 var(--font-body); letter-spacing: 0; text-transform: none;
+  }
+  .demo-button.has-problem { border-color: var(--warning-edge); }
+  /* The save / load message cannot hang below the header buttons: it becomes a toast at the top of the screen. */
   .project-actions .project-message {
     position: fixed; top: 8px; left: var(--gutter); right: var(--gutter); z-index: 50; width: auto; max-width: none;
   }
@@ -554,6 +598,12 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .dialog__actions button { flex: 1 1 auto; min-height: 44px; }
 }
 
+/* Narrow phones: the ☰ toggle without its "Menu" text, so title, languages and menu fit one row at 360–420 px. */
+@media (max-width: 420px) {
+  .header-menu__label { display: none; }
+  .header-menu__toggle { padding: 8px; }
+}
+
 /* Phones (≤ 600 px) */
 @media (max-width: 600px) {
   /* Step tabs: numbers only, the current step also shows its label (all labels stay for screen readers). */
@@ -605,10 +655,13 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
     .preview-panel { height: calc(100svh - 52px); }
   }
   .config-panel { grid-column: 1; grid-row: 1; }
-  /* One header row: title, the scrollable button row, language switcher (52 px, subtracted from the preview height). */
-  .app-header { flex-wrap: nowrap; height: 52px; padding-block: 0; }
-  .app-header h1 { flex: none; white-space: nowrap; }
-  .app-header__actions { order: 0; flex: 1 1 auto; min-width: 0; margin: 0; padding: 4px 0; }
+  /* One header row of 52 px (subtracted from the preview height); the menu opens below it. */
+  .app-header { height: 52px; padding-block: 0; }
+  .app-header h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-menu__panel { max-height: calc(100vh - 52px); }
+  @supports (height: 1svh) {
+    .header-menu__panel { max-height: calc(100svh - 52px); }
+  }
   .preview-modes__option { padding: 4px 5px; font-size: 11px; letter-spacing: 0.01em; }
   .fold-slider label {
     position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
