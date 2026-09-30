@@ -49,7 +49,8 @@ describe('demo configuration', () => {
     expect(c.artworkLayout).toBe('WRAP');
     expect(c.wrapLayers).toHaveLength(1);
     expect(c.wrapLayers[0].artwork.fileUrl).toBe('/gusseted-bag/gussted.webp');
-    expect(c.wrapLayers[0].placement).toMatchObject({ mode: 'FILL', extendToBottom: false });
+    expect(c.wrapLayers[0].placement).toMatchObject({ mode: 'CUSTOM', offsetX: -60, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
+    expect(c.glueFlapWidth).toBe(15);
     for (const position of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) expect(c.panels[position].artwork).toBeNull();
   });
 
@@ -62,7 +63,7 @@ describe('demo configuration', () => {
     vi.stubGlobal('Image', FailingImage);
     const result = await loadDemoConfiguration('/', 'FOLDED');
     expect(result.total).toBe(1);
-    expect(result.missing).toEqual(DEMO_CONFIGURATIONS.FOLDED.wrapLayers);
+    expect(result.missing).toEqual(DEMO_CONFIGURATIONS.FOLDED.wrapLayers?.map((layer) => layer.path));
     const c = useConfigurationStore.getState().configuration;
     expect(c.productType).toBe('FOLDED');
     expect(c.dimensions).toEqual({ width: 150, height: 250, depth: 60 });

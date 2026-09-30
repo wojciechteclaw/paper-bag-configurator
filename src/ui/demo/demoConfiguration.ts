@@ -1,5 +1,6 @@
 import { createArtwork } from '../../domain/factories';
-import type { BagType, Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
+import { wrapLayerTarget } from '../../domain/artworkLayout';
+import type { ArtworkPlacement, BagType, Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
 
 // Demo configurations, one per bag type — the DEMO button loads the one of the currently selected type. Image paths are
@@ -7,8 +8,9 @@ import { useConfigurationStore } from '../../state/configurationStore';
 // - BLOCK (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC, internal
 //   twisted paper rope handle, the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched onto
 //   the bottom (SPEC §4f).
-// - FOLDED (client request 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, one whole-bag
-//   (WRAP) artwork layer public/gusseted-bag/gussted.webp around the full width (supplied by the client).
+// - FOLDED (client configuration 30.09.2026): gusseted bag 150 + 60 × 250 mm, brown kraft 40 g/m², FSC, glue flap
+//   15 mm, one whole-bag (WRAP) artwork layer public/gusseted-bag/gussted.webp (5040 × 3000 px = the 420 × 250 mm wrap)
+//   placed 1:1 and shifted left by the gusset depth, so the image starts at the LEFT gusset's edge (sheet order).
 // Missing images are skipped: the configuration still loads.
 
 export type DemoConfiguration = {
@@ -21,7 +23,9 @@ export type DemoConfiguration = {
   /** Artwork per wall, path relative to `public/`. */
   artwork: Partial<Record<PanelPosition, string>>;
   /** Whole-bag (WRAP) artwork layers, bottom → top, paths relative to `public/`; non-empty = the WRAP layout. */
-  wrapLayers?: string[];
+  wrapLayers?: { path: string; placement?: ArtworkPlacement }[];
+  /** Glue flap width s, mm (default: the bag type's). */
+  glueFlapWidth?: number;
   /** "Extend to bottom" on every wall with artwork (only where the bag type offers it). */
   extendToBottom: boolean;
 };
@@ -50,8 +54,14 @@ export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> =
     paperColor: 'BROWN',
     grammage: 40,
     artwork: {},
-    // FILL over the whole wrap 2W + 2F = 420 mm × H 250 mm, starting at FRONT's left edge.
-    wrapLayers: ['gusseted-bag/gussted.webp'],
+    glueFlapWidth: 15,
+    // 1:1 over the wrap 2W + 2F = 420 × H 250 mm (image aspect 1.68 = wrap aspect), moved left by F = 60 mm.
+    wrapLayers: [
+      {
+        path: 'gusseted-bag/gussted.webp',
+        placement: { mode: 'CUSTOM', offsetX: -60, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false },
+      },
+    ],
     extendToBottom: false,
   },
 };
@@ -102,6 +112,7 @@ export async function loadDemoConfiguration(
   store().setPaperColor(demo.paperColor);
   store().setGrammage(demo.grammage);
   store().setFscCertified(demo.fscCertified);
+  if (demo.glueFlapWidth !== undefined) store().setGlueFlapWidth(demo.glueFlapWidth);
   const entries = Object.entries(demo.artwork) as [PanelPosition, string][];
   const layers = demo.wrapLayers ?? [];
   const prefix = base.endsWith('/') ? base : `${base}/`;
@@ -109,14 +120,18 @@ export async function loadDemoConfiguration(
     createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...info });
   const [results, layerResults] = await Promise.all([
     Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`))),
-    Promise.allSettled(layers.map((path) => probeImage(`${prefix}${path}`))),
+    Promise.allSettled(layers.map(({ path }) => probeImage(`${prefix}${path}`))),
   ]);
   const missing: string[] = [];
   if (layers.length > 0) store().setArtworkLayout('WRAP');
-  layers.forEach((path, i) => {
+  layers.forEach(({ path, placement }, i) => {
     const result = layerResults[i];
-    if (result.status === 'rejected') missing.push(path);
-    else store().addWrapLayer(artworkOf(path, result.value));
+    if (result.status === 'rejected') {
+      missing.push(path);
+      return;
+    }
+    const id = store().addWrapLayer(artworkOf(path, result.value));
+    if (id && placement) store().setPanelPlacement(wrapLayerTarget(id), placement);
   });
   entries.forEach(([position, path], i) => {
     const result = results[i];

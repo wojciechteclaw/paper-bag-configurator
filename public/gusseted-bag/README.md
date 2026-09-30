@@ -5,4 +5,4 @@ artwork layer (list: `DEMO_CONFIGURATIONS.FOLDED` in `src/ui/demo/demoConfigurat
 
 | File | Use | Area | Aspect ratio |
 |---|---|---|---|
-| `gussted.webp` | whole bag, FILL, starts at the front's left edge | 2W + 2F = 420 × H 250 mm | ≈ 1.68 : 1 |
+| `gussted.webp` (5040 × 3000 px) | whole bag, 1:1, shifted left by F = 60 mm (starts at the left gusset) | 2W + 2F = 420 × H 250 mm | 1.68 : 1 |
