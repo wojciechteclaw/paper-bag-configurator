@@ -410,3 +410,167 @@ export function getVisibleBottomZoneParts(panel: PanelPosition, d: Pick<Dimensio
     .filter((piece) => piece.panel === panel)
     .flatMap((piece) => piece.visibleParts.map((part) => ccw(part.map(piece.toPanel))));
 }
+
+// ——— The formed bottom seen from INSIDE the bag (through the open top) ———
+//
+// Client stack [K] from the inside out: glue flap part (laminated to the inside of LEFT's side flap) → side flaps →
+// FRONT ears → FRONT trapezoid → BACK ears → BACK trapezoid. Looking into the bag you see, at every point of the
+// W × D bottom, the innermost layer there: the two side flaps ([0, E] and [W − E, W] over the whole depth) with the
+// glue flap strip on LEFT's flap along the back crease, and — where the flaps leave a strip (W > 2E) — the FRONT
+// trapezoid (y ≥ D − E) and the BACK trapezoid (y < D − E). The ears are hidden on both sides.
+// When W < 2E (warning BOTTOM_TRAPEZOID_DEGENERATE) the two side flaps overlap in the middle; the model folds them in
+// at the same time, so the preview puts LEFT's flap inside — an arbitrary but stable tie-break (only LEFT's edge is
+// drawn in the overlap; both flaps' inner faces are plain paper in one plane).
+
+/** A piece of the bottom stack seen from inside: the bottom pieces plus the glue flap's zone part. */
+export type InnerBottomPieceId = BottomPieceId | 'GLUE_FLAP';
+
+/** Stack from the inside out (index 0 = innermost): client rule [K] + the LEFT-before-RIGHT tie-break above. */
+export const INNER_BOTTOM_STACK: readonly InnerBottomPieceId[] = [
+  'GLUE_FLAP',
+  'SIDE_FLAP_LEFT',
+  'SIDE_FLAP_RIGHT',
+  'FRONT_EAR_LEFT',
+  'FRONT_EAR_RIGHT',
+  'FRONT_TRAPEZOID',
+  'BACK_EAR_LEFT',
+  'BACK_EAR_RIGHT',
+  'BACK_TRAPEZOID',
+];
+
+export type InnerBottomPiece = {
+  id: InnerBottomPieceId;
+  /** Wall whose bottom zone forms the piece; null for the (unprinted) glue flap. */
+  panel: PanelPosition | null;
+  /** Position in `INNER_BOTTOM_STACK` (0 = innermost). */
+  depthFromInside: number;
+  /** The whole piece, BOTTOM-local (seen from below), CCW. */
+  polygon: Polygon2;
+  /** Convex parts of the piece no inner layer covers = what is seen of it from inside (BOTTOM-local, CCW). */
+  visibleParts: Polygon2[];
+};
+
+/**
+ * The glue flap's bottom-zone part, laminated to the inside of LEFT's side flap, BOTTOM-local: the strip y ∈ [0, s]
+ * along the back crease from the LEFT edge to x = E, its end chamfered at 45° (docs/PRODUCTION.md §9.2),
+ * s = min(glue flap width, D/2) as in the assembly. Empty for s = 0.
+ */
+export function getBottomGlueFlapPolygon(d: Pick<Dimensions, 'width' | 'depth'>, glueFlapWidth: number): Polygon2 {
+  const E = getBottomAllowance(d);
+  const s = Math.max(0, Math.min(glueFlapWidth, d.depth / 2));
+  if (!(s > 0)) return [];
+  // Glue-flap-local (u, v) = LEFT's zone (u, v) → BOTTOM (−v, u): (0,0) (0,−E) (s,−E+s) (s,0).
+  return dedupePolygon([pt(0, 0), pt(E, 0), pt(E - s, s), pt(0, s)]);
+}
+
+/** Edge i of a CCW polygon as n · p = c, with n · p ≤ c on its outside (right of the edge). */
+function edgeLine(polygon: Polygon2, i: number): [Point2, number] {
+  const a = polygon[i];
+  const b = polygon[(i + 1) % polygon.length];
+  // cross(b − a, p − a) = n · p − n · a with n = (−(b.y − a.y), b.x − a.x).
+  const n = pt(-(b.y - a.y), b.x - a.x);
+  return [n, n.x * a.x + n.y * a.y];
+}
+
+const MIN_PART_AREA = 1e-6;
+
+/** Convex polygon minus a convex polygon (both CCW) → disjoint convex parts (CCW); slivers are dropped. */
+export function subtractConvexPolygon(polygon: Polygon2, hole: Polygon2): Polygon2[] {
+  if (polygon.length < 3) return [];
+  if (hole.length < 3) return [polygon];
+  const parts: Polygon2[] = [];
+  let rest = polygon;
+  for (let i = 0; i < hole.length && rest.length >= 3; i++) {
+    const [n, c] = edgeLine(hole, i);
+    const outside = clipConvexPolygon(rest, n, c);
+    if (outside.length >= 3 && polygonArea(outside) > MIN_PART_AREA) parts.push(outside);
+    rest = clipConvexPolygon(rest, pt(-n.x, -n.y), -c);
+  }
+  return parts;
+}
+
+/**
+ * The bottom stack seen from inside the bag, innermost first (`INNER_BOTTOM_STACK`). Each piece carries the convex
+ * parts that no inner layer covers; together they tile the W × D bottom exactly. `glueFlapWidth` = the tube's glue
+ * flap (`DIELINE_RULES.glueFlapWidth`; 0 = none).
+ */
+export function getInnerVisibleBottomPieces(
+  d: Pick<Dimensions, 'width' | 'depth'>,
+  glueFlapWidth: number,
+): InnerBottomPiece[] {
+  const pieces = Object.fromEntries(getBottomPieces(d).map((p) => [p.id, p])) as Record<BottomPieceId, BottomPiece>;
+  const covered: Polygon2[] = [];
+  const out: InnerBottomPiece[] = [];
+  INNER_BOTTOM_STACK.forEach((id, depthFromInside) => {
+    const polygon = id === 'GLUE_FLAP' ? getBottomGlueFlapPolygon(d, glueFlapWidth) : pieces[id].polygon;
+    if (polygon.length < 3 || polygonArea(polygon) <= MIN_PART_AREA) return;
+    let visibleParts: Polygon2[] = [polygon];
+    for (const hole of covered) visibleParts = visibleParts.flatMap((part) => subtractConvexPolygon(part, hole));
+    out.push({ id, panel: id === 'GLUE_FLAP' ? null : pieces[id].panel, depthFromInside, polygon, visibleParts });
+    covered.push(polygon);
+  });
+  return out;
+}
+
+/** A paper edge of a bottom piece seen from inside, carried by that piece (BOTTOM-local mm). */
+export type InnerBottomEdge = { piece: InnerBottomPieceId; segment: Segment2 };
+
+/** Parameter interval [t0, t1] of segment a→b inside the closed convex polygon (CCW, tolerance in mm), or null. */
+function segmentInsideInterval(a: Point2, b: Point2, polygon: Polygon2, tolerance: number): [number, number] | null {
+  let t0 = 0;
+  let t1 = 1;
+  for (let i = 0; i < polygon.length; i++) {
+    const [n, c] = edgeLine(polygon, i);
+    // Inside ⇔ n · p ≥ c − tol·|n|; along the segment f(t) = f0 + t · df ≥ 0.
+    const f0 = n.x * a.x + n.y * a.y - c + tolerance * Math.hypot(n.x, n.y);
+    const df = n.x * (b.x - a.x) + n.y * (b.y - a.y);
+    if (Math.abs(df) < 1e-12) {
+      if (f0 < 0) return null;
+      continue;
+    }
+    const t = -f0 / df;
+    if (df > 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+    if (t0 >= t1) return null;
+  }
+  return [t0, t1];
+}
+
+/**
+ * Paper edges seen from inside the formed bottom (BOTTOM-local): every edge of every stack piece minus the parts
+ * covered by an inner piece (an edge lying on an inner piece's boundary counts as covered — that piece draws its own
+ * edge there). Edges on the bottom outline (the bottom fold lines, already drawn as panel boundaries) are left out.
+ * Typically: the inner edges x = E / x = W − E of the side flaps, the FRONT trapezoid's end y = D − E between them
+ * (the glue overlap seen from inside) and the glue flap strip's long edge and chamfer.
+ */
+export function getInnerBottomEdges(d: Pick<Dimensions, 'width' | 'depth'>, glueFlapWidth: number): InnerBottomEdge[] {
+  const { width: W, depth: D } = d;
+  const tol = 1e-6;
+  const onLine = (p: Point2, q: Point2, axis: 'x' | 'y', value: number) =>
+    Math.abs(p[axis] - value) < tol && Math.abs(q[axis] - value) < tol;
+  const onOutline = (p: Point2, q: Point2) =>
+    onLine(p, q, 'x', 0) || onLine(p, q, 'x', W) || onLine(p, q, 'y', 0) || onLine(p, q, 'y', D);
+  const pieces = getInnerVisibleBottomPieces(d, glueFlapWidth);
+  const edges: InnerBottomEdge[] = [];
+  pieces.forEach((piece, k) => {
+    const inner = pieces.slice(0, k).map((p) => p.polygon);
+    piece.polygon.forEach((a, i) => {
+      const b = piece.polygon[(i + 1) % piece.polygon.length];
+      if (onOutline(a, b) || Math.hypot(b.x - a.x, b.y - a.y) < tol) return;
+      let free: [number, number][] = [[0, 1]];
+      for (const hole of inner) {
+        const cut = segmentInsideInterval(a, b, hole, tol);
+        if (!cut) continue;
+        free = free.flatMap(([s0, s1]) => {
+          const kept: [number, number][] = [];
+          if (Math.min(s1, cut[0]) - s0 > 1e-9) kept.push([s0, Math.min(s1, cut[0])]);
+          if (s1 - Math.max(s0, cut[1]) > 1e-9) kept.push([Math.max(s0, cut[1]), s1]);
+          return kept;
+        });
+      }
+      const at = (t: number) => pt(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      for (const [s0, s1] of free) edges.push({ piece: piece.id, segment: seg(at(s0), at(s1)) });
+    });
+  });
+  return edges;
+}

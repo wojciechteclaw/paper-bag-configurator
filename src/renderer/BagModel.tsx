@@ -24,9 +24,11 @@ import {
   getBagFrame,
   getCreaseSpecs,
   getEdgeSpecs,
+  getInnerBottomEdgeSpecs,
   updatePanelMesh,
   writeLineSegments,
   type BagFrame,
+  type MeshFace,
   type PanelMesh,
 } from './bagGeometry';
 import { PAPER_PALETTES, type PaperPalette } from './constants';
@@ -41,7 +43,9 @@ import { ARTWORK_PROGRAM_KEY, clipArtworkToImage, usePanelTexture, usePanelUvTra
 // trapezoid — outermost, client rule —, the free part of the FRONT trapezoid, the two side triangles) in the UV space of
 // the wall it is folded from, each offset outwards per layer (BOTTOM_LAYER_OFFSET_MM): it
 // shows that wall's texture (same object, same transform) only when the wall's placement extends to the bottom
-// (SPEC §4f), otherwise plain paper.
+// (SPEC §4f), otherwise plain paper. Those pieces render their outer face only; the inside of the bottom (seen through
+// the open top) is a second set of plain-paper meshes — side flaps, glue flap strip, trapezoids between the flaps —
+// with their paper edges (createInnerBottomMeshes / getInnerBottomEdgeSpecs).
 // Two models share the textures and the handles: while the assembly from the sheet runs (assemblyProgress < 1) the
 // sheet pieces of assemblyGeometry.ts are shown; from the formed bag on (assemblyProgress = 1) the fold model of
 // bagGeometry.ts (BOX → flat). Both are posed from ONE damped timeline value, so presets animate through all phases.
@@ -121,16 +125,18 @@ type SurfaceViewProps = {
   palette: PaperPalette;
   /** Artwork texture shown on the outer face, or null for plain paper. */
   texture: Texture | null;
+  /** Faces to render (default both; the formed bottom splits them into two tilings, see bagGeometry.ts). */
+  faces?: MeshFace;
 };
 
 /**
  * One wall, bottom or sheet piece: outer face (artwork or paper) + inner face (always plain paper, visible through
  * the open top).
  */
-function SurfaceView({ name, geometry, userData, palette, texture }: SurfaceViewProps) {
+function SurfaceView({ name, geometry, userData, palette, texture, faces = 'both' }: SurfaceViewProps) {
   return (
     <group name={name}>
-      <mesh geometry={geometry} userData={{ ...userData, side: 'outer' }}>
+      <mesh geometry={geometry} userData={{ ...userData, side: 'outer' }} visible={faces !== 'inner'}>
         {texture ? (
           // New material per texture: switching map on/off needs a shader recompile.
           <meshStandardMaterial
@@ -147,7 +153,7 @@ function SurfaceView({ name, geometry, userData, palette, texture }: SurfaceView
           <meshStandardMaterial key="paper" color={palette.paper} side={FrontSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
         )}
       </mesh>
-      <mesh geometry={geometry} userData={{ ...userData, side: 'inner' }}>
+      <mesh geometry={geometry} userData={{ ...userData, side: 'inner' }} visible={faces !== 'outer'}>
         <meshStandardMaterial color={palette.paper} side={BackSide} {...PAPER_MATERIAL} {...POLYGON_OFFSET} />
       </mesh>
     </group>
@@ -207,7 +213,8 @@ export function BagModel({
   useEffect(() => () => meshes.forEach((m) => m.geometry.dispose()), [meshes]);
   useEffect(() => () => assemblyMeshes.forEach((m) => m.geometry.dispose()), [assemblyMeshes]);
 
-  const edgeSpecs = useMemo(() => getEdgeSpecs(dims), [dims]);
+  // Panel boundaries + the paper edges on the inside of the bottom (seen through the open top only).
+  const edgeSpecs = useMemo(() => [...getEdgeSpecs(dims), ...getInnerBottomEdgeSpecs(dims)], [dims]);
   const creaseSpecs = useMemo(() => getCreaseSpecs(dims), [dims]);
   const edgePoints = useMemo(() => placeholderPoints(edgeSpecs.length), [edgeSpecs]);
   const creasePoints = useMemo(() => placeholderPoints(creaseSpecs.length), [creaseSpecs]);
@@ -298,12 +305,13 @@ export function BagModel({
       <group ref={foldGroup} name="bag-folded">
         {meshes.map((mesh) => (
           <SurfaceView
-            key={mesh.piece ?? mesh.id}
-            name={`panel-${mesh.piece ? `${mesh.id}-${mesh.piece}` : mesh.id}`}
+            key={`${mesh.face}-${mesh.piece ?? mesh.id}`}
+            name={`panel-${mesh.piece ? `${mesh.id}-${mesh.face === 'inner' ? 'inner-' : ''}${mesh.piece}` : mesh.id}`}
             geometry={mesh.geometry}
             userData={{ panel: mesh.id, piece: mesh.piece }}
             palette={palette}
-            texture={textureOf(mesh)}
+            texture={mesh.face === 'inner' ? null : textureOf(mesh)}
+            faces={mesh.face}
           />
         ))}
         {/* Positions are rewritten in place every pose; bounding volumes are stale, so skip frustum culling. */}
