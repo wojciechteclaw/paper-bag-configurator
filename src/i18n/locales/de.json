@@ -11,9 +11,10 @@
     "demoError": "Die Demo konnte nicht geladen werden: {{folder}}/config.json fehlt oder ist ungültig.",
     "demoMissing": "Demo-Konfiguration geladen, aber diese Bilder fehlen: {{files}}",
     "demoHints": {
-      "1": "Demo 1 (public/demo1): Blockbodentasche 250 × 200 × 400 mm, weißes Papier 100 g/m² FSC, Kordelgriff, „Wave“-Motive auf den Wänden, bis auf den Boden",
+      "1": "Demo 1 (public/demo1): Blockbodentasche 250 × 200 × 400 mm, weißes Papier 100 g/m² FSC, flacher Papiergriff, „Wave“-Motive auf den Wänden, bis auf den Boden",
       "2": "Demo 2 (public/demo2): Seitenfaltenbeutel 150 + 60 × 250 mm, braunes Papier 40 g/m² FSC, Motiv auf dem ganzen Bogen",
-      "3": "Demo 3 (public/demo3): Seitenfaltenbeutel 150 + 60 × 250 mm mit Panoramafenster (perforierte PP-Folie), Motiv rund um die Tüte"
+      "3": "Demo 3 (public/demo3): Seitenfaltenbeutel 150 + 60 × 250 mm mit Panoramafenster (perforierte PP-Folie), Motiv rund um die Tüte",
+      "4": "Demo 4 (public/demo4): Blockbodentasche XL 320 × 220 × 400 mm, weißes Kraftpapier 70 g/m² FSC, Kordelgriff, Motiv auf dem ganzen Bogen"
     },
     "demoHintGeneric": "Beispiel aus {{folder}} laden (config.json + Bilder)"
   },

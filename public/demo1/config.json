@@ -15,10 +15,10 @@
   },
   "handle": {
     "id": "5aeedc07-4abe-4b70-9c26-6f14a834d521",
-    "type": "TWISTED_PAPER",
+    "type": "FLAT_PAPER",
     "material": "KRAFT",
     "color": "#c8a57a",
-    "width": 5,
+    "width": 20,
     "length": 180,
     "patch": {
       "width": 110,

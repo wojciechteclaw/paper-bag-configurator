@@ -11,9 +11,10 @@
     "demoError": "Nie udało się wczytać demo: brak lub błędny {{folder}}/config.json.",
     "demoMissing": "Konfiguracja demo wczytana, ale brakuje grafik: {{files}}",
     "demoHints": {
-      "1": "Demo 1 (public/demo1): torba klockowa 250 × 200 × 400 mm, papier biały 100 g/m² FSC, uchwyt skręcany, grafiki „wave” na ściankach, rozciągnięte na dno",
+      "1": "Demo 1 (public/demo1): torba klockowa 250 × 200 × 400 mm, papier biały 100 g/m² FSC, uchwyt płaski papierowy, grafiki „wave” na ściankach, rozciągnięte na dno",
       "2": "Demo 2 (public/demo2): torba fałdowa 150 + 60 × 250 mm, papier brązowy 40 g/m² FSC, grafika na cały arkusz",
-      "3": "Demo 3 (public/demo3): torba fałdowa 150 + 60 × 250 mm z okienkiem panoramicznym (folia PP perforowana), grafika na całą torbę"
+      "3": "Demo 3 (public/demo3): torba fałdowa 150 + 60 × 250 mm z okienkiem panoramicznym (folia PP perforowana), grafika na całą torbę",
+      "4": "Demo 4 (public/demo4): torba klockowa XL 320 × 220 × 400 mm, papier kraft biały 70 g/m² FSC, uchwyt skręcany, grafika na cały arkusz"
     },
     "demoHintGeneric": "Wczytaj przykład z folderu {{folder}} (config.json + obrazki)"
   },

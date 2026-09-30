@@ -37,19 +37,19 @@ afterEach(() => vi.unstubAllGlobals());
 const config = () => useConfigurationStore.getState().configuration;
 
 describe('demo folders public/demo<N> (config.json + image-N)', () => {
-  it('has three demos, each with a config.json', () => {
-    expect(DEMO_COUNT).toBe(3);
+  it('has four demos, each with a config.json', () => {
+    expect(DEMO_COUNT).toBe(4);
     for (let i = 1; i <= DEMO_COUNT; i++) expect(CONFIGS[`/public/demo${i}/config.json`]).toBeDefined();
   });
 
-  it('Demo 1: block-bottom bag 250 × 200 × 400, white 100 g/m² FSC, twisted handle, wave artwork on all walls extended to the bottom', async () => {
+  it('Demo 1: block-bottom bag 250 × 200 × 400, white 100 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
     const result = await loadDemoConfiguration(1, '/');
     expect(result).toEqual({ missing: [], total: 4 });
     const c = config();
     expect(c.productType).toBe('BLOCK');
     expect(c.dimensions).toEqual({ width: 250, height: 400, depth: 200 });
     expect(c.paper).toMatchObject({ color: 'WHITE', grammage: 100, fscCertified: true });
-    expect(c.handle?.type).toBe('TWISTED_PAPER');
+    expect(c.handle?.type).toBe('FLAT_PAPER');
     (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position, i) => {
       expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo1/image-${i + 1}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
       expect(c.panels[position].placement).toMatchObject({ mode: 'FILL', extendToBottom: true });
@@ -75,6 +75,17 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(c.dimensions).toEqual({ width: 250, height: 320, depth: 100 });
     expect(c.paper).toMatchObject({ type: 'GREASEPROOF', grammage: 50 });
     expect(c.window).toMatchObject({ type: 'PANORAMIC', material: 'PP_PERFORATED', width: 140, bottomOffset: 105 });
+  });
+
+  it('Demo 4: XL block-bottom bag 320 × 220 × 400, white kraft 70 g/m², twisted handle, whole-sheet layer', async () => {
+    await loadDemoConfiguration(4, '/');
+    const c = config();
+    expect(c.productType).toBe('BLOCK');
+    expect(c.dimensions).toEqual({ width: 320, height: 400, depth: 220 });
+    expect(c.paper).toMatchObject({ color: 'WHITE', grammage: 70 });
+    expect(c.handle?.type).toBe('TWISTED_PAPER');
+    expect(getArtworkLayout(c)).toBe('SHEET');
+    expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo4/image-1.webp']);
   });
 
   it('still loads the configuration when an image is missing, and lists it', async () => {

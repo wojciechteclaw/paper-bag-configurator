@@ -11,7 +11,7 @@ import { useConfigurationStore } from '../../state/configurationStore';
 // cannot be loaded are left out (the slot stays empty / the layer is dropped) and listed in the result.
 
 /** Demo folders `public/demo1` … `public/demo<DEMO_COUNT>` — one header button each. */
-export const DEMO_COUNT = 3;
+export const DEMO_COUNT = 4;
 
 /** Folder of demo `index`, relative to `public/`. */
 export const demoFolder = (index: number) => `demo${index}`;
