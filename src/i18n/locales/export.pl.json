@@ -239,7 +239,7 @@
       "FILL": "rozciągnięta na całą torbę",
       "CUSTOM": "x {{x}} mm, y {{y}} mm od środka, skala {{scale}} %, obrót {{rotation}}°",
       "extended": "z dnem",
-      "FILL_SHEET": "rozciągnięta na cały arkusz"
+      "FILL_SHEET": "rozciągnięta na arkusz (bez zakładki klejowej)"
     }
   }
 }

@@ -249,12 +249,12 @@
       "addFileInputLabel": "Plik nowej warstwy grafiki",
       "replaceFileInputLabel": "Plik zamieniający grafikę warstwy",
       "maxReached": "Osiągnięto limit {{max}} warstw — usuń warstwę, aby dodać nową.",
-      "sheetSize": "arkusz {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px przy {{dpi}} dpi",
+      "sheetSize": "arkusz bez zakładki klejowej {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px przy {{dpi}} dpi",
       "orderNoteSheet": "Warstwa wyżej na liście jest drukowana na wierzchu. Pierwsza warstwa (plik całego arkusza) wypełnia cały arkusz, kolejne startują dopasowane do przodu.",
-      "placementFillSheet": "Rozciągnięta na cały arkusz",
+      "placementFillSheet": "Rozciągnięta na arkusz (bez zakładki klejowej)",
       "addDropLabelSheet": "Dodaj warstwę grafiki całego arkusza"
     },
-    "aspectMismatchSheet": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji arkusza wykroju ({{panelRatio}}) — przy „Rozciągnij” grafika zostanie zdeformowana i nie trafi w ścianki."
+    "aspectMismatchSheet": "Proporcje grafiki ({{imageRatio}}) różnią się od proporcji arkusza wykroju bez zakładki klejowej ({{panelRatio}}) — przy „Rozciągnij” grafika zostanie zdeformowana i nie trafi w ścianki."
   },
   "paper": {
     "label": "Papier",

@@ -249,12 +249,12 @@
       "addFileInputLabel": "File of the new artwork layer",
       "replaceFileInputLabel": "File replacing the layer's artwork",
       "maxReached": "The limit of {{max}} layers is reached — remove a layer to add another.",
-      "sheetSize": "sheet {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px at {{dpi}} dpi",
+      "sheetSize": "sheet without the glue flap {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px at {{dpi}} dpi",
       "orderNoteSheet": "A layer higher in the list prints on top. The first layer (the whole-sheet file) fills the whole sheet; further ones start fitted to the front.",
-      "placementFillSheet": "Stretched over the whole sheet",
+      "placementFillSheet": "Stretched over the sheet (without the glue flap)",
       "addDropLabelSheet": "Add a whole-sheet artwork layer"
     },
-    "aspectMismatchSheet": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the dieline sheet ({{panelRatio}}) — with “Stretch” the artwork will be distorted and will not match the walls."
+    "aspectMismatchSheet": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the dieline sheet without the glue flap ({{panelRatio}}) — with “Stretch” the artwork will be distorted and will not match the walls."
   },
   "paper": {
     "label": "Paper",

@@ -274,10 +274,16 @@ export function getWrapImageExtent(
   return { x0: rect.center.x - reach, x1: rect.center.x + reach };
 }
 
-/** Visible size an artwork target is printed on: the wall, or the whole wall row for a whole-bag layer. */
+/**
+ * Visible size an artwork target is printed on: the wall, the whole wall row for a whole-bag layer, or the sheet over
+ * the wall columns (full height, no glue flap) for a whole-sheet layer — what FILL stretches an image to.
+ */
 export function getArtworkTargetSize(target: ArtworkTarget, source: Dimensions | ArtworkGeometry): Size2 {
   const layout = getLayerTargetInfo(target)?.layout;
-  if (layout === 'SHEET') return getSheetDieline(source).sheet;
+  if (layout === 'SHEET') {
+    const { width, height } = getSheetArtworkArea(source);
+    return { width, height };
+  }
   const { dimensions } = geometryOf(source);
   return layout === 'WRAP' ? getWrapSize(dimensions) : getPanelSize(target as PanelPosition, dimensions);
 }
@@ -301,12 +307,18 @@ export function getSheetDieline(source: Dimensions | ArtworkGeometry): Dieline {
 }
 
 /**
- * Artwork area of a whole-sheet layer: the whole cut sheet, sheet coordinates (x from its left edge, y from its bottom
- * edge — the tube end), bottom allowance / strip and glue-flap column included, so FILL maps a print file 1:1.
+ * Artwork area of a whole-sheet layer, in sheet coordinates (x from the sheet's left edge, y from its bottom edge — the
+ * tube end): the full sheet height (bottom allowance / strip included) over the wall columns only. The glue-flap
+ * column is never printed, so it is not part of the area either: FILL ("Rozciągnij") stretches a print file over the
+ * printed walls, not over the flap (client [K] 30.09.2026).
  */
 export function getSheetArtworkArea(source: Dimensions | ArtworkGeometry): PanelArtworkArea {
-  const { sheet } = getSheetDieline(source);
-  return { x: 0, y: 0, width: sheet.width, height: sheet.height };
+  const { sheet, segments } = getSheetDieline(source);
+  const walls = segments.filter((segment) => segment.x1 - segment.x0 > 0);
+  if (walls.length === 0) return { x: 0, y: 0, width: sheet.width, height: sheet.height };
+  const x0 = Math.min(...walls.map((segment) => segment.x0));
+  const x1 = Math.max(...walls.map((segment) => segment.x1));
+  return { x: x0, y: 0, width: x1 - x0, height: sheet.height };
 }
 
 /**

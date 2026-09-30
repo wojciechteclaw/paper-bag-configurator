@@ -68,9 +68,9 @@
       },
       "placement": {
         "mode": "CUSTOM",
-        "offsetX": -7.5,
+        "offsetX": 0,
         "offsetY": 12.5,
-        "scale": 0.9655172413793103,
+        "scale": 1,
         "rotation": 0,
         "extendToBottom": true
       }

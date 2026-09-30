@@ -345,10 +345,11 @@ describe('whole-sheet layers on the dieline (SPEC §3c)', () => {
     expect(image).toMatchObject({ id: `artwork-SHEET-${id}`, target: `SHEET:${id}`, segment: 'SHEET', href: 'blob:sheet' });
     const xs = image.corners.map(([x]) => x);
     const ys = image.corners.map(([, y]) => y);
-    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([0, 710, 0, 490]);
+    // FILL stretches the image over the wall columns (0…700), not over the glue flap (700…710).
+    expect([Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]).toEqual([0, 700, 0, 490]);
     // Left bleed −3 (column clip) … BACK's end + 2 mm overprint: the glue flap (700…710) stays unprinted.
     expect(image.clip).toMatchObject({ x: -3, width: 705, y: -3, height: 496 });
-    expect(image.area).toMatchObject({ x: 0, y: 0, width: 710, height: 490 });
+    expect(image.area).toMatchObject({ x: 0, y: 0, width: 700, height: 490 });
     expect(scene.allowances.every((a) => a.printed)).toBe(true);
     const doc = new DOMParser().parseFromString(buildDielineSvg(scene), 'image/svg+xml');
     expect(doc.querySelectorAll('image')).toHaveLength(1);

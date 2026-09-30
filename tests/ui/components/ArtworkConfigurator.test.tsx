@@ -146,8 +146,11 @@ describe('ArtworkConfigurator — whole-sheet layers', () => {
     render(<ArtworkConfigurator />);
     fireEvent.click(screen.getByRole('radio', { name: 'Grafika na cały arkusz (wykrój)' }));
     expect(config().artworkLayout).toBe('SHEET');
-    // Block bag 200 × 400 × 150, glue flap 10: sheet 710 × 490 mm = 8386 × 5787 px at 300 dpi.
-    expect(screen.getByText(`arkusz 710 × 490 mm = 8386 × 5787 px przy 300 dpi · 0 z ${MAX_WRAP_ARTWORK_LAYERS}`)).toBeInTheDocument();
+    // Block bag 200 × 400 × 150, glue flap 10: sheet 710 × 490 mm; the print file covers it without the flap,
+    // 700 × 490 mm = 8268 × 5787 px at 300 dpi.
+    expect(
+      screen.getByText(`arkusz bez zakładki klejowej 700 × 490 mm = 8268 × 5787 px przy 300 dpi · 0 z ${MAX_WRAP_ARTWORK_LAYERS}`),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Plik jak do druku/)).toBeInTheDocument();
 
     loadImage.mockResolvedValueOnce({ url: 'blob:sheet', width: 1000, height: 1000 });
@@ -156,8 +159,8 @@ describe('ArtworkConfigurator — whole-sheet layers', () => {
     expect(config().wrapLayers).toEqual([]);
     expect(config().sheetLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
     expect(useConfiguratorUiStore.getState().selectedArtwork).toBe(`SHEET:${config().sheetLayers[0].id}`);
-    expect(screen.getByText('Rozciągnięta na cały arkusz')).toBeInTheDocument();
-    // A square file stretched over the 710 × 490 sheet: proportion warning.
-    expect(screen.getByText(/proporcji arkusza wykroju \(1,45\)/)).toBeInTheDocument();
+    expect(screen.getByText('Rozciągnięta na arkusz (bez zakładki klejowej)')).toBeInTheDocument();
+    // A square file stretched over the 700 × 490 area: proportion warning.
+    expect(screen.getByText(/proporcji arkusza wykroju bez zakładki klejowej \(1,43\)/)).toBeInTheDocument();
   });
 });

@@ -239,7 +239,7 @@
       "FILL": "stretched over the whole bag",
       "CUSTOM": "x {{x}} mm, y {{y}} mm from the centre, scale {{scale}} %, rotation {{rotation}}°",
       "extended": "incl. bottom",
-      "FILL_SHEET": "stretched over the whole sheet"
+      "FILL_SHEET": "stretched over the sheet (without the glue flap)"
     }
   }
 }

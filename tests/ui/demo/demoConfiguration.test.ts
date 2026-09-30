@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createConfiguration } from '../../../src/domain/factories';
-import { getArtworkLayout, getSheetLayers, getWrapLayers } from '../../../src/domain/artworkLayout';
+import { getArtworkLayout, getPrintFilePlacement, getSheetLayers, getWrapLayers } from '../../../src/domain/artworkLayout';
 import { useConfigurationStore } from '../../../src/state/configurationStore';
 import { DEMO_COUNT, DemoLoadError, loadDemoConfiguration } from '../../../src/ui/demo/demoConfiguration';
 
@@ -66,6 +66,10 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(c.glueFlapWidth).toBe(15);
     expect(getArtworkLayout(c)).toBe('SHEET');
     expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo2/image-1.webp']);
+    // The 5040 × 3000 px wall-row file lies 1:1 on the walls above the bottom strip — the placement the app computes
+    // for it (getPrintFilePlacement) against the sheet area without the glue flap.
+    const config2 = JSON.parse(CONFIGS['/public/demo2/config.json']);
+    expect(config2.sheetLayers[0].placement).toEqual(getPrintFilePlacement(c, { width: 5040, height: 3000 }));
   });
 
   it('Demo 3: gusseted bag 250 + 100 × 320, greaseproof 50 g/m², rectangular window 140 × 190 mm from 105 mm, whole-bag layer', async () => {

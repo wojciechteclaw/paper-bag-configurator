@@ -275,10 +275,9 @@ export function buildDielineScene(dieline: Dieline, artworks: ResolvedPanelArtwo
     }
   }
   const wallColumns = dieline.segments.filter((segment) => segment.x1 - segment.x0 > 0);
-  const images = mergeWrapImages(columnImages, {
-    WRAP: { x0: Math.min(...wallColumns.map((segment) => segment.x0)), x1: Math.max(...wallColumns.map((segment) => segment.x1)) },
-    SHEET: { x0: 0, x1: dieline.sheet.width },
-  });
+  // Both layered layouts refer to the wall columns (the glue flap is no part of any artwork area, §3c).
+  const wallRow = { x0: Math.min(...wallColumns.map((segment) => segment.x0)), x1: Math.max(...wallColumns.map((segment) => segment.x1)) };
+  const images = mergeWrapImages(columnImages, { WRAP: wallRow, SHEET: wallRow });
 
   const windows = (dieline.windows ?? []).map((window): SceneWindow => ({
     id: window.id,
@@ -375,8 +374,8 @@ function overlaps(corners: [number, number][], clip: SceneRect): boolean {
  * All images of a layer are edited as one (same target) and keep the layer order (bottom → top), after wall images.
  * Whole-sheet layers (docs/SPEC.md §3c) lie 1:1 on the sheet, so their column images always share one matrix: one image
  * per layer (`artwork-SHEET-<id>`), clipped to the wall columns (+ bleed; the glue flap stays unprinted).
- * `rows` = sheet x extent of the selection area: the wall columns for a whole-bag layer, the whole sheet for a
- * whole-sheet layer.
+ * `rows` = sheet x extent of the selection area: the wall columns (for whole-bag and whole-sheet layers alike;
+ * the glue flap is in no artwork area).
  */
 function mergeWrapImages(
   images: SceneImage[],

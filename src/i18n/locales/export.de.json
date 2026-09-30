@@ -239,7 +239,7 @@
       "FILL": "über die ganze Tasche gestreckt",
       "CUSTOM": "x {{x}} mm, y {{y}} mm von der Mitte, Skalierung {{scale}} %, Drehung {{rotation}}°",
       "extended": "mit Boden",
-      "FILL_SHEET": "über den ganzen Bogen gestreckt"
+      "FILL_SHEET": "über den Bogen gestreckt (ohne Klebelasche)"
     }
   }
 }

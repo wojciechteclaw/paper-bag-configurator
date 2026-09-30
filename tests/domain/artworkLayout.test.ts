@@ -369,14 +369,16 @@ describe('whole-sheet layout (SHEET, print file on the dieline)', () => {
     expect(hasActiveArtwork(configuration)).toBe(true);
   });
 
-  it('refers placements to the whole cut sheet (sheet coordinates) of the bag type', () => {
+  it('refers placements to the sheet over the wall columns (sheet coordinates), without the glue flap', () => {
+    // Block 200 × 400 × 150, glue flap 10: sheet 710 × 490; the walls span 0…700, the flap column 700…710 is left out,
+    // so FILL ("Rozciągnij") stretches a print file over the printed walls only (client [K] 30.09.2026).
     const block = createConfiguration('BLOCK');
-    expect(getSheetArtworkArea(block)).toEqual({ x: 0, y: 0, width: 710, height: 490 });
-    expect(getArtworkTargetArea('SHEET:a', block, { extendToBottom: false })).toEqual({ x: 0, y: 0, width: 710, height: 490 });
-    expect(getArtworkTargetSize('SHEET:a', block)).toEqual({ width: 710, height: 490 });
-    // Gusseted bag 150 + 60 × 250, glue flap 15, strip d 25 (Demo 2): 2·150 + 2·60 + 15 = 435 by 250 + 25 = 275.
+    expect(getSheetArtworkArea(block)).toEqual({ x: 0, y: 0, width: 700, height: 490 });
+    expect(getArtworkTargetArea('SHEET:a', block, { extendToBottom: false })).toEqual({ x: 0, y: 0, width: 700, height: 490 });
+    expect(getArtworkTargetSize('SHEET:a', block)).toEqual({ width: 700, height: 490 });
+    // Gusseted bag 150 + 60 × 250, glue flap 15, strip d 25 (Demo 2): sheet 435 × 275, walls 2·150 + 2·60 = 420 wide.
     const folded = { ...createConfiguration('FOLDED'), dimensions: { width: 150, height: 250, depth: 60 }, glueFlapWidth: 15 };
-    expect(getSheetArtworkArea(folded)).toEqual({ x: 0, y: 0, width: 435, height: 275 });
+    expect(getSheetArtworkArea(folded)).toEqual({ x: 0, y: 0, width: 420, height: 275 });
   });
 
   it('shows every wall the part of the sheet in its column, bottom allowance included, never the glue flap', () => {
@@ -388,23 +390,24 @@ describe('whole-sheet layout (SHEET, print file on the dieline)', () => {
       expect(layers).toHaveLength(1);
       expect(extendsToBottom).toBe(true);
       // Panel-local: the sheet shifted by the column and the bottom line (a = 90).
-      expect(layers[0].area).toEqual({ x: -x0 + 0, y: -90, width: 710, height: 490 });
+      expect(layers[0].area).toEqual({ x: -x0 + 0, y: -90, width: 700, height: 490 });
       expect(layers[0].clipX).toBeUndefined(); // the wall (column) clips horizontally
       expect(width).toBe(getPanelSize(position, configuration.dimensions).width);
       expect(layers[0].placement.extendToBottom).toBe(true);
-      // The column's bottom-left corner (tube end) samples the image at sheet x = x0, y = 0.
-      expect(textureAt(configuration, position, 0, -90)[0]).toBeCloseTo(x0 / 710);
+      // The column's bottom-left corner (tube end) samples the FILLed image at sheet x = x0, y = 0 (image = walls 0…700).
+      expect(textureAt(configuration, position, 0, -90)[0]).toBeCloseTo(x0 / 700);
       expect(textureAt(configuration, position, 0, -90)[1]).toBeCloseTo(0);
     }
-    // BACK ends at sheet x 700: the glue-flap column (700…710) is shown by no wall.
+    // BACK ends at sheet x 700: the glue-flap column (700…710) is shown by no wall, and FILL ends exactly there.
     expect(500 + getPanelSize('BACK', configuration.dimensions).width).toBe(700);
+    expect(textureAt(configuration, 'BACK', 200, -90)[0]).toBeCloseTo(1);
   });
 
   it('lists a layer only on the walls its image reaches', () => {
-    // 100 mm logo: contain in 710 × 490 = 490 mm, × 100/490; centred on FRONT (sheet x 250, y 290).
+    // 100 mm logo: contain in the 700 × 490 area = 490 mm, × 100/490; centred on FRONT (sheet x 250, y 290).
     const configuration = sheetConfiguration({
       mode: 'CUSTOM',
-      offsetX: 250 - 355,
+      offsetX: 250 - 350,
       offsetY: 290 - 245,
       scale: 100 / 490,
       rotation: 0,
@@ -417,9 +420,9 @@ describe('whole-sheet layout (SHEET, print file on the dieline)', () => {
     expect(counts).toEqual({ FRONT: 1, BACK: 0, LEFT: 0, RIGHT: 0 });
   });
 
-  it('places a print file: FILL for a whole-sheet file, 1:1 over the wall row for a wall-row file', () => {
+  it('places a print file: FILL for a whole-sheet file (walls + bottom allowance), 1:1 over the wall row for a wall-row file', () => {
     const configuration = createConfiguration('BLOCK');
-    expect(getPrintFilePlacement(configuration, { width: 7100, height: 4900 })).toEqual(fillPlacement(true));
+    expect(getPrintFilePlacement(configuration, { width: 7000, height: 4900 })).toEqual(fillPlacement(true)); // 700 × 490 mm
     const wallRow = getPrintFilePlacement(configuration, { width: 7000, height: 4000 }); // 700 × 400 mm
     const area = getSheetArtworkArea(configuration);
     const rect = getArtworkRect(area, { width: 7000, height: 4000 }, wallRow, area);

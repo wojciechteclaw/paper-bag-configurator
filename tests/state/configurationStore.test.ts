@@ -604,14 +604,15 @@ describe('whole-sheet artwork layers (SHEET)', () => {
   });
 
   it('edits a sheet layer in sheet coordinates and never drops its bottom allowance', () => {
-    const id = store().addArtworkLayer('SHEET', artwork('blob:a'))!; // 100 × 200 px on the 710 × 490 sheet
+    // 100 × 200 px on the 710 × 490 sheet; the artwork area is its wall columns, 700 × 490 (no glue flap).
+    const id = store().addArtworkLayer('SHEET', artwork('blob:a'))!;
     const target = `SHEET:${id}` as const;
     store().setPanelPlacement(target, { mode: 'CUSTOM', offsetX: 999, offsetY: 0, scale: 1, rotation: 0, extendToBottom: false });
-    // No cyclic wrap: the centre is clamped inside the sheet (half width 355 mm); the allowance stays printed.
-    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: 355, extendToBottom: true });
+    // No cyclic wrap: the centre is clamped inside the area (half width 350 mm); the allowance stays printed.
+    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: 350, extendToBottom: true });
     store().alignPanelArtwork(target, { horizontal: 'LEFT' });
-    // Contain in 710 × 490 for 1:2: 245 × 490 mm → touching the left edge: offset −(710 − 245) / 2.
-    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: -232.5 });
+    // Contain in 700 × 490 for 1:2: 245 × 490 mm → touching the left edge: offset −(700 − 245) / 2.
+    expect(config().sheetLayers[0].placement).toMatchObject({ offsetX: -227.5 });
     store().setPanelExtendToBottom(target, false);
     expect(config().sheetLayers[0].placement.extendToBottom).toBe(true);
     store().resetPanelPlacement(target);

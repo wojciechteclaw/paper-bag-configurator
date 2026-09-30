@@ -78,11 +78,12 @@ describe('buildWorkbookModel', () => {
     const model = buildWorkbookModel(sheet, null, dieline, exportContext('pl'));
     const params = block(model, 'parameters', 'parameters').rows.map(values);
     expect(params).toContainEqual(['Grafiki', 'Układ grafik', 'Grafika na cały arkusz (wykrój)', null]);
-    expect(params).toContainEqual(['Grafiki', 'Cały arkusz — warstwa 1', 'arkusz.png — rozciągnięta na cały arkusz', null]);
+    expect(params).toContainEqual(['Grafiki', 'Cały arkusz — warstwa 1', 'arkusz.png — rozciągnięta na arkusz (bez zakładki klejowej)', null]);
     const rows = block(model, 'panels', 'panels').rows.map(values);
     expect(rows).toHaveLength(1);
-    // 200 × 400 × 150 block bag: sheet 710 × 490 mm (allowance included — not added twice).
-    expect(rows[0]).toEqual(['Cały arkusz — warstwa 1', 710, 490, 'arkusz.png', 2000, 4000, 'wypełnij ściankę', null, null, null, null, 'tak', 490]);
+    // 200 × 400 × 150 block bag: sheet 710 × 490 mm; the layer area is the walls 700 × 490 mm (no glue flap; allowance
+    // included — not added twice).
+    expect(rows[0]).toEqual(['Cały arkusz — warstwa 1', 700, 490, 'arkusz.png', 2000, 4000, 'wypełnij ściankę', null, null, null, null, 'tak', 490]);
   });
 
   it('omits the extend-to-bottom columns when placements do not carry the flag', () => {

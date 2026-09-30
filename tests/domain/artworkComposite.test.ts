@@ -123,11 +123,12 @@ describe('planArtworkComposite', () => {
   });
 
   it('composites whole-sheet layers over the wall and its bottom allowance, clipped to the wall column', () => {
-    const configuration = createConfiguration('BLOCK'); // sheet 710 × 490, FRONT column 150…350, a = 90
+    // Sheet 710 × 490, artwork area = the wall columns 0…700 (no glue flap), FRONT column 150…350, a = 90.
+    const configuration = createConfiguration('BLOCK');
     configuration.artworkLayout = 'SHEET';
     configuration.sheetLayers = [
-      createWrapLayer(image('sheet', 710, 490), fillPlacement(true)),
-      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -105, offsetY: 45, scale: 100 / 490, rotation: 0, extendToBottom: true }),
+      createWrapLayer(image('sheet', 700, 490), fillPlacement(true)),
+      createWrapLayer(image('logo', 100, 100), { mode: 'CUSTOM', offsetX: -100, offsetY: 45, scale: 100 / 490, rotation: 0, extendToBottom: true }),
     ];
     const layers = resolvePanelArtwork(configuration, 'FRONT').layers;
     const plan = planArtworkComposite(getPanelSize('FRONT', configuration.dimensions), layers, { maxLongSidePx: 490 });

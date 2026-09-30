@@ -1,7 +1,7 @@
 // Excel export (docs/SPEC.md §4e) as a pure, localized table model; the exceljs adapter only writes it.
 // Sheets: Parameters / Panels & artwork / Pantone & coverage / Artwork colours / Dieline. Units live in the column headers.
 
-import { getArtworkLayout, getLayers, getSheetDieline, getWrapSize, isLayeredLayout } from '../domain/artworkLayout';
+import { getArtworkLayout, getArtworkTargetSize, getLayers, getSheetDieline, getWrapSize, isLayeredLayout, layerTarget } from '../domain/artworkLayout';
 import { DIELINE_RULES } from '../domain/config/productionRules';
 import type { Dieline, Point2 } from '../domain/dieline';
 import { PANEL_POSITIONS } from '../domain/factories';
@@ -75,7 +75,8 @@ export function buildWorkbookModel(
   const artworkRows: ArtworkRow[] = isLayeredLayout(layout)
       ? getLayers(configuration, layout).map((layer, index) => ({
           label: t(layout === 'SHEET' ? 'export.param.sheetLayer' : 'export.param.wrapLayer', { index: index + 1 }),
-          size: layout === 'SHEET' ? getSheetDieline(configuration).sheet : getWrapSize(dimensions),
+          // Whole-sheet layers: the area FILL stretches over (sheet without the glue flap, full height).
+          size: layout === 'SHEET' ? getArtworkTargetSize(layerTarget('SHEET', layer.id), configuration) : getWrapSize(dimensions),
           artwork: layer.artwork,
           placement: layer.placement,
           ...(layout === 'SHEET' ? { areaHeight: getSheetDieline(configuration).sheet.height } : {}),

@@ -239,10 +239,13 @@ plik Demo 2 `public/gusseted-bag/gussted.webp` ma docelowo 5220 × 3300 px = ark
   `removeArtworkLayer` / `moveArtworkLayer`, ta sama lista w UI `ArtworkLayerList`, limit `MAX_WRAP_ARTWORK_LAYERS`).
   Cel: `SHEET:<id>` (`layerTarget`, `getLayerTargetInfo`). Brak pola w starszych danych = brak warstw
   (`getSheetLayers`); pliki projektu: `sanitizeConfiguration` naprawia warstwy jak WRAP.
-- **Obszar grafiki = cały arkusz** (szerokość × wysokość arkusza z `buildDieline`: kolumny LEFT | FRONT | RIGHT | BACK |
-  zakładka, razem z zapasem na dno / paskiem d), współrzędne arkusza (x od lewej krawędzi, y od dolnej krawędzi —
-  końca rękawa); `getSheetArtworkArea`. FILL mapuje obraz dokładnie na arkusz; dopasowanie / wyrównanie / przeciąganie /
-  skala w tych współrzędnych; **bez cyklicznego zawijania** (środek obrazu zostaje na arkuszu).
+- **Obszar grafiki = arkusz bez zakładki klejowej** (decyzja klienta [K] 30.09.2026: „Rozciągnij nie powinno brać pod
+  uwagę 1 cm zakładu”): kolumny ścianek LEFT | FRONT | RIGHT | BACK na pełnej wysokości arkusza (z zapasem na dno /
+  paskiem d), **bez kolumny zakładki**, która i tak nie jest drukowana; współrzędne arkusza (x od lewej krawędzi, y od
+  dolnej krawędzi — końca rękawa); `getSheetArtworkArea`. FILL („Rozciągnij”) rozciąga obraz na ścianki (np. blok
+  200 × 400 × 150: 700 × 490 mm zamiast 710 × 490); dopasowanie / wyrównanie / przeciąganie / skala w tych
+  współrzędnych; **bez cyklicznego zawijania** (środek obrazu zostaje w obszarze). Rozmiar pliku do druku w UI
+  i w eksporcie Excel to ten obszar.
 - **Mapowanie:** każda ścianka pokazuje część arkusza w swojej kolumnie (`resolvePanelArtwork`: obszar = arkusz
   przesunięty o kolumnę i linię dna), **zawsze razem z zapasem na dno / paskiem** (jest w pliku; `extendToBottom` warstw
   arkusza jest zawsze `true`, przełącznik „Rozciągnij na dno” jest dla nich ukryty). **Zakładka klejowa nie jest
@@ -616,6 +619,12 @@ Wycena, zamówienia, płatności, konta, workflow akceptacji, zaawansowany prefl
 produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, moduł pozycjonowania grafiki.
 
 ## 8. Otwarte pytania
+
+- **Grafika na cały arkusz bez zakładki (§3c, 30.09.2026):** położenia „własne” (CUSTOM) warstw arkusza są liczone
+  względem obszaru; projekty `.bagproj` zapisane przed zmianą (obszar z zakładką) wczytują się z grafiką przesuniętą
+  o ≤ połowę zakładki i przeskalowaną o ~1–2 %. Czy potrzebna migracja starszych plików, czy wystarczy ponowne
+  „Rozciągnij” / dopasowanie? Demo 1 zachowuje położenie klienta (przesunięcie X 1,83 mm, skala 1 = obraz dokładnie na
+  ściankach, 1080 mm) — czy przesunięcie X ma zostać, czy wyzerować?
 
 - **Telefon (§4j):** czy podgląd na 48 % wysokości ekranu jest dobrym kompromisem, czy dodać przycisk zwijania /
   powiększania podglądu? Czy „Demo 1–4” mają być w wersji produkcyjnej na telefonie widoczne w górnym pasku?

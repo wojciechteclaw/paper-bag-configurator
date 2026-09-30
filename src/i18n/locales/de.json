@@ -249,12 +249,12 @@
       "addFileInputLabel": "Datei der neuen Motivebene",
       "replaceFileInputLabel": "Datei, die das Motiv der Ebene ersetzt",
       "maxReached": "Das Limit von {{max}} Ebenen ist erreicht — entfernen Sie eine Ebene, um eine neue hinzuzufügen.",
-      "sheetSize": "Bogen {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px bei {{dpi}} dpi",
+      "sheetSize": "Bogen ohne Klebelasche {{width}} × {{height}} mm = {{pxWidth}} × {{pxHeight}} px bei {{dpi}} dpi",
       "orderNoteSheet": "Eine weiter oben stehende Ebene wird obenauf gedruckt. Die erste Ebene (die Datei des ganzen Bogens) füllt den ganzen Bogen, weitere beginnen an die Vorderseite angepasst.",
-      "placementFillSheet": "Über den ganzen Bogen gestreckt",
+      "placementFillSheet": "Über den Bogen gestreckt (ohne Klebelasche)",
       "addDropLabelSheet": "Ebene des Motivs für den ganzen Bogen hinzufügen"
     },
-    "aspectMismatchSheet": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem des Bogens ({{panelRatio}}) ab — mit „Strecken“ wird das Motiv verzerrt und passt nicht zu den Wänden."
+    "aspectMismatchSheet": "Das Seitenverhältnis des Motivs ({{imageRatio}}) weicht von dem des Bogens ohne Klebelasche ({{panelRatio}}) ab — mit „Strecken“ wird das Motiv verzerrt und passt nicht zu den Wänden."
   },
   "paper": {
     "label": "Papier",
