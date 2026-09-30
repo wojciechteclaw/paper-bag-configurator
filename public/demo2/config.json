@@ -8,7 +8,7 @@
   },
   "paper": {
     "type": "KRAFT",
-    "color": "BROWN",
+    "color": "WHITE",
     "grammage": 40,
     "fscCertified": true,
     "moistureBarrier": false
@@ -63,7 +63,7 @@
         "fileUrl": "image-1.webp",
         "width": 5040,
         "height": 3000,
-        "sizeBytes": 0,
+        "sizeBytes": 898910,
         "mimeType": "image/webp"
       },
       "placement": {
