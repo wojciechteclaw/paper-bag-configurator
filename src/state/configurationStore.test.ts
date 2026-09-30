@@ -345,12 +345,82 @@ describe('print and packaging', () => {
 });
 
 describe('setProductType', () => {
-  it('ignores unavailable types and re-selecting the current type', () => {
-    store().setDimension('width', 250);
+  it('ignores re-selecting the current type', () => {
+    const before = config();
+    expect(store().setProductType('BLOCK')).toEqual([]);
+    expect(config()).toBe(before);
+  });
+
+  it('ignores unavailable types', () => {
+    const before = config();
+    const saved = BAG_TYPES.FOLDED.available;
+    BAG_TYPES.FOLDED.available = false;
+    try {
+      expect(store().setProductType('FOLDED')).toEqual([]);
+    } finally {
+      BAG_TYPES.FOLDED.available = saved;
+    }
+    expect(config()).toBe(before);
+  });
+
+  it('switches to the gusseted-bag bag keeping what fits: handle dropped, dimensions clamped, artwork kept', () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    store().setHandle('FLAT_PAPER');
+    store().setDimension('width', 450);
+    store().setPanelArtwork('FRONT', artwork('blob:front'));
+    const adjustments = store().setProductType('FOLDED');
+    expect(config().productType).toBe('FOLDED');
+    expect(config().handle).toBeNull();
+    expect(config().dimensions).toEqual({ width: 300, height: 400, depth: 150 });
+    expect(config().paper.grammage).toBe(60);
+    expect(config().panels.FRONT.artwork?.fileUrl).toBe('blob:front');
+    expect(revoke).not.toHaveBeenCalled();
+    expect(adjustments.map((a) => a.field)).toEqual(['handle', 'dimension', 'grammage', 'glueFlap']);
+    expect(config().glueFlapWidth).toBe(15);
+    expect(validateDimensions(config().dimensions, BAG_TYPES.FOLDED.limits)).toEqual({});
+    revoke.mockRestore();
+  });
+
+  it('uses the gusseted-bag-bag ranges and options afterwards', () => {
     store().setProductType('FOLDED');
-    store().setProductType('BLOCK');
+    // Hard maximum gusset ≤ width [K]: 300 is clamped to the width (200).
+    store().setDimension('depth', 300);
+    expect(config().dimensions.depth).toBe(200);
+    store().setDimension('height', 900);
+    expect(config().dimensions.height).toBe(670);
+    store().setGrammage(25);
+    expect(config().paper.grammage).toBe(30);
+    expect(store().setHandle('TWISTED_PAPER')).toEqual([]);
+    expect(config().handle).toBeNull();
+  });
+
+  it('resetConfiguration starts over with a fresh configuration and revokes artwork URLs', () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    store().setPanelArtwork('FRONT', artwork('blob:front'));
+    store().setProductType('FOLDED');
+    const id = config().id;
+    store().resetConfiguration('BLOCK');
     expect(config().productType).toBe('BLOCK');
-    expect(config().dimensions.width).toBe(250);
+    expect(config().id).not.toBe(id);
+    expect(config().panels.FRONT.artwork).toBeNull();
+    expect(config().dimensions).toEqual(BAG_TYPES.BLOCK.defaultDimensions);
+    expect(revoke).toHaveBeenCalledWith('blob:front');
+    revoke.mockRestore();
+  });
+
+  it('never stores "extend to bottom" on a gusseted-bag bag', () => {
+    store().setProductType('FOLDED');
+    store().setPanelArtwork('BACK', artwork('blob:back'));
+    store().setPanelExtendToBottom('BACK', true);
+    expect(config().panels.BACK.placement.extendToBottom).toBe(false);
+    store().setPanelPlacement('BACK', { mode: 'CUSTOM', offsetX: 0, offsetY: 0, scale: 1, rotation: 0, extendToBottom: true });
+    expect(config().panels.BACK.placement).toMatchObject({ mode: 'CUSTOM', extendToBottom: false });
+    const layerId = store().addWrapLayer(artwork('blob:layer'))!;
+    expect(config().wrapLayers[0].placement.extendToBottom).toBe(false);
+    store().setPanelExtendToBottom(wrapLayerTarget(layerId), true);
+    expect(config().wrapLayers[0].placement.extendToBottom).toBe(false);
+    store().setPanelPlacement(wrapLayerTarget(layerId), { mode: 'FILL', extendToBottom: true });
+    expect(config().wrapLayers[0].placement).toEqual({ mode: 'FILL', extendToBottom: false });
   });
 });
 
@@ -492,11 +562,18 @@ describe('whole-bag artwork layers', () => {
     expect(layers()[0].placement).toEqual(DEFAULT_PLACEMENT);
   });
 
-  it('revokes every layer URL when the product type resets the configuration', () => {
+  it('keeps every layer when the product type changes', () => {
     store().addWrapLayer(artwork('blob:a'));
     store().addWrapLayer(artwork('blob:b'));
-    useConfigurationStore.setState({ configuration: { ...config(), productType: 'FOLDED' } });
-    store().setProductType('BLOCK');
+    store().setProductType('FOLDED');
+    expect(layers().map((layer) => layer.artwork.fileUrl)).toEqual(['blob:a', 'blob:b']);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('revokes every layer URL when the configuration is reset', () => {
+    store().addWrapLayer(artwork('blob:a'));
+    store().addWrapLayer(artwork('blob:b'));
+    store().resetConfiguration('BLOCK');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:a');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:b');
     expect(layers()).toEqual([]);

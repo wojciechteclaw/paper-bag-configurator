@@ -8,6 +8,7 @@ import type { BagConfiguration } from '../domain/types';
 import { createNumberFormatter } from '../i18n/numberFormat';
 import { exportFileBaseName, formatNumber, formatPercent, type ExportContext } from './format';
 import { buildParameterSections, type ParameterSection } from './parameters';
+import { keyForType } from '../i18n/keyForType';
 
 /** Camera angle of a 3D snapshot (same ids as the renderer's `SnapshotAngle`). */
 export type SnapshotAngleId = 'FRONT_3_4' | 'BACK_3_4' | 'LEFT_3_4' | 'RIGHT_3_4' | 'FRONT' | 'BACK';
@@ -202,7 +203,7 @@ export function buildProductSheetData(
   return {
     fileBaseName: exportFileBaseName(configuration, t),
     title: t('export.pdf.title'),
-    subtitle: t('export.pdf.subtitle', {
+    subtitle: t(keyForType('export.pdf.subtitle', configuration.productType), {
       type: t(`productType.${configuration.productType}`),
       width: dimensions.width,
       height: dimensions.height,
@@ -234,7 +235,7 @@ export function buildProductSheetData(
     dieline: {
       title: t('export.dieline.title'),
       legend: { cut: t('dieline.legend.cut'), crease: t('dieline.legend.crease'), patch: t('dieline.legend.patch') },
-      svgTitle: t('dieline.svgTitle', dimensions),
+      svgTitle: t(keyForType('dieline.svgTitle', configuration.productType), dimensions),
     },
     artworkColors: buildArtworkColorTable(palette, context),
     viewPages,

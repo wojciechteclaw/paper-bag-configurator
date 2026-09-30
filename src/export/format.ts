@@ -32,8 +32,16 @@ export const round = (value: number, digits = 2) => {
   return Math.round(value * f) / f;
 };
 
-/** File base name like `torba-klockowa-200x400x150` (W × H × D, as in the UI). */
-export function exportFileBaseName(configuration: Pick<BagConfiguration, 'productType' | 'dimensions'>, t: Translate) {
+/**
+ * Size part of file names, as the size is written for the type: `200x400x150` (W × H × D) for the block bottom,
+ * `140+90x370` (W + F × H, client notation [K]) for the gusseted-bag bag.
+ */
+export function dimensionsSlug(configuration: Pick<BagConfiguration, 'productType' | 'dimensions'>): string {
   const { width, height, depth } = configuration.dimensions;
-  return `${t(`export.fileName.${configuration.productType}`)}-${width}x${height}x${depth}`;
+  return configuration.productType === 'FOLDED' ? `${width}+${depth}x${height}` : `${width}x${height}x${depth}`;
+}
+
+/** File base name like `torba-klockowa-200x400x150` or `torba-faldowa-140+90x370` (as the size is written in the UI). */
+export function exportFileBaseName(configuration: Pick<BagConfiguration, 'productType' | 'dimensions'>, t: Translate) {
+  return `${t(`export.fileName.${configuration.productType}`)}-${dimensionsSlug(configuration)}`;
 }

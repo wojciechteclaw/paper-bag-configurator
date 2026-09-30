@@ -4,6 +4,7 @@ import { resolvePanelArtworks } from '../domain/artworkLayout';
 import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { getGlueFlapWidth } from '../domain/glueFlap';
+import { GussetedBagModel } from './GussetedBagModel';
 import { BACKGROUND_COLOR } from './camera';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { StudioLighting } from './lighting';
@@ -29,15 +30,25 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
     <>
       <color attach="background" args={[BACKGROUND_COLOR]} />
       <StudioLighting />
-      <BagModel
-        dimensions={dimensions}
-        glueFlapWidth={getGlueFlapWidth(configuration)}
-        paperColor={configuration.paper.color}
-        artworks={artworks}
-        handle={configuration.handle}
-        foldProgress={foldProgress}
-      />
+      {configuration.productType === 'FOLDED' ? (
+        <GussetedBagModel
+          dimensions={dimensions}
+          paperColor={configuration.paper.color}
+          artworks={artworks}
+          foldProgress={foldProgress}
+        />
+      ) : (
+        <BagModel
+          dimensions={dimensions}
+          glueFlapWidth={getGlueFlapWidth(configuration)}
+          paperColor={configuration.paper.color}
+          artworks={artworks}
+          handle={configuration.handle}
+          foldProgress={foldProgress}
+        />
+      )}
       <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d) * 4} blur={2.4} far={h} />
+
     </>
   );
 }

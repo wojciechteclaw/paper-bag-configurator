@@ -8,6 +8,7 @@ import type { BagConfiguration } from '../domain/types';
 import { getSheetViewExtent } from './assemblyGeometry';
 import { BagModel } from './BagModel';
 import { getGlueFlapWidth } from '../domain/glueFlap';
+import { GussetedBagModel } from './GussetedBagModel';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
 import { StudioLighting } from './lighting';
@@ -111,8 +112,10 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
   const glueFlapWidth = getGlueFlapWidth(configuration);
   const sheet = useMemo(() => getSheetViewExtent(dimensions, glueFlapWidth), [dimensions, glueFlapWidth]);
   const artworks = useMemo(() => resolvePanelArtworks(configuration), [configuration]);
+  // The gusseted-bag bag (FOLDED) has its own model and no assembly from the sheet (docs/SPEC.md §4i).
+  const gusseted = configuration.productType === 'FOLDED';
   // While the bag is assembled from the sheet, fit the (flat, much wider) sheet; otherwise the bag.
-  const assembling = assemblyProgress < 1;
+  const assembling = !gusseted && assemblyProgress < 1;
   const bagHeight = h + loopHeight;
   const radius = assembling
     ? Math.max(sheet.radius * MM_TO_SCENE, 0.5 * Math.hypot(w, bagHeight, d))
@@ -125,16 +128,20 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
 
       <StudioLighting />
 
-      <BagModel
-        dimensions={dimensions}
-        glueFlapWidth={glueFlapWidth}
-        paperColor={paper.color}
-        artworks={artworks}
-        handle={configuration.handle}
-        foldProgress={foldProgress}
-        assemblyProgress={assemblyProgress}
-        debugLines={DEBUG_LINES}
-      />
+      {gusseted ? (
+        <GussetedBagModel dimensions={dimensions} paperColor={paper.color} artworks={artworks} foldProgress={foldProgress} />
+      ) : (
+        <BagModel
+          dimensions={dimensions}
+          glueFlapWidth={glueFlapWidth}
+          paperColor={paper.color}
+          artworks={artworks}
+          handle={configuration.handle}
+          foldProgress={foldProgress}
+          assemblyProgress={assemblyProgress}
+          debugLines={DEBUG_LINES}
+        />
+      )}
 
       {/* Below every bottom layer so the shadow plane never draws over the bottom seen through the open top. */}
       <ContactShadows position={[0, -CONTACT_SHADOW_DEPTH_MM * MM_TO_SCENE, 0]} opacity={0.45} scale={Math.max(w, d, assembling ? 2 * sheet.radius * MM_TO_SCENE : 0) * 4} blur={2.4} far={h} />

@@ -7,6 +7,7 @@ import { getBagWeight } from '../../domain/bagWeight';
 import { useConfigurationStore } from '../../state/configurationStore';
 import { ExportActions } from './ExportActions';
 import { SaveProjectButton } from './ProjectFileActions';
+import { keyForType } from '../../i18n/keyForType';
 
 type CopyStatus = 'copied' | 'copyFailed' | null;
 
@@ -38,7 +39,7 @@ export function ConfigurationSummary() {
           <dd>{t(`productType.${configuration.productType}`)}</dd>
 
           <dt>{t('summary.dimensions')}</dt>
-          <dd>{t('summary.dimensionsValue', dimensions)}</dd>
+          <dd>{t(keyForType('summary.dimensionsValue', configuration.productType), dimensions)}</dd>
 
           <dt>{t('summary.paper')}</dt>
           <dd>

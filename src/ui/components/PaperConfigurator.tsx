@@ -26,7 +26,7 @@ export function PaperConfigurator() {
   const { paperTypes, grammage, moistureBarrierAvailable } = getHandleVariantDefinition(definition, handle);
   const grammages: number[] = [];
   for (let g = grammage.min; g <= grammage.max; g += grammage.step) grammages.push(g);
-  const weight = getBagWeight({ dimensions, paper });
+  const weight = getBagWeight({ dimensions, paper, productType });
   const language = i18n.resolvedLanguage ?? i18n.language;
   const formatGrams = createNumberFormatter(language, { maximumFractionDigits: 1 });
   const formatArea = createNumberFormatter(language, { maximumFractionDigits: 3 });

@@ -47,6 +47,7 @@ import type {
   PaperType,
 } from '../domain/types';
 import { normalizePantoneCode, validatePantoneColorToAdd, type PantoneError } from '../domain/validation/production';
+import { changeProductType, type ProductTypeAdjustment } from '../domain/productType';
 
 // Single source of truth for the configuration. The 3D renderer only reads from here.
 // Every action produces a valid BagConfiguration: invalid input is constrained or ignored, never stored.
@@ -58,7 +59,14 @@ type ConfigurationState = {
    * are revoked.
    */
   replaceConfiguration: (configuration: BagConfiguration) => void;
-  setProductType: (type: BagType) => void;
+  /**
+   * Switches the bag type, keeping the configuration where the new type allows it (`changeProductType`: unsupported
+   * handle removed, dimensions / paper / options constrained, artwork kept). Unavailable types and re-selecting the
+   * current type are ignored. Returns what had to be adjusted so the UI can tell the user.
+   */
+  setProductType: (type: BagType) => ProductTypeAdjustment[];
+  /** Starts over with a new default configuration of `type` (artwork object URLs are revoked). Unavailable types are ignored. */
+  resetConfiguration: (type: BagType) => void;
   /** Clamps into the effective limits (depth ≤ width) and snaps to the 5 mm step. */
   setDimension: (key: keyof Dimensions, value: number) => void;
   /** Glue flap width s, mm; clamped into the bag type's range (`BAG_TYPES[type].glueFlap`). */
@@ -144,6 +152,10 @@ function writeSlot(
   target: ArtworkTarget,
   slot: Partial<{ artwork: Artwork; placement: ArtworkPlacement }> | Partial<{ artwork: Artwork | null; placement: ArtworkPlacement }>,
 ): Partial<BagConfiguration> {
+  // Bag types without a printed bottom allowance (gusseted-bag bag) never store "extend to bottom".
+  if (slot.placement?.extendToBottom && !BAG_TYPES[configuration.productType].extendToBottomAvailable) {
+    slot = { ...slot, placement: { ...slot.placement, extendToBottom: false } };
+  }
   const layerId = getWrapLayerId(target);
   if (layerId !== null) {
     const layers = getWrapLayers(configuration);
@@ -179,7 +191,15 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
 
     setProductType: (type) => {
       const { configuration } = get();
-      if (type === configuration.productType || !BAG_TYPES[type].available) return;
+      if (type === configuration.productType || !BAG_TYPES[type]?.available) return [];
+      const next = changeProductType(configuration, type);
+      set({ configuration: next.configuration });
+      return next.adjustments;
+    },
+
+    resetConfiguration: (type) => {
+      if (!BAG_TYPES[type]?.available) return;
+      const { configuration } = get();
       Object.values(configuration.panels).forEach((panel) => revokeArtworkUrl(panel.artwork));
       getWrapLayers(configuration).forEach((layer) => revokeArtworkUrl(layer.artwork));
       set({ configuration: createConfiguration(type) });
@@ -271,7 +291,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
         get().configuration.dimensions,
         artwork,
         layers.length,
-        DEFAULT_PLACEMENT.extendToBottom,
+        DEFAULT_PLACEMENT.extendToBottom && definitionOf(get().configuration).extendToBottomAvailable,
       );
       const layer = createWrapLayer(artwork, placement);
       update((c) => ({ wrapLayers: [...getWrapLayers(c), layer] }));
@@ -322,6 +342,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => {
         const { artwork, placement } = getArtworkSlot(c, target);
         if ((placement.extendToBottom === true) === extendToBottom) return {};
+        if (extendToBottom && !definitionOf(c).extendToBottomAvailable) return {};
         const from = getArtworkTargetArea(target, c.dimensions, placement);
         const to = getArtworkTargetArea(target, c.dimensions, { extendToBottom });
         const next = setPlacementExtendToBottom(placement, extendToBottom, from, to, artwork);

@@ -5,7 +5,9 @@ import { getEffectiveLimits } from '../../domain/constraints';
 import { findStandardSize, getHandleVariantDefinition, getStandardSizeViolations } from '../../domain/handleVariants';
 import type { StandardSize } from '../../domain/config/productCatalog';
 import type { Dimensions } from '../../domain/types';
-import { getDimensionWarnings, getMinTrapezoidWidth } from '../../domain/validation/bottom';
+import { getDimensionWarningsFor } from '../../domain/productType';
+import { getRecommendedGussetRange } from '../../domain/geometry/gussetedBag';
+import { getMinTrapezoidWidth } from '../../domain/validation/bottom';
 import { validateDimensionValue } from '../../domain/validation/dimensions';
 import { getGlueFlapWidth } from '../../domain/glueFlap';
 import { useConfigurationStore } from '../../state/configurationStore';
@@ -39,7 +41,10 @@ export function DimensionsForm() {
   const { standardSizes } = getHandleVariantDefinition(definition, handle);
   const matchedSize = findStandardSize(dimensions, standardSizes);
   const sizeOptions = standardSizes.map((size) => ({ size, violations: getStandardSizeViolations(size, limits) }));
-  const warnings = getDimensionWarnings(dimensions);
+  const warnings = getDimensionWarningsFor(productType, dimensions);
+  // Type-specific wording first (e.g. the gusseted-bag bag's depth is its gusset, "fałda"), the generic text otherwise.
+  const tt = (key: string, options?: Record<string, unknown>) =>
+    t([`dimensions.byType.${productType}.${key}`, `dimensions.${key}`], options);
   const unavailableSizes = sizeOptions.filter(({ violations }) => violations.length > 0);
   const sizeSelectId = `${idPrefix}-standardSize`;
 
@@ -82,10 +87,10 @@ export function DimensionsForm() {
 
   const lockHint = (key: DimensionKey): string | null => {
     if (key === 'width' && dimensions.depth >= limits.width.min) {
-      return t('dimensions.lock.widthMin', { value: dimensions.depth });
+      return tt('lock.widthMin', { value: dimensions.depth });
     }
     if (key === 'depth' && dimensions.width <= limits.depth.max) {
-      return t('dimensions.lock.depthMax', { value: dimensions.width });
+      return tt('lock.depthMax', { value: dimensions.width });
     }
     return null;
   };
@@ -124,7 +129,7 @@ export function DimensionsForm() {
                     <span key={`${size.id}-${key}`} className="infotip__line">
                       {t('dimensions.standardSize.violation', {
                         size: t('dimensions.standardSize.option', size.dimensions),
-                        dimension: t(`dimensions.${key}`),
+                        dimension: tt(key),
                         value,
                         min: range.min,
                         max: range.max,
@@ -137,7 +142,7 @@ export function DimensionsForm() {
           </InfoTip>
         </div>
       ) : (
-        <p className="note">{t('dimensions.standardSize.none')}</p>
+        <p className="note">{tt('standardSize.none')}</p>
       )}
       {FIELDS.map((key) => {
         const id = `${idPrefix}-${key}`;
@@ -149,7 +154,7 @@ export function DimensionsForm() {
           <div key={key} className="field field--dimension">
             <label htmlFor={id}>
               <DimensionIcon dimension={key} />
-              <span>{t(`dimensions.${key}`)}</span>
+              <span>{tt(key)}</span>
             </label>
             <input
               id={id}
@@ -166,13 +171,13 @@ export function DimensionsForm() {
               onKeyDown={(e) => keyDown(key, e)}
             />
             <span>{t('dimensions.unit')}</span>
-            <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: t(`dimensions.${key}`) })}>
+            <InfoTip id={`${id}-hint`} label={t('common.moreInfo', { field: tt(key) })}>
               {t('dimensions.range', { min, max })}
               {lock && <> · {lock}</>}
             </InfoTip>
             {error && (
               <small id={`${id}-error`} className="error">
-                {t(`dimensions.errors.${error}`, { min: limits[key].min, max: limits[key].max, step: DIMENSION_STEP_MM })}
+                {tt(`errors.${error}`, { min: limits[key].min, max: limits[key].max, step: DIMENSION_STEP_MM })}
               </small>
             )}
           </div>
@@ -181,7 +186,11 @@ export function DimensionsForm() {
       <GlueFlapField />
       {warnings.map((warning) => (
         <p key={warning} className="warning" role="status" data-warning={warning}>
-          {t(`dimensions.warnings.${warning}`, { minWidth: getMinTrapezoidWidth(dimensions.depth) })}
+          {t(`dimensions.warnings.${warning}`, {
+            minWidth: getMinTrapezoidWidth(dimensions.depth),
+            minGusset: Math.round(getRecommendedGussetRange(dimensions.width).min),
+            maxGusset: Math.round(getRecommendedGussetRange(dimensions.width).max),
+          })}
         </p>
       ))}
     </fieldset>

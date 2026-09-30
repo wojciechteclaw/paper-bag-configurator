@@ -23,4 +23,18 @@ describe('getBagWeight', () => {
       9,
     );
   });
+
+  it('weighs the gusseted-bag bag (FOLDED) blank B × L = (2W + 2F + s) × (H + d), a plain rectangle', () => {
+    // Client example [K] 140 + 90 × 370, s = 15, d = 25 → 475 × 395 mm = 0.187625 m²; at 40 g/m² → 7.505 g.
+    const folded = createConfiguration('FOLDED');
+    const { blankAreaM2, grams } = getBagWeight({
+      productType: 'FOLDED',
+      dimensions: { width: 140, height: 370, depth: 90 },
+      paper: { ...folded.paper, grammage: 40 },
+    });
+    expect(blankAreaM2).toBeCloseTo(0.187625, 9);
+    expect(grams).toBeCloseTo(7.505, 9);
+    // The block bottom of the same size has a larger blank (bottom allowance (D + 30) / 2 = 60 mm, chamfered flap).
+    expect(getBagWeight({ dimensions: { width: 140, height: 370, depth: 90 }, paper: folded.paper }).blankAreaM2).toBeGreaterThan(0.187625);
+  });
 });

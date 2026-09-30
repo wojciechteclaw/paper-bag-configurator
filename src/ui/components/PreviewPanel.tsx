@@ -1,7 +1,7 @@
 import { DielineView } from '../../dieline/DielineView';
 import { BagPreview3D } from '../../renderer/BagPreview3D';
 import { useConfigurationStore } from '../../state/configurationStore';
-import { getTimelineState, is3DViewMode, usePreviewStore } from '../../state/previewStore';
+import { getTimelineStateFor, is3DViewMode, usePreviewStore } from '../../state/previewStore';
 import { FoldSlider } from './FoldSlider';
 import { PreviewModeSwitcher } from './PreviewModeSwitcher';
 
@@ -15,7 +15,7 @@ export function PreviewPanel() {
   const progress = usePreviewStore((s) => s.progress);
   const viewMode = usePreviewStore((s) => s.viewMode);
   const show3D = is3DViewMode(viewMode);
-  const { assemblyProgress, foldProgress } = getTimelineState(progress);
+  const { assemblyProgress, foldProgress } = getTimelineStateFor(configuration.productType, progress);
 
   return (
     <div className="preview-stage">

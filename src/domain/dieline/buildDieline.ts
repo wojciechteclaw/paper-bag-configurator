@@ -5,6 +5,7 @@ import { DIELINE_RULES } from '../config/productionRules';
 import { clipConvexPolygon, getBottomZoneDiagonals, getBottomZonePieces } from '../geometry/blockBottom';
 import { getBottomAllowance } from '../geometry/tube';
 import type { BagConfiguration, Handle, PanelPosition } from '../types';
+import { buildGussetedDieline } from './buildGussetedDieline';
 import type {
   CreaseCode,
   CreaseFold,
@@ -67,10 +68,15 @@ export function getHandlePatchSize(handle: Handle, width: number): { width: numb
   return { width: clamp(size.width, 0, maxWidth), height: Math.max(0, size.height) };
 }
 
+/**
+ * Dieline of the configured bag. `productType` selects the construction: the gusseted-bag bag with a fold-over bottom
+ * (`FOLDED`) has its own builder (`buildGussetedDieline`); anything else (or a missing type) is the block bottom.
+ */
 export function buildDieline(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth'>>,
+  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'productType'>>,
   options: DielineOptions = {},
 ): Dieline {
+  if (configuration.productType === 'FOLDED') return buildGussetedDieline(configuration, options);
   const { dimensions, handle } = configuration;
   const { width: W, height: H, depth: D } = dimensions;
   const rules = DIELINE_RULES;

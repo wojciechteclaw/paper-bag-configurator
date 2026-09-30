@@ -91,6 +91,9 @@
       "handle": "Uchwyt skalowania",
       "hint": "Przeciągnij grafikę, aby ją przesunąć; narożnik lub kółko myszy skaluje. Tło przeciągnięte przesuwa widok."
     },
-    "empty": "Brak grafik. Dodaj je w kroku „Grafiki” — pojawią się tu od razu."
+    "empty": "Brak grafik. Dodaj je w kroku „Grafiki” — pojawią się tu od razu.",
+    "svgTitleByType": {
+      "FOLDED": "Wykrój torby fałdowej {{width}} + {{depth}} × {{height}} mm"
+    }
   }
 }

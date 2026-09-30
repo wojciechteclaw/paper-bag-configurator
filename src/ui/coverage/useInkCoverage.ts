@@ -42,6 +42,7 @@ export function useInkCoverage(): InkCoverageState {
   const dimensions = useConfigurationStore((s) => s.configuration.dimensions);
   const handle = useConfigurationStore((s) => s.configuration.handle);
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
+  const productType = useConfigurationStore((s) => s.configuration.productType);
   const panels = useConfigurationStore((s) => s.configuration.panels);
   const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
   const wrapLayers = useConfigurationStore((s) => s.configuration.wrapLayers);
@@ -56,8 +57,8 @@ export function useInkCoverage(): InkCoverageState {
   const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].layers.length > 0);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.
   const coverageRequest = useMemo(
-    () => ({ dieline: buildDieline({ dimensions, handle, glueFlapWidth }), artworks, paperColor, pantoneColors }),
-    [dimensions, handle, glueFlapWidth, artworks, paperColor, pantoneColors],
+    () => ({ dieline: buildDieline({ dimensions, handle, glueFlapWidth, productType }), artworks, paperColor, pantoneColors }),
+    [dimensions, handle, glueFlapWidth, productType, artworks, paperColor, pantoneColors],
   );
   const request = useMemo(() => ({ coverageRequest, colorAnalysis }), [coverageRequest, colorAnalysis]);
   const [computed, setComputed] = useState<Computed | null>(null);

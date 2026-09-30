@@ -60,7 +60,14 @@
       "colorMinAreaShare": "Minimum artwork colour spot (share of ink)",
       "artworkLayout": "Artwork layout",
       "wrapLayer": "Whole bag — layer {{index}}",
-      "wrapLayers": "Whole bag — artwork layers"
+      "wrapLayers": "Whole bag — artwork layers",
+      "folded": {
+        "depth": "Gusset (F)",
+        "bottomAllowance": "Bottom strip (d)",
+        "glueFlap": "Seam overlap (s)"
+      },
+      "printArea": "Print area (per side)",
+      "printAreaValue": "{{width}} × {{height}}"
     },
     "handleMaterial": {
       "KRAFT": "strong kraft paper"
@@ -83,7 +90,10 @@
       "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
       "parameters": "Parameters",
       "footer": "Configuration {{id}}",
-      "page": "Page {{page}} of {{total}}"
+      "page": "Page {{page}} of {{total}}",
+      "subtitleByType": {
+        "FOLDED": "{{type}} {{width}} + {{depth}} × {{height}} mm"
+      }
     },
     "pantone": {
       "title": "Pantone colours and ink coverage",

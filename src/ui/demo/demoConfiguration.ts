@@ -1,31 +1,64 @@
 import { createArtwork } from '../../domain/factories';
-import type { Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
+import type { BagType, Dimensions, HandleType, PanelPosition, PaperColor } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
 
-// Demo configuration (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC,
-// internal twisted paper rope handle (client, 29.09.2026), the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched
-// onto the bottom (SPEC §4f). Handle / FSC follow the client's example configuration.
+// Demo configurations, one per bag type — the DEMO button loads the one of the currently selected type. Image paths are
+// relative to `public/` (the single list of demo files):
+// - BLOCK (client request 29.09.2026): block-bottom bag W 250 × D 200 × H 400 mm, white kraft 100 g/m², FSC, internal
+//   twisted paper rope handle, the "wave" sample artwork (public/carrier-bag) on all four walls, every one stretched onto
+//   the bottom (SPEC §4f).
+// - FOLDED: the client's example gusseted bag 140 + 90 × 370 mm [K], brown kraft 40 g/m², FSC, per-wall artwork from
+//   public/gusseted-bag (supplied by the client). Missing images are skipped: the configuration still loads.
 
-export const DEMO_CONFIGURATION: {
+export type DemoConfiguration = {
+  productType: BagType;
   dimensions: Dimensions;
-  handle: HandleType;
+  handle: HandleType | null;
   fscCertified: boolean;
   paperColor: PaperColor;
   grammage: number;
-  artwork: Record<PanelPosition, string>;
-} = {
-  dimensions: { width: 250, height: 400, depth: 200 },
-  handle: 'TWISTED_PAPER',
-  fscCertified: true,
-  paperColor: 'WHITE',
-  grammage: 100,
-  artwork: {
-    FRONT: 'carrier-bag/wave_front.webp',
-    BACK: 'carrier-bag/wave_back.webp',
-    LEFT: 'carrier-bag/wave_left.webp',
-    RIGHT: 'carrier-bag/wave_right.webp',
+  /** Artwork per wall, path relative to `public/`. */
+  artwork: Partial<Record<PanelPosition, string>>;
+  /** "Extend to bottom" on every wall with artwork (only where the bag type offers it). */
+  extendToBottom: boolean;
+};
+
+export const DEMO_CONFIGURATIONS: Readonly<Record<BagType, DemoConfiguration>> = {
+  BLOCK: {
+    productType: 'BLOCK',
+    dimensions: { width: 250, height: 400, depth: 200 },
+    handle: 'TWISTED_PAPER',
+    fscCertified: true,
+    paperColor: 'WHITE',
+    grammage: 100,
+    artwork: {
+      FRONT: 'carrier-bag/wave_front.webp',
+      BACK: 'carrier-bag/wave_back.webp',
+      LEFT: 'carrier-bag/wave_left.webp',
+      RIGHT: 'carrier-bag/wave_right.webp',
+    },
+    extendToBottom: true,
+  },
+  FOLDED: {
+    productType: 'FOLDED',
+    dimensions: { width: 140, height: 370, depth: 90 },
+    handle: null,
+    fscCertified: true,
+    paperColor: 'BROWN',
+    grammage: 40,
+    // Walls seen from outside, FILL-stretched: FRONT / BACK are W × H = 140 × 370 mm, the gussets F × H = 90 × 370 mm.
+    artwork: {
+      FRONT: 'gusseted-bag/front.webp',
+      BACK: 'gusseted-bag/back.webp',
+      LEFT: 'gusseted-bag/left.webp',
+      RIGHT: 'gusseted-bag/right.webp',
+    },
+    extendToBottom: false,
   },
 };
+
+/** The block-bottom demo (kept for existing callers). */
+export const DEMO_CONFIGURATION = DEMO_CONFIGURATIONS.BLOCK;
 
 type ImageInfo = { width: number; height: number; sizeBytes: number; mimeType: string };
 
@@ -47,31 +80,44 @@ async function probeImage(url: string): Promise<ImageInfo> {
   return { ...size, sizeBytes, mimeType: url.endsWith('.webp') ? 'image/webp' : 'image/png' };
 }
 
+/** What a demo load could not apply: image paths (relative to `public/`) that failed to load. */
+export type DemoLoadResult = { missing: string[]; total: number };
+
 /**
- * Loads the demo into the configuration store: block bag, demo dimensions (width first so the depth ≤ width rule
- * holds), flat handle, white FSC paper, grammage, and the four wall artworks with "extend to bottom" on. Resolves once all images are
- * applied; rejects if any image is missing (the configuration is then left with whatever loaded).
+ * Loads the demo of `productType` into the configuration store: a fresh configuration of that type, the demo
+ * dimensions (width first so the depth ≤ width rule holds), handle (before the paper: the handle variant constrains
+ * the grammage), paper, FSC and the wall artwork. Images that cannot be loaded are skipped and listed in the result.
  */
-export async function loadDemoConfiguration(base: string = import.meta.env.BASE_URL): Promise<void> {
+export async function loadDemoConfiguration(
+  base: string = import.meta.env.BASE_URL,
+  productType: BagType = 'BLOCK',
+): Promise<DemoLoadResult> {
+  const demo = DEMO_CONFIGURATIONS[productType];
   const store = () => useConfigurationStore.getState();
-  store().setProductType('BLOCK');
-  const { width, height, depth } = DEMO_CONFIGURATION.dimensions;
+  store().resetConfiguration(demo.productType); // no leftover artwork / layout / colours
+  const { width, height, depth } = demo.dimensions;
   store().setDimension('width', width);
   store().setDimension('height', height);
   store().setDimension('depth', depth);
-  store().setHandle(DEMO_CONFIGURATION.handle); // before the paper: the handle variant constrains the grammage
-  store().setPaperColor(DEMO_CONFIGURATION.paperColor);
-  store().setGrammage(DEMO_CONFIGURATION.grammage);
-  store().setFscCertified(DEMO_CONFIGURATION.fscCertified);
-  const entries = Object.entries(DEMO_CONFIGURATION.artwork) as [PanelPosition, string][];
+  store().setHandle(demo.handle);
+  store().setPaperColor(demo.paperColor);
+  store().setGrammage(demo.grammage);
+  store().setFscCertified(demo.fscCertified);
+  const entries = Object.entries(demo.artwork) as [PanelPosition, string][];
   const prefix = base.endsWith('/') ? base : `${base}/`;
-  const infos = await Promise.all(entries.map(([, path]) => probeImage(`${prefix}${path}`)));
+  const results = await Promise.allSettled(entries.map(([, path]) => probeImage(`${prefix}${path}`)));
+  const missing: string[] = [];
   entries.forEach(([position, path], i) => {
-    const info = infos[i];
+    const result = results[i];
+    if (result.status === 'rejected') {
+      missing.push(path);
+      return;
+    }
     store().setPanelArtwork(
       position,
-      createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...info }),
+      createArtwork({ fileName: path.split('/').pop() ?? path, fileUrl: `${prefix}${path}`, ...result.value }),
     );
-    store().setPanelExtendToBottom(position, true);
+    if (demo.extendToBottom) store().setPanelExtendToBottom(position, true);
   });
+  return { missing, total: entries.length };
 }

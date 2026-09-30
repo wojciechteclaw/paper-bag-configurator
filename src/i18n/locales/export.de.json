@@ -60,7 +60,14 @@
       "colorMinAreaShare": "Minimale Farbfläche im Motiv (Anteil am Farbauftrag)",
       "artworkLayout": "Anordnung der Druckmotive",
       "wrapLayer": "Ganze Tasche — Ebene {{index}}",
-      "wrapLayers": "Ganze Tasche — Motivebenen"
+      "wrapLayers": "Ganze Tasche — Motivebenen",
+      "folded": {
+        "depth": "Seitenfalte (F)",
+        "bottomAllowance": "Bodenstreifen (d)",
+        "glueFlap": "Längsnaht-Überlappung (s)"
+      },
+      "printArea": "Druckfläche (je Seite)",
+      "printAreaValue": "{{width}} × {{height}}"
     },
     "handleMaterial": {
       "KRAFT": "festes Kraftpapier"
@@ -83,7 +90,10 @@
       "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
       "parameters": "Parameter",
       "footer": "Konfiguration {{id}}",
-      "page": "Seite {{page}} von {{total}}"
+      "page": "Seite {{page}} von {{total}}",
+      "subtitleByType": {
+        "FOLDED": "{{type}} {{width}} + {{depth}} × {{height}} mm"
+      }
     },
     "pantone": {
       "title": "Pantone-Farben und Farbdeckung",
