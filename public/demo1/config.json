@@ -78,7 +78,11 @@
         "sizeBytes": 43514
       },
       "placement": {
-        "mode": "FILL",
+        "mode": "CUSTOM",
+        "offsetX": 0,
+        "offsetY": 38.421221864951804,
+        "scale": 1,
+        "rotation": 0,
         "extendToBottom": true
       }
     }
