@@ -8,6 +8,7 @@ import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../do
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
 import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
+import { getWindow, getWindowDimensions, getWindowFilm, getWindowOpening } from '../domain/window';
 import type { ArtworkPlacement, BagConfiguration, BagType } from '../domain/types';
 import type { Translate } from './format';
 
@@ -28,6 +29,35 @@ export function describePlacement(placement: ArtworkPlacement, t: Translate): st
   return placement.extendToBottom ? `${text}, ${t('export.placementSummary.extended')}` : text;
 }
 
+/**
+ * Window rows (docs/SPEC.md §2b): type, film material, opening size and position (centred on FRONT, lower edge above the
+ * bottom fold line; the panoramic strip runs up to the mouth), film overlap, film size and area. Opening and film
+ * sizes come from the domain (`getWindowOpening` / `getWindowFilm`), the same as the dieline.
+ */
+function buildWindowRows(
+  configuration: BagConfiguration,
+  row: (id: string, value: ParameterValue, unit?: string) => ParameterRow,
+  t: Translate,
+): ParameterRow[] {
+  const window = getWindow(configuration);
+  if (!window) return [row('windowType', t('window.none'))];
+  const mm = t('dimensions.unit');
+  const opening = getWindowOpening(window, getWindowDimensions(configuration));
+  const film = getWindowFilm(window, getWindowDimensions(configuration));
+  const r1 = (value: number) => Math.round(value * 10) / 10;
+  return [
+    row('windowType', t(`window.type.${window.type}`)),
+    row('windowMaterial', t(`window.material.${window.material}`)),
+    row('windowWidth', r1(opening.width), mm),
+    row('windowHeight', r1(opening.height), mm),
+    row('windowBottomOffset', r1(opening.y), mm),
+    row('windowPosition', t(opening.openAtTop ? 'export.param.windowPositionPanoramic' : 'export.param.windowPositionRectangle')),
+    row('windowFilmOverlap', window.filmOverlap, mm),
+    row('windowFilmSize', t('export.param.windowFilmSizeValue', { width: r1(film.width), height: r1(film.height) }), mm),
+    row('windowFilmArea', Math.round((film.width * film.height) / 10) / 10, t('export.unit.cm2')),
+  ];
+}
+
 export type ParameterValue = string | number;
 
 export type ParameterRow = {
@@ -38,7 +68,7 @@ export type ParameterRow = {
   unit?: string;
 };
 
-export type ParameterSectionId = 'product' | 'paper' | 'handle' | 'print' | 'construction' | 'artwork';
+export type ParameterSectionId = 'product' | 'paper' | 'handle' | 'print' | 'construction' | 'window' | 'artwork';
 
 export type ParameterSection = { id: ParameterSectionId; title: string; rows: ParameterRow[] };
 
@@ -165,6 +195,7 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     section('handle', handleRows),
     section('construction', construction),
     section('print', printRows),
+    ...(definition.windowAvailable ? [section('window', buildWindowRows(configuration, row, t))] : []),
     section('artwork', artwork),
   ];
 }

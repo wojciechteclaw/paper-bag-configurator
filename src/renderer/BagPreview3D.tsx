@@ -9,6 +9,7 @@ import { getSheetViewExtent } from './assemblyGeometry';
 import { BagModel } from './BagModel';
 import { getGlueFlapWidth } from '../domain/glueFlap';
 import { getConfiguredBottomFold } from '../domain/bottomFold';
+import { getWindow } from '../domain/window';
 import { GussetedBagModel } from './GussetedBagModel';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
 import { BACKGROUND_COLOR, CAMERA_FOV, DEFAULT_VIEW_DIRECTION, fitDistance } from './camera';
@@ -136,6 +137,7 @@ export function BagPreview3D({ configuration, foldProgress = 0, assemblyProgress
           paperColor={paper.color}
           artworks={artworks}
           foldProgress={foldProgress}
+          window={getWindow(configuration)}
         />
       ) : (
         <BagModel

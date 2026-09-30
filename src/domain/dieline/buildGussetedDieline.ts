@@ -17,11 +17,16 @@
 // faces in the flat tube: BACK and the gusset halves next to FRONT face the BACK side → MOUNTAIN (print side inside
 // the fold); FRONT, the gusset halves next to BACK and the seam flap (turned over at C3 onto the inside of LEFT's half
 // next to BACK, its print side towards FRONT) → VALLEY. No 45° creases, no bottom flaps.
+//
+// Film window (optional, docs/PRODUCTION.md §13.6): the opening is cut from FRONT — a panoramic strip as a U notch
+// through the top edge (part of the outer outline `cuts[0]`), a rectangle as an inner cut contour (`cuts[1]`); the film
+// glued on the inside (opening + overlap) is a REVERSE-face zone, the opening a zone of its own (never printed).
 
 import { getGlueFlapWidth } from '../glueFlap';
 import { DIELINE_RULES } from '../config/productionRules';
 import { getBottomFoldDepth } from '../geometry/gussetedBag';
 import type { BagConfiguration, PanelPosition } from '../types';
+import { getWindow, getWindowFilm, getWindowOpening } from '../window';
 import type {
   CreaseCode,
   CreaseFold,
@@ -31,6 +36,7 @@ import type {
   DielineLine,
   DielineSegment,
   DielineSegmentId,
+  DielineWindow,
   DielineZone,
   Point2,
   Rect,
@@ -70,7 +76,7 @@ export const GUSSETED_BOTTOM_FOLD: Readonly<{
 };
 
 export function buildGussetedDieline(
-  configuration: Pick<BagConfiguration, 'dimensions'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth'>>,
+  configuration: Pick<BagConfiguration, 'dimensions'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth' | 'window'>>,
   options: GussetedDielineOptions = {},
 ): Dieline {
   const { dimensions } = configuration;
@@ -101,8 +107,40 @@ export function buildGussetedDieline(
   const tubeEnd = cursor; // 2W + 2F: seam flap hinge on BACK's outer edge (the BACK / LEFT tube edge)
   const glueFlap = rect(tubeEnd, 0, sheetWidth, sheetHeight);
 
-  // ——— Cut: plain rectangle; the seam flap runs through the bottom fold, so its ends stay square [Z] ———
-  const cuts = [[p(0, 0), p(sheetWidth, 0), p(sheetWidth, sheetHeight), p(0, sheetHeight)]];
+  // ——— Window (FRONT, panel-local → sheet: + FRONT's x0, + the bottom line) ———
+  const front = seg('FRONT');
+  const bagWindow = getWindow(configuration);
+  const windows: DielineWindow[] = [];
+  if (bagWindow) {
+    const windowDimensions = { width: W, height: H, bottomFold: d };
+    const localOpening = getWindowOpening(bagWindow, windowDimensions);
+    const localFilm = getWindowFilm(bagWindow, windowDimensions);
+    const toSheet = (r: Rect): Rect => ({ x: r.x + front.x0, y: r.y + y0, width: r.width, height: r.height });
+    windows.push({
+      id: 'window',
+      type: bagWindow.type,
+      material: bagWindow.material,
+      panel: 'FRONT',
+      segment: 'FRONT',
+      openAtTop: localOpening.openAtTop,
+      filmOverlap: bagWindow.filmOverlap,
+      opening: toSheet(localOpening),
+      film: toSheet(localFilm),
+      localOpening: { x: localOpening.x, y: localOpening.y, width: localOpening.width, height: localOpening.height },
+      localFilm,
+    });
+  }
+
+  // ——— Cut: rectangle (the seam flap runs through the bottom fold, so its ends stay square [Z]); a panoramic window is a
+  // U notch through the top edge, a rectangular one an inner contour ———
+  const outline = [p(0, 0), p(sheetWidth, 0), p(sheetWidth, sheetHeight)];
+  const cuts = [outline];
+  for (const { opening, openAtTop } of windows) {
+    const [x0, x1, yb, yt] = [opening.x, opening.x + opening.width, opening.y, opening.y + opening.height];
+    if (openAtTop) outline.push(p(x1, sheetHeight), p(x1, yb), p(x0, yb), p(x0, sheetHeight));
+    else cuts.push([p(x0, yb), p(x0, yt), p(x1, yt), p(x1, yb)]);
+  }
+  outline.push(p(0, sheetHeight));
 
   // ——— Creases ———
   const creases: DielineLine[] = [];
@@ -136,6 +174,10 @@ export function buildGussetedDieline(
     // Glue on the bottom strip d [K]; the strip folds to the BACK, so the glue lies on the print side of BACK's strip,
     // which meets the print side of the BACK wall.
     { id: 'bottom-flap-glue-BACK', kind: 'BOTTOM_FLAP_GLUE', face: 'PRINT', rect: seg('BACK').allowance },
+    ...windows.flatMap((w): DielineZone[] => [
+      { id: `${w.id}-film`, kind: 'WINDOW_FILM', face: 'REVERSE', rect: w.film },
+      { id: `${w.id}-opening`, kind: 'WINDOW_OPENING', rect: w.opening },
+    ]),
   ];
   // Safety areas: the print area is W × (H − d) per side [K] (the band y ∈ [0, d] above the bottom line is under the
   // folded strip on BACK and inside the glued, closed bottom elsewhere), clear of creases, the seam and the top cut.
@@ -156,7 +198,6 @@ export function buildGussetedDieline(
   }
 
   // ——— Dimension annotations (outside the sheet: top and left) ———
-  const front = seg('FRONT');
   const annotations: DielineDimension[] = [
     { id: 'dim-width', key: 'width', from: p(front.x0, yTop), to: p(front.x1, yTop), value: W, side: 'top', offset: 10 },
     { id: 'dim-depth', key: 'depth', from: p(left.x0, yTop), to: p(left.x1, yTop), value: F, side: 'top', offset: 10 },
@@ -187,6 +228,7 @@ export function buildGussetedDieline(
     segments,
     glueFlap,
     cuts,
+    windows,
     creases,
     zones,
     handlePatches: [],

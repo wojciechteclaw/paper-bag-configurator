@@ -23,7 +23,8 @@
       "handle": "Uchwyt",
       "print": "Nadruk i pakowanie",
       "construction": "Konstrukcja i arkusz",
-      "artwork": "Grafiki"
+      "artwork": "Grafiki",
+      "window": "Okienko"
     },
     "param": {
       "productType": "Typ torby",
@@ -67,7 +68,19 @@
         "glueFlap": "Zakładka szwu (s)"
       },
       "printArea": "Pole nadruku (na stronę)",
-      "printAreaValue": "{{width}} × {{height}}"
+      "printAreaValue": "{{width}} × {{height}}",
+      "windowType": "Okienko",
+      "windowMaterial": "Folia okienka",
+      "windowWidth": "Szerokość otworu",
+      "windowHeight": "Wysokość otworu",
+      "windowBottomOffset": "Dolna krawędź otworu nad linią dna",
+      "windowPosition": "Położenie otworu",
+      "windowPositionPanoramic": "na środku przodu, do wylotu (otwarte u góry)",
+      "windowPositionRectangle": "na środku przodu",
+      "windowFilmOverlap": "Wsunięcie folii pod papier",
+      "windowFilmSize": "Wymiar folii",
+      "windowFilmSizeValue": "{{width}} × {{height}}",
+      "windowFilmArea": "Powierzchnia folii"
     },
     "handleMaterial": {
       "KRAFT": "mocny papier kraft"
@@ -197,7 +210,8 @@
       "lineKind": {
         "cut": "cięcie",
         "crease": "big"
-      }
+      },
+      "cutWindow": "wycięcie okienka"
     },
     "creaseCode": {
       "C1": "linia dna",

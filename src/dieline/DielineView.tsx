@@ -22,10 +22,11 @@ import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
 import { getGlueFlapWidth } from '../domain/glueFlap';
 import { getConfiguredBottomFold } from '../domain/bottomFold';
+import { getWindow } from '../domain/window';
 import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/types';
 import { useConfigurationStore } from '../state/configurationStore';
 import { useConfiguratorUiStore } from '../state/configuratorUiStore';
-import { buildDielineScene, DIELINE_STYLE, isPointOnSceneImage, matrixAttr, type SceneImage } from './scene';
+import { buildDielineScene, clipPathData, DIELINE_STYLE, isPointOnSceneImage, matrixAttr, type SceneImage } from './scene';
 import { keyForType } from '../i18n/keyForType';
 import { dimensionsSlug } from '../export/format';
 import './dieline.css';
@@ -39,6 +40,8 @@ const ZONE_PROPS: Record<DielineZoneKind, { className?: string; fill?: string }>
   BOTTOM_ALLOWANCE: { fill: DIELINE_STYLE.allowanceFill },
   BOTTOM_FLAP_GLUE: { fill: DIELINE_STYLE.bottomGlueFill },
   GLUE_FLAP: { fill: DIELINE_STYLE.glueFlapFill },
+  WINDOW_OPENING: { className: 'dl-window-opening' },
+  WINDOW_FILM: { className: 'dl-window-film' },
 };
 
 // Alignment buttons (SPEC §4f): two groups of three; icons are plain glyphs, names come from i18n.
@@ -123,9 +126,10 @@ export function DielineView() {
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
   const bottomFoldDepth = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
   const { productType } = configuration;
+  const bagWindow = getWindow(configuration);
   const dieline = useMemo(
-    () => buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth }),
-    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth],
+    () => buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, window: bagWindow }),
+    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, bagWindow],
   );
   const extendToBottomAvailable = BAG_TYPES[productType].extendToBottomAvailable;
   const scene = useMemo(
@@ -518,7 +522,11 @@ export function DielineView() {
           <defs>
             {scene.images.map((image) => (
               <clipPath key={image.clip.id} id={`dv-${image.clip.id}`}>
-                <rect x={image.clip.x} y={image.clip.y} width={image.clip.width} height={image.clip.height} />
+                {image.clipHoles?.length ? (
+                  <path d={clipPathData(image)} clipRule="evenodd" />
+                ) : (
+                  <rect x={image.clip.x} y={image.clip.y} width={image.clip.width} height={image.clip.height} />
+                )}
               </clipPath>
             ))}
           </defs>
@@ -530,6 +538,18 @@ export function DielineView() {
             height={scene.sheet.height}
             fill={PAPER_FILL[paper.color] ?? s.sheetFill}
           />
+          {/* Window openings: no paper there (docs/SPEC.md §2b). */}
+          {scene.windows.map((w) => (
+            <rect
+              key={w.id}
+              x={w.opening.x}
+              y={w.openAtTop ? w.opening.y - 1 : w.opening.y}
+              width={w.opening.width}
+              height={w.openAtTop ? w.opening.height + 1 : w.opening.height}
+              className="dl-window-hole"
+              data-window-hole={w.id}
+            />
+          ))}
 
           {layers.artwork && (
             <g data-layer="artwork">
@@ -589,7 +609,7 @@ export function DielineView() {
                     points={zone.points}
                     data-zone={zone.kind}
                     data-face={zone.face}
-                    {...(zone.face === 'REVERSE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
+                    {...(zone.face === 'REVERSE' && zone.kind === 'BOTTOM_FLAP_GLUE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
                   />
                 ) : (
                   <rect
@@ -600,7 +620,7 @@ export function DielineView() {
                     height={zone.height}
                     data-zone={zone.kind}
                     data-face={zone.face}
-                    {...(zone.face === 'REVERSE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
+                    {...(zone.face === 'REVERSE' && zone.kind === 'BOTTOM_FLAP_GLUE' ? { className: 'dl-glue-reverse' } : ZONE_PROPS[zone.kind])}
                   />
                 ),
               )}
@@ -730,6 +750,15 @@ export function DielineView() {
           <li><span className="swatch swatch--allowance-printed" />{t('dieline.legend.allowancePrinted')}</li>
           <li><span className="swatch swatch--glue" />{t('dieline.legend.glue')}</li>
           <li><span className="swatch swatch--glue-reverse" />{t('dieline.legend.glueReverse')}</li>
+          {scene.windows.map((w) => (
+            <li key={`${w.id}-opening`}><span className="swatch swatch--window-opening" />{t('dieline.legend.windowOpening')}</li>
+          ))}
+          {scene.windows.map((w) => (
+            <li key={`${w.id}-film`}>
+              <span className="swatch swatch--window-film" />
+              {t('dieline.legend.windowFilm', { overlap: w.filmOverlap })}
+            </li>
+          ))}
         </ul>
         <p className="dieline-view__hint">{hasArtwork ? t('dieline.edit.hint') : t('dieline.empty')}</p>
       </div>

@@ -190,6 +190,33 @@ export type PrintSpec = {
 
 export type PackagingType = 'CARTON' | 'FOIL';
 
+/**
+ * Window ("okienko") of the gusseted bag (docs/SPEC.md §2b, docs/PRODUCTION.md §13.6), client decisions [K] 30.09.2026:
+ * an opening cut from the paper of the FRONT wall, always centred horizontally on it, closed by a film glued on the
+ * inside that overlaps the paper by `filmOverlap` on every closed side of the opening.
+ * - `PANORAMIC` — a vertical strip `width` wide from just above the bottom strip d up to the mouth edge (open at the
+ *   top: the film ends at the mouth). Its lower edge is derived (`getWindowOpening`): d + filmOverlap + safety margin.
+ * - `RECTANGLE` — `width × height`, its lower edge `bottomOffset` above the bottom fold line (the bottom edge of the
+ *   finished bag, panel-local y = 0).
+ */
+export type WindowType = 'PANORAMIC' | 'RECTANGLE';
+
+/** Window film [K]: PP film, perforated PP film (breathing, e.g. bread) or cellulose film. */
+export type WindowMaterial = 'PP' | 'PP_PERFORATED' | 'CELLULOSE';
+
+/** All lengths in whole millimetres. */
+export type BagWindow =
+  | { type: 'PANORAMIC'; material: WindowMaterial; width: number; filmOverlap: number }
+  | {
+      type: 'RECTANGLE';
+      material: WindowMaterial;
+      width: number;
+      height: number;
+      /** Distance from the bottom fold line (bottom edge of the finished bag) to the lower edge of the opening. */
+      bottomOffset: number;
+      filmOverlap: number;
+    };
+
 export type BagConfiguration = {
   id: string;
   productType: BagType;
@@ -216,4 +243,9 @@ export type BagConfiguration = {
    * types that have one — read it through `getConfiguredBottomFold`.
    */
   bottomFoldDepth?: number;
+  /**
+   * Window in the FRONT wall (only where `BAG_TYPES[type].windowAvailable`: the gusseted bag), or null (the default).
+   * Missing in data saved before 30.09.2026 — read it through `getWindow`.
+   */
+  window: BagWindow | null;
 };

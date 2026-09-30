@@ -9,6 +9,8 @@ import type {
   PaperColor,
   PaperType,
   PrintTechnology,
+  WindowMaterial,
+  WindowType,
 } from '../types';
 
 export type Range = { min: number; max: number };
@@ -68,6 +70,8 @@ export type BagTypeDefinition = {
    * bag's fold-over strip stays unprinted in the MVP (docs/PRODUCTION.md §13), so its placements never extend.
    */
   extendToBottomAvailable: boolean;
+  /** Whether a film window can be cut into the FRONT wall (docs/PRODUCTION.md §13.6): gusseted bag only [K]. */
+  windowAvailable: boolean;
 };
 
 const size =(width: number, depth: number, height: number, sizeClass?: StandardSizeClass): StandardSize => ({
@@ -180,6 +184,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
     extendToBottomAvailable: true,
+    windowAvailable: false,
   },
   // Gusseted bag with a fold-over bottom ("torba fałdowa"), client guideline "Torba fałdowa – wytyczne techniczne"
   // (30.09.2026) [K] and docs/PRODUCTION.md §13. `depth` is the full gusset F ("fałda"): hard maximum F ≤ W (the shared
@@ -203,6 +208,7 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
     extendToBottomAvailable: false,
+    windowAvailable: true,
   },
 };
 
@@ -226,6 +232,35 @@ export const GUSSETED_BAG_RULES = {
    * at H / 2 [Z] (research §6.4: y_r ≈ min(F, H/2)); preview only.
    */
   openingRiseFactor: 1,
+} as const;
+
+/**
+ * Film window in the FRONT wall of the gusseted bag (docs/PRODUCTION.md §13.6, docs/SPEC.md §2b). Client decisions [K]
+ * 30.09.2026: two types (panoramic strip / rectangle), always centred horizontally on FRONT, film PP / perforated PP /
+ * cellulose glued on the inside with an overlap of 5–20 mm (default 10) on every closed side of the opening. The
+ * margins and sizes marked [Z] are derived assumptions to confirm with production (docs/SPEC.md §8).
+ */
+export const WINDOW_RULES = {
+  /** Window types in UI order ("no window" is `window: null`, the default). */
+  types: ['PANORAMIC', 'RECTANGLE'] as readonly WindowType[],
+  /** Film materials in UI order [K]; the first is the default. */
+  materials: ['PP', 'PP_PERFORATED', 'CELLULOSE'] as readonly WindowMaterial[],
+  /** Film overlap under the paper ("wsunięcie folii pod papier"), mm [K]. */
+  filmOverlap: { min: 5, max: 20, default: 10, step: 1 },
+  /**
+   * Paper kept beyond the film edge [Z], mm: the film (opening + overlap) stays this far from FRONT's side creases, from
+   * the top of the bottom strip d and (rectangle) from the mouth, so the glue line never runs into a crease, the glued
+   * bottom or the top cut. The opening edge is therefore ≥ overlap + this margin from each of them.
+   */
+  paperSafetyMargin: 5,
+  /** Smallest opening width / height, mm [Z] (smaller openings are not worth the film patch). */
+  minOpening: 20,
+  /** Opening sizes are entered in whole millimetres. */
+  step: 1,
+  /** Defaults of a newly chosen window as shares of the FRONT's available room [Z] (rounded to 5 mm, then clamped). */
+  defaults: { panoramicWidthRatio: 0.35, rectangleWidthRatio: 0.5, rectangleHeightRatio: 0.35 },
+  /** Opening above this share of the FRONT's print area W × (H − d) raises a warning (weakened wall) [Z]. */
+  largeOpeningShare: 0.5,
 } as const;
 
 /**

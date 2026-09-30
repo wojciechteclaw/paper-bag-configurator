@@ -136,6 +136,9 @@
 .dl-patch { fill: none; stroke: #c2410c; stroke-width: 1.1px; stroke-dasharray: 3 3; }
 .dl-safety { fill: none; stroke: #15803d; stroke-width: 1px; stroke-dasharray: 2 3; }
 .dl-bleed { fill: none; stroke: #ec4899; stroke-width: 1px; }
+.dl-window-hole { fill: var(--surface-muted, #f3f4f6); }
+.dl-window-opening { fill: rgba(56, 189, 248, 0.16); stroke: none; }
+.dl-window-film { fill: none; stroke: #0284c7; stroke-width: 1.2px; stroke-dasharray: 5 3; }
 .dl-dim { stroke: #444; stroke-width: 0.8px; }
 
 .dieline-view__text text {
@@ -263,6 +266,8 @@
   vector-effect: non-scaling-stroke;
 }
 .dieline-view .swatch--allowance-printed { background: transparent; border: 2px dashed #7c3aed; }
+.dieline-view .swatch--window-opening { background: rgba(56, 189, 248, 0.35); }
+.dieline-view .swatch--window-film { background: transparent; border: 2px dashed #0284c7; }
 
 /* Chrome in the configurator's promarjarocin.pl-derived style (tokens from src/index.css). */
 .dieline-view__toggle input { accent-color: var(--accent); }

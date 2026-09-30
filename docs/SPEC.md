@@ -90,6 +90,37 @@ Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wią�
   (etykiety „Fałda (F)”, „Pas dna (d)”, „Zakładka szwu (s)”, „Pole nadruku (na stronę)”); waga torby z wykroju
   `B × L`; wycena nadal niezaimplementowana (§1).
 
+### 2b. Okienko z folią w torbie fałdowej (decyzje klienta 30.09.2026)
+
+Konstrukcja, granice i status wartości ([K] / [Z]): `docs/PRODUCTION.md` §13.6. Model: `BagConfiguration.window:
+BagWindow | null` (domyślnie `null`; starsze pliki bez pola = bez okienka), logika w `src/domain/window.ts`, stałe
+`WINDOW_RULES` w katalogu.
+
+| Parametr | MVP |
+|---|---|
+| Dostępność | tylko torba fałdowa, tylko przednia ścianka, zawsze wyśrodkowane w poziomie [K]; torba klockowa — brak |
+| Rodzaj | bez okienka / **pasek panoramiczny** (od paska dna do wylotu, otwarty u góry) / **prostokąt** [K] |
+| Folia | PP, PP perforowana, celulozowa [K] |
+| Wymiary | pasek: szerokość; prostokąt: szerokość × wysokość + odległość od dna (od linii zagięcia dna) — pełne mm, granice z marginesu `wsunięcie + 5 mm` [Z] |
+| Wsunięcie folii pod papier | 5–20 mm, domyślnie 10, na każdym zamkniętym boku otworu [K] |
+
+- **UI:** krok 1 („Typ i wymiary”), sekcja „Okienko” pod wymiarami — okienko jest częścią konstrukcji (granice zależą
+  od W / H, zmienia wykrój i arkusz) i trzeba je znać przed rozmieszczeniem grafik (w otworze nie ma nadruku). Radio
+  bez okienka / panoramiczne / prostokątne, lista folii, pola z zakresami (szkic zatwierdzany od razu, gdy poprawny,
+  albo po opuszczeniu pola / Enter — jak wymiary), komunikaty błędów, opis wynikowego otworu i folii, ostrzeżenie o
+  bardzo dużym otworze. Zmiana wymiarów, wsunięcia lub typu torby przycina okienko do nowych granic (typ klockowy:
+  usuwa je; UI to zgłasza).
+- **Wykrój / SVG / PDF:** otwór jako linia cięcia (pasek: „U” przez krawędź wylotu; prostokąt: zamknięty kontur),
+  otwór zabarwiony „bez nadruku”, folia (otwór + wsunięcie) jako strefa po stronie wewnętrznej linią przerywaną;
+  wpisy w legendzie (także na karcie PDF); grafika przycięta z otworem.
+- **3D:** dziura w przedniej ściance (grafika nie jest drukowana w otworze), przezroczysta, lekko zabarwiona, błyszcząca
+  folia; perforowana — delikatny wzór kropek; widać wnętrze torby; działa w stanie otwartym, pośrednim i płaskim.
+- **Pokrycie farbą i kolory w grafikach** pomijają otwór. **Waga torby:** otwór odejmowany od papieru, folia nie waży
+  (pole folii podawane osobno). **Eksport PDF / Excel:** sekcja „Okienko” (rodzaj, folia, wymiary, położenie, wsunięcie,
+  wymiar i pole folii).
+- **Plik projektu:** okienko zapisywane; przy wczytaniu sprawdzane i przycinane (`sanitizeConfiguration`, sekcja
+  „okienko” w komunikacie o dopasowaniu); w torbie klockowej usuwane.
+
 ## 3. Ścianki i grafiki
 
 - Ścianki: `FRONT`, `BACK`, `LEFT`, `RIGHT` (opcjonalnie w przyszłości `BOTTOM`, `TOP`).
@@ -594,7 +625,25 @@ klockowej; środek tylnej ścianki nie jest używany), ~~pole nadruku~~ (`W × (
 - Nadruk na pasku dna `d` i klej tylko na pasku czy też wewnątrz końca rękawa?
 - Gramatury: lista w zakresie 30–60 (przyjęto co 5, domyślnie 40)?
 - „Standardowe wymiary 180×180, 200×200, 260×260, 280×280”: do czego należą? Obecnie brak rozmiarów standardowych.
-- Okno (folia PP / celulozowa, panoramiczne / prostokątne), rożek, pakowanie w wiązki 100 / 250 / 500 i paleta: kiedy
+- ~~Okno~~ — rozstrzygnięte [K] 30.09.2026, w konfiguratorze (§2b). Rożek, pakowanie w wiązki 100 / 250 / 500 i paleta: kiedy
   mają wejść do konfiguratora?
 - Czy torba fałdowa ma mieć w podglądzie składanie z arkusza według kolejności z wytycznych (rękaw + fałdy, szew,
   cięcie, dno)?
+
+**Okienko z folią (§2b, `docs/PRODUCTION.md` §13.6)** — założenia [Z] do potwierdzenia z produkcją:
+
+- Margines papieru za krawędzią folii 5 mm (od bigów bocznych przodu, od góry paska dna, od wylotu), czyli krawędź
+  otworu co najmniej `wsunięcie + 5 mm` od nich. Wystarczy? Czy margines zależy od maszyny / kleju?
+- Dolna krawędź paska panoramicznego: `d + wsunięcie + 5 mm` nad linią dna (40 mm przy d = 25). Czy pasek ma
+  zaczynać się niżej (np. folia wchodzi pod pasek dna i jest klejona razem z dnem)?
+- Odległość prostokąta mierzona od linii zagięcia dna (dolnej krawędzi gotowej torby) — czy klient woli od górnej
+  krawędzi paska `d` albo od wylotu?
+- Minimalny otwór 20 × 20 mm; ostrzeżenie przy otworze > 50 % pola nadruku przodu — jakie są realne limity
+  (maks. szerokość folii z roli, sztywność przodu)?
+- Wymiary podawane co 1 mm (wymiary torby co 5 mm) — czy okienko też co 5 mm?
+- Folia: grubość / gramatura i rozstaw perforacji — potrzebne w karcie produktu? Czy perforowana PP i celulozowa
+  łączą się z każdym papierem (np. powlekany PE, tłuszczoszczelny)?
+- Okienko tylko w przodzie: czy w przyszłości także na tyle / w fałdach, lub kilka okienek?
+- Narożniki otworu proste; czy potrzebne zaokrąglenia (promień) albo inne kształty?
+- Wykrój nie ma wymiarowania okienka (wymiary są w sekcji „Okienko” karty PDF / Excela) — czy dodać linie wymiarowe
+  na rysunku?

@@ -5,7 +5,7 @@
 // so PRODUCTION.md's Y maps to sheet y = Y + a.
 
 import type { Point2, Polygon2 } from '../geometry/sideGusset';
-import type { Dimensions, PanelPosition } from '../types';
+import type { Dimensions, PanelPosition, WindowMaterial, WindowType } from '../types';
 
 export type { Point2, Polygon2 };
 
@@ -49,7 +49,11 @@ export type DielineZoneKind =
   | 'SAFETY'
   | 'BOTTOM_ALLOWANCE'
   | 'BOTTOM_FLAP_GLUE'
-  | 'GLUE_FLAP';
+  | 'GLUE_FLAP'
+  /** Window opening cut from the paper (gusseted bag, docs/PRODUCTION.md §13.6); no print there. */
+  | 'WINDOW_OPENING'
+  /** Window film glued on the inside (REVERSE face): the opening plus the film overlap. */
+  | 'WINDOW_FILM';
 
 /**
  * A zone on the sheet. `face` (glue zones only): the side of the sheet the glue is applied to — PRINT (seen on the
@@ -63,6 +67,25 @@ export type DielineZone = {
   /** Exact outline when the zone is not a rectangle (the glue flap with its 45° chamfered ends). */
   polygon?: Polygon2;
   face?: 'PRINT' | 'REVERSE';
+};
+
+/**
+ * Film window of the FRONT wall (sheet mm). `opening` is cut from the paper (a U notch through the top edge when
+ * `openAtTop`, else an inner cut contour); `film` = the film glued on the inside (opening + overlap). `local*` are the
+ * same rectangles in the panel-local mm of `panel` (for sampling / masking).
+ */
+export type DielineWindow = {
+  id: string;
+  type: WindowType;
+  material: WindowMaterial;
+  panel: PanelPosition;
+  segment: DielineSegmentId;
+  openAtTop: boolean;
+  filmOverlap: number;
+  opening: Rect;
+  film: Rect;
+  localOpening: Rect;
+  localFilm: Rect;
 };
 
 export type DielineHandlePatch = { id: string; panel: 'FRONT' | 'BACK'; segment: DielineSegmentId; rect: Rect };
@@ -109,8 +132,13 @@ export type Dieline = {
   segments: DielineSegment[];
   /** Bounding rectangle of the glue flap (the flap itself is chamfered at both ends: zone `glue-flap` polygon). */
   glueFlap: Rect;
-  /** Closed cut contours (the sheet outline). */
+  /**
+   * Closed cut contours: `cuts[0]` = the outer outline of the blank (with the U notch of a panoramic window), further
+   * entries = inner contours cut out of it (a rectangular window opening).
+   */
   cuts: Polygon2[];
+  /** Film windows (gusseted bag only; empty otherwise). */
+  windows: DielineWindow[];
   creases: DielineLine[];
   zones: DielineZone[];
   handlePatches: DielineHandlePatch[];

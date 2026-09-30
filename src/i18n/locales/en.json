@@ -37,7 +37,8 @@
       "handle": "handle",
       "artwork": "artwork",
       "print": "print",
-      "packaging": "packaging"
+      "packaging": "packaging",
+      "window": "window"
     },
     "warnings": {
       "LEGACY_CONFIGURATION": "This is an older configuration file (JSON), not a project file.",
@@ -98,7 +99,9 @@
       "packaging": "packaging: {{from}} → {{to}}",
       "pantoneColors": "removed print colours above this type’s limit: {{removed}}",
       "extendToBottom": "“Extend to bottom” switched off (the folded bottom strip is not printed)",
-      "glueFlap": "glue flap: {{from}} → {{to}} mm"
+      "glueFlap": "glue flap: {{from}} → {{to}} mm",
+      "windowRemoved": "window removed (not available for this type)",
+      "windowConstrained": "window fitted to the new dimensions"
     }
   },
   "dimensions": {
@@ -390,6 +393,53 @@
       "BOX": "3D box",
       "STANDING": "3D standing",
       "FLAT": "Flat"
+    }
+  },
+  "window": {
+    "label": "Window",
+    "typeLabel": "Window type",
+    "none": "no window",
+    "summary": "{{type}}, {{material}}, opening {{width}} × {{height}} mm, film overlap {{overlap}} mm",
+    "type": {
+      "PANORAMIC": "Panoramic (strip)",
+      "RECTANGLE": "Rectangular"
+    },
+    "description": {
+      "NONE": "Front without a cut-out.",
+      "PANORAMIC": "Vertical strip in the middle of the front, from the bottom strip up to the mouth (open at the top).",
+      "RECTANGLE": "Rectangular cut-out in the middle of the front, at a chosen height."
+    },
+    "materialLabel": "Film",
+    "material": {
+      "PP": "PP film",
+      "PP_PERFORATED": "perforated PP film",
+      "CELLULOSE": "cellulose film"
+    },
+    "field": {
+      "width": "Opening width",
+      "height": "Opening height",
+      "bottomOffset": "Distance from the bottom",
+      "filmOverlap": "Film overlap under the paper"
+    },
+    "fieldInfo": {
+      "width": "the opening is always centred on the front; at least the film overlap + 5 mm of paper remain to the side edges.",
+      "height": "from the lower to the upper edge of the opening; at least the film overlap + 5 mm of paper remain up to the mouth.",
+      "bottomOffset": "from the bottom fold line (bottom edge of the finished bag) to the lower edge of the opening; minimum = bottom strip + film overlap + 5 mm.",
+      "filmOverlap": "how far the film (glued on the inside) overlaps the paper on every closed side of the opening."
+    },
+    "errors": {
+      "NOT_A_NUMBER": "Enter a number",
+      "NOT_INTEGER": "Enter whole millimetres",
+      "BELOW_MIN": "Minimum: {{min}} mm",
+      "ABOVE_MAX": "Maximum: {{max}} mm"
+    },
+    "geometry": {
+      "PANORAMIC": "Opening {{width}} × {{height}} mm from {{bottom}} mm above the bottom up to the mouth; film {{filmWidth}} × {{filmHeight}} mm.",
+      "RECTANGLE": "Opening {{width}} × {{height}} mm, {{bottom}} mm above the bottom; film {{filmWidth}} × {{filmHeight}} mm."
+    },
+    "artworkNote": "Nothing is printed in the opening — the paper is cut out (the 3D preview, dieline and ink coverage take this into account).",
+    "warnings": {
+      "WINDOW_LARGE_OPENING": "The opening takes more than {{share}}% of the front print area — the front may be weaker. Check with production."
     }
   }
 }

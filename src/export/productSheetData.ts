@@ -70,7 +70,7 @@ export type ProductSheetData = {
   dieline: {
     title: string;
     /** Scale note is formatted by the adapter via `formatScaleNote` once the fit is known. */
-    legend: { cut: string; crease: string; patch: string };
+    legend: { cut: string; crease: string; patch: string; windowFilm: string };
     svgTitle: string;
   };
   /** Colours detected in the placed artwork (HEX) with their area. */
@@ -234,7 +234,12 @@ export function buildProductSheetData(
     },
     dieline: {
       title: t('export.dieline.title'),
-      legend: { cut: t('dieline.legend.cut'), crease: t('dieline.legend.crease'), patch: t('dieline.legend.patch') },
+      legend: {
+        cut: t('dieline.legend.cut'),
+        crease: t('dieline.legend.crease'),
+        patch: t('dieline.legend.patch'),
+        windowFilm: t('dieline.legend.windowFilm', { overlap: configuration.window?.filmOverlap ?? 0 }),
+      },
       svgTitle: t(keyForType('dieline.svgTitle', configuration.productType), dimensions),
     },
     artworkColors: buildArtworkColorTable(palette, context),

@@ -70,10 +70,12 @@ export function getHandlePatchSize(handle: Handle, width: number): { width: numb
 
 /**
  * Dieline of the configured bag. `productType` selects the construction: the gusseted-bag bag with a fold-over bottom
- * (`FOLDED`) has its own builder (`buildGussetedDieline`); anything else (or a missing type) is the block bottom.
+ * (`FOLDED`) has its own builder (`buildGussetedDieline`, with its optional film window); anything else (or a missing
+ * type) is the block bottom (no window).
  */
 export function buildDieline(
-  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> & Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth' | 'productType'>>,
+  configuration: Pick<BagConfiguration, 'dimensions' | 'handle'> &
+    Partial<Pick<BagConfiguration, 'glueFlapWidth' | 'bottomFoldDepth' | 'productType' | 'window'>>,
   options: DielineOptions = {},
 ): Dieline {
   if (configuration.productType === 'FOLDED') return buildGussetedDieline(configuration, options);
@@ -272,6 +274,7 @@ export function buildDieline(
     segments,
     glueFlap,
     cuts,
+    windows: [],
     creases,
     zones,
     handlePatches,
@@ -302,4 +305,25 @@ export function getArtworkClipRect(dieline: Dieline, segment: DielineSegment, ex
   const left = segment.x0 <= 0 ? bleed : creaseOverprint;
   const bottom = extendToBottom ? -bleed : dieline.bottomLineY - creaseOverprint;
   return rect(segment.x0 - left, bottom, segment.x1 + creaseOverprint, dieline.sheet.height + bleed);
+}
+
+/**
+ * Parts of a column's artwork clip that stay unprinted because the paper is cut away there: the window openings on
+ * the column's panel, in sheet mm (a panoramic opening runs through the top edge, so it is extended over the bleed).
+ * Each hole lies inside `getArtworkClipRect` of the column (intersected with it; empty ones are dropped).
+ */
+export function getArtworkClipHoles(dieline: Dieline, segment: DielineSegment, extendToBottom = false): Rect[] {
+  const clip = getArtworkClipRect(dieline, segment, extendToBottom);
+  const holes: Rect[] = [];
+  for (const window of dieline.windows ?? []) {
+    if (window.panel !== segment.panel) continue;
+    const { opening } = window;
+    const top = window.openAtTop ? dieline.sheet.height + DIELINE_RULES.bleed : opening.y + opening.height;
+    const x0 = Math.max(opening.x, clip.x);
+    const x1 = Math.min(opening.x + opening.width, clip.x + clip.width);
+    const y0 = Math.max(opening.y, clip.y);
+    const y1 = Math.min(top, clip.y + clip.height);
+    if (x1 > x0 && y1 > y0) holes.push(rect(x0, y0, x1, y1));
+  }
+  return holes;
 }

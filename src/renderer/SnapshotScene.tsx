@@ -5,6 +5,7 @@ import type { BagConfiguration } from '../domain/types';
 import { BagModel } from './BagModel';
 import { getGlueFlapWidth } from '../domain/glueFlap';
 import { getConfiguredBottomFold } from '../domain/bottomFold';
+import { getWindow } from '../domain/window';
 import { GussetedBagModel } from './GussetedBagModel';
 import { BACKGROUND_COLOR } from './camera';
 import { CONTACT_SHADOW_DEPTH_MM, MM_TO_SCENE } from './constants';
@@ -38,6 +39,7 @@ export function SnapshotScene({ configuration, foldProgress, onCommit }: Snapsho
           paperColor={configuration.paper.color}
           artworks={artworks}
           foldProgress={foldProgress}
+          window={getWindow(configuration)}
         />
       ) : (
         <BagModel

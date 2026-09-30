@@ -7,6 +7,7 @@ import { resolvePanelArtworks } from '../../domain/artworkLayout';
 import { buildDieline } from '../../domain/dieline';
 import { getGlueFlapWidth } from '../../domain/glueFlap';
 import { getConfiguredBottomFold } from '../../domain/bottomFold';
+import { getWindow } from '../../domain/window';
 import { PANEL_POSITIONS } from '../../domain/factories';
 import {
   computeArtworkPalette,
@@ -45,6 +46,7 @@ export function useInkCoverage(): InkCoverageState {
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
   const bottomFoldDepth = useConfigurationStore((s) => getConfiguredBottomFold(s.configuration));
   const productType = useConfigurationStore((s) => s.configuration.productType);
+  const bagWindow = useConfigurationStore((s) => getWindow(s.configuration));
   const panels = useConfigurationStore((s) => s.configuration.panels);
   const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
   const wrapLayers = useConfigurationStore((s) => s.configuration.wrapLayers);
@@ -59,8 +61,13 @@ export function useInkCoverage(): InkCoverageState {
   const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].layers.length > 0);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.
   const coverageRequest = useMemo(
-    () => ({ dieline: buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth }), artworks, paperColor, pantoneColors }),
-    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, artworks, paperColor, pantoneColors],
+    () => ({
+      dieline: buildDieline({ dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, window: bagWindow }),
+      artworks,
+      paperColor,
+      pantoneColors,
+    }),
+    [dimensions, handle, glueFlapWidth, productType, bottomFoldDepth, bagWindow, artworks, paperColor, pantoneColors],
   );
   const request = useMemo(() => ({ coverageRequest, colorAnalysis }), [coverageRequest, colorAnalysis]);
   const [computed, setComputed] = useState<Computed | null>(null);
