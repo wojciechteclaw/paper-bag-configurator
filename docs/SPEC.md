@@ -13,7 +13,7 @@ Konfiguracja jest docelowo wejściem do wyceny, ale **cena nie jest implementowa
 
 | Parametr | MVP | Źródło |
 |---|---|---|
-| Typ torby | `BLOCK` (klockowa). `FOLDED` (fałdowa) widoczna w UI jako „wkrótce” | wytyczne |
+| Typ torby | `BLOCK` (klockowa) i `FOLDED` (fałdowa, od 30.09.2026 — §2a). Poniższe wiersze dotyczą torby klockowej | wytyczne |
 | Szerokość | 75–260 mm, domyślnie 200 | Promar / wywiad |
 | Wysokość | 170–430 mm, domyślnie 400 | Promar / wywiad |
 | Głębokość | 40–300 mm (**do potwierdzenia**), domyślnie 150 | wywiad |
@@ -57,6 +57,38 @@ Reguły wymiarów i kształtu:
 - Przy polach wymiarów ikony pokazujące kierunek wymiaru (szerokość / wysokość / głębokość) na szkicu torby z otwartą górą.
 
 Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` — nigdy w komponentach.
+
+### 2a. Torba fałdowa (`FOLDED`) — MVP 30.09.2026
+
+Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego). Wiążące: **wytyczne techniczne klienta
+„Torba fałdowa – wytyczne techniczne” (30.09.2026) [K]**; tło: research oferty Promar
+(`docs/research/promar-gusseted-bags.md`). Konstrukcja, wykrój i status każdej wartości: `docs/PRODUCTION.md` §13.
+
+| Parametr | MVP |
+|---|---|
+| Zapis wymiaru | **„W + F × H”**, np. „140 + 90 × 370 mm” [K] — podsumowanie, karta PDF / Excel, wykrój, nazwy plików (`140+90x370`) |
+| Szerokość `W` | 100–300 mm, krok 5, domyślnie 140 [K] |
+| Wysokość `H` (od zagięcia dna do wylotu) | 170–670 mm, krok 5, domyślnie 370 [K] |
+| Fałda `F` (pełna; pole „Fałda” zamiast „Głębokość”) | twarde maksimum `F ≤ W` (blokada jak w torbie klockowej), zalecane 0,4–0,7·W (ostrzeżenie), minimum 20 mm, krok 5, domyślnie 90 [K] |
+| Uchwyt | brak (tylko wariant „bez uchwytu”; w kroku 2 informacja „bez uchwytów”) |
+| Papier | kraft biały / brązowy, kraft MG, tłuszczoszczelny, powlekany PE; 30–60 g/m², krok 5, domyślnie 40; FSC opcjonalnie; bez osobnej bariery na wilgoć [K] |
+| Rozmiary standardowe | brak |
+| DEMO | przycisk DEMO wczytuje demo wybranego typu: przykład klienta 140 + 90 × 370, papier brązowy 40 g/m² FSC, grafiki `public/gusseted-bag/{front,back,left,right}.webp` (brakujące są pomijane) |
+| Nadruk / pakowanie | flekso do 8 Pantone, **pole nadruku `W × (H − d)` na stronę**; karton / folia [K] |
+| Szew | zakładka `s` 10–20 mm, domyślnie 15, **na środku tylnej ścianki** [K]; pole „zakładka klejowa” jak w torbie klockowej (`glueFlapWidth`); przy zmianie typu wartość domyślna przechodzi na domyślną nowego typu, wybrana przez użytkownika jest tylko przycinana do zakresu |
+| Dno | pasek `d = 25 mm` (15–30) z klejem, zagięty **na tył**, pojedyncze [K]; bez nadruku („Rozciągnij na dno” niedostępne) |
+
+- **Zmiana typu** (`changeProductType`, akcja `setProductType`) nie zeruje konfiguracji: zachowuje grafiki (ścianki
+  i wszystkie warstwy całej torby), kolory nadruku, kolor papieru, FSC; usuwa niedostępny uchwyt, przycina wymiary do
+  zakresu nowego typu (z regułą `F ≤ W`), dopasowuje papier do wariantu i wyłącza „Rozciągnij na dno” (na ściankach i
+  na każdej warstwie). UI wypisuje, co zmieniono. Przycisk DEMO zaczyna od nowej konfiguracji (`resetConfiguration`).
+- **Wykrój:** arkusz `B × L = (2W + 2F + s) × (H + d)`, kolumny od lewej: połowa BACK | LEFT | FRONT | RIGHT |
+  połowa BACK | zakładka `s` (bigi po `W/2, F/2, F/2, W, F/2, F/2, W/2, s`); krawędzie rękawa na zewnątrz (V), osie
+  fałd do środka (M), linia dna V / M zależnie od warstwy; klej na zakładce i na pasku dna. Przykład 140 + 90 × 370 →
+  475 × 395 mm.
+- **Wycena / eksport:** typ i jego parametry w Podsumowaniu (JSON), karcie PDF i Excelu jak dla torby klockowej
+  (etykiety „Fałda (F)”, „Pas dna (d)”, „Zakładka szwu (s)”, „Pole nadruku (na stronę)”); waga torby z wykroju
+  `B × L`; wycena nadal niezaimplementowana (§1).
 
 ## 3. Ścianki i grafiki
 
@@ -217,6 +249,20 @@ Geometria linii zgięcia (bigów) na ściance bocznej LEFT/RIGHT o wymiarach `de
   liczona w `src/domain` jako czysta geometria 2D.
 
 > **Korekta (wg `docs/PRODUCTION.md` §10):** w stanie złożonym dno obraca się na przedniej krawędzi dna i kładzie na **zewnętrznej stronie tylnej ścianki**; tylna ściana łamie się w „Z” na bigu `y = D/2`, więc górne krawędzie pozostają równo. Na tylnej połowie boku jest dodatkowy poziomy big od krawędzi do wierzchołka. Model kinematyczny i wzory — `docs/PRODUCTION.md` §10.5; ma pierwszeństwo przed opisem powyżej.
+
+### 4i. Podgląd 3D torby fałdowej (MVP 30.09.2026)
+
+- Osobny model (`src/renderer/GussetedBagModel.tsx`, geometria `gussetedBagGeometry.ts` z kinematyki domenowej
+  `src/domain/geometry/gussetedBag.ts`), niezależny od modelu torby klockowej; tekstury ścianek (jedna grafika albo
+  kompozyt warstw) ze wspólnego `wallTextures.ts`. Ścianki: przód, tył i dwie fałdy, bigi osi fałd, krawędzie, szew na
+  środku tyłu, pasek dna zagięty na tył (goły papier) [K].
+- **Otwarta torba:** wylot `W × F`, zwężenie do linii dna — fałdy otwierają się od 0 przy przyklejonym dnie do 90°
+  na wysokości `d + min(F, H/2)`. **Złożona:** płasko (warstwy rozsunięte tylko o grubość renderu).
+- **Oś czasu (decyzja MVP):** składanie z arkusza pominięte. Przedział 0–40 % pokazuje otwartą torbę, więc suwak
+  zaczyna się od 40 %, odtwarzanie startuje od 40 %, a preset „Arkusz” jest ukryty. 40 % („3D pełne”) = otwarta,
+  45 % („3D po zgięciu”) = lekko przymknięta, 100 % („Złożona”) = płaska. Etap: „Torba uformowana” / „Składanie na
+  płasko”. Zrzuty 3D w karcie PDF używają tego samego modelu. Kolejność produkcji z wytycznych klienta (rękaw + fałdy,
+  szew, cięcie, dno) jest opisana w `docs/PRODUCTION.md` §13.1 na przyszłą animację.
 
 ### 4c. Tryby podglądu (wywiad 29.09.2026)
 
@@ -519,3 +565,22 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
   rozstrzygnięte [K] (30.09.2026): **wystarczy**, profil ICC niepotrzebny.
 - ~~Dno przy `W < 2E` (klapy boków zachodzą na siebie): czy wewnętrzna jest klapa LEFT?~~ — rozstrzygnięte [K]
   (30.09.2026): **tak**, klapa LEFT leży do środka (`docs/PRODUCTION.md` §3.4.2).
+
+**Torba fałdowa (`FOLDED`, §2a, `docs/PRODUCTION.md` §13):** wytyczne klienta 30.09.2026 [K] rozstrzygnęły:
+~~zakres fałdy~~ (`F ≤ W`, zalecane 0,4–0,7·W), ~~dno~~ (pasek `d` 15–30 / 25 mm z klejem, na tył, pojedyncze lub
+podwójne), ~~szew~~ (środek tylnej ścianki, `s` 10–20 / 15 mm), ~~pole nadruku~~ (`W × (H − d)` na stronę), ~~papiery~~
+(kraft, MG, tłuszczoszczelny, PE), ~~minimalny nakład~~ (30 000 — tylko informacja). Pozostaje:
+
+- Dno podwójne: wytyczne dopuszczają dwa zagięcia — ma być opcją w konfiguratorze (obecnie tylko pojedyncze)? Jak
+  zmienia się `L` (`H + 2d`?)
+- Wylot ząbkowany / wycięcie na kciuk: opcja w konfiguratorze (obecnie tylko cięcie proste)? Wymiary wycięcia?
+- Zakres regulacji `d` (15–30): czy użytkownik ma go wybierać, czy zostaje stały produkcyjny (25)? (`s` 10–20 jest już
+  ustawiane w konfiguratorze.)
+- Minimum fałdy: przyjęto 20 mm. Torba płaska (`F = 0`) ma być osobnym typem / wariantem?
+- Nadruk na pasku dna `d` i klej tylko na pasku czy też wewnątrz końca rękawa?
+- Gramatury: lista w zakresie 30–60 (przyjęto co 5, domyślnie 40)?
+- „Standardowe wymiary 180×180, 200×200, 260×260, 280×280”: do czego należą? Obecnie brak rozmiarów standardowych.
+- Okno (folia PP / celulozowa, panoramiczne / prostokątne), rożek, pakowanie w wiązki 100 / 250 / 500 i paleta: kiedy
+  mają wejść do konfiguratora?
+- Czy torba fałdowa ma mieć w podglądzie składanie z arkusza według kolejności z wytycznych (rękaw + fałdy, szew,
+  cięcie, dno)?

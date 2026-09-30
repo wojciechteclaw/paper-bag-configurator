@@ -91,6 +91,9 @@
       "handle": "Skalierungsgriff",
       "hint": "Motiv ziehen, um es zu verschieben; eine Ecke oder das Mausrad skaliert es. Hintergrund ziehen, um die Ansicht zu verschieben."
     },
-    "empty": "Noch keine Druckmotive. Fügen Sie sie im Schritt „Druckmotive“ hinzu — sie erscheinen hier sofort."
+    "empty": "Noch keine Druckmotive. Fügen Sie sie im Schritt „Druckmotive“ hinzu — sie erscheinen hier sofort.",
+    "svgTitleByType": {
+      "FOLDED": "Stanzkontur des Seitenfaltenbeutels {{width}} + {{depth}} × {{height}} mm"
+    }
   }
 }

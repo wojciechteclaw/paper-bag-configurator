@@ -8,7 +8,7 @@ import { getHandleLayout, getHandlePaperColor, resolveHandleParams } from '../do
 import { findStandardSize, getHandleVariant, getHandleVariantDefinition } from '../domain/handleVariants';
 import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../domain/printCoverage/colorAnalysis';
-import type { ArtworkPlacement, BagConfiguration } from '../domain/types';
+import type { ArtworkPlacement, BagConfiguration, BagType } from '../domain/types';
 import type { Translate } from './format';
 
 /**
@@ -42,13 +42,24 @@ export type ParameterSectionId = 'product' | 'paper' | 'handle' | 'print' | 'con
 
 export type ParameterSection = { id: ParameterSectionId; title: string; rows: ParameterRow[] };
 
+/**
+ * Parameters worded differently for the gusseted-bag bag (client notation [K]): depth is the gusset F ("fałda"), the
+ * allowance the bottom strip d, the glue flap the seam overlap s.
+ */
+const GUSSETED_PARAMETER_LABELS: ReadonlySet<string> = new Set(['depth', 'bottomAllowance', 'glueFlap']);
+
+/** i18n key of a parameter label for a bag type. */
+export function parameterLabelKey(productType: BagType, id: string): string {
+  return productType === 'FOLDED' && GUSSETED_PARAMETER_LABELS.has(id) ? `export.param.folded.${id}` : `export.param.${id}`;
+}
+
 export function buildParameterSections(configuration: BagConfiguration, dieline: Dieline, t: Translate): ParameterSection[] {
   const { dimensions, paper, handle, print } = configuration;
   const yesNo = (value: boolean) => t(value ? 'summary.yes' : 'summary.no');
   const mm = t('dimensions.unit');
   const row = (id: string, value: ParameterValue, unit?: string): ParameterRow => ({
     id,
-    label: t(`export.param.${id}`),
+    label: t(parameterLabelKey(configuration.productType, id)),
     value,
     ...(unit ? { unit } : {}),
   });
@@ -114,6 +125,12 @@ export function buildParameterSections(configuration: BagConfiguration, dieline:
     row('sheetHeight', dieline.sheet.height, mm),
     row('sheetArea', (dieline.sheet.width * dieline.sheet.height) / 100, t('export.unit.cm2')),
   ];
+  // Gusseted bag [K]: print area per side W × (H − d), the bottom strip d excluded.
+  if (configuration.productType === 'FOLDED') {
+    construction.push(
+      row('printArea', t('export.param.printAreaValue', { width: dimensions.width, height: dimensions.height - dieline.allowance }), mm),
+    );
+  }
 
   // Layout first, then the artwork of the active layout only (kept artwork of the other layout is not printed). Whole-bag
   // layers are listed bottom → top, each with its placement (docs/SPEC.md §3b).

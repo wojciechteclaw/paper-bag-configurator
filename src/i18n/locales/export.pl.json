@@ -60,7 +60,14 @@
       "colorMinAreaShare": "Minimalna plama koloru grafik (udział w farbie)",
       "artworkLayout": "Układ grafik",
       "wrapLayer": "Cała torba — warstwa {{index}}",
-      "wrapLayers": "Cała torba — warstwy grafiki"
+      "wrapLayers": "Cała torba — warstwy grafiki",
+      "folded": {
+        "depth": "Fałda (F)",
+        "bottomAllowance": "Pas dna (d)",
+        "glueFlap": "Zakładka szwu (s)"
+      },
+      "printArea": "Pole nadruku (na stronę)",
+      "printAreaValue": "{{width}} × {{height}}"
     },
     "handleMaterial": {
       "KRAFT": "mocny papier kraft"
@@ -83,7 +90,10 @@
       "subtitle": "{{type}} {{width}} × {{height}} × {{depth}} mm",
       "parameters": "Parametry",
       "footer": "Konfiguracja {{id}}",
-      "page": "Strona {{page}} z {{total}}"
+      "page": "Strona {{page}} z {{total}}",
+      "subtitleByType": {
+        "FOLDED": "{{type}} {{width}} + {{depth}} × {{height}} mm"
+      }
     },
     "pantone": {
       "title": "Kolory Pantone i pokrycie farbą",

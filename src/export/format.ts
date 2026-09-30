@@ -1,5 +1,6 @@
 // Formatting helpers of the export builders. Pure (Intl only), no DOM.
 
+import { getDimensionsSlug } from '../domain/dimensionNotation';
 import type { BagConfiguration } from '../domain/types';
 import { createNumberFormatter } from '../i18n/numberFormat';
 
@@ -32,8 +33,10 @@ export const round = (value: number, digits = 2) => {
   return Math.round(value * f) / f;
 };
 
-/** File base name like `torba-klockowa-200x400x150` (W × H × D, as in the UI). */
+/** Size part of file names (`getDimensionsSlug`): W×H×D, or W+F×H for the gusseted bag. */
+export const dimensionsSlug = getDimensionsSlug;
+
+/** File base name like `torba-klockowa-200x400x150` or `torba-faldowa-140+90x370` (as the size is written in the UI). */
 export function exportFileBaseName(configuration: Pick<BagConfiguration, 'productType' | 'dimensions'>, t: Translate) {
-  const { width, height, depth } = configuration.dimensions;
-  return `${t(`export.fileName.${configuration.productType}`)}-${width}x${height}x${depth}`;
+  return `${t(`export.fileName.${configuration.productType}`)}-${dimensionsSlug(configuration)}`;
 }

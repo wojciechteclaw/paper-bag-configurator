@@ -9,7 +9,11 @@
     "demo": "Demo",
     "demoBusy": "Loading…",
     "demoHint": "Load an example: block-bottom bag 250 × 200 × 400 mm (W × D × H), white paper 100 g/m² FSC, twisted rope handle, \"wave\" artwork on all walls, extended to the bottom",
-    "demoError": "The demo artwork could not be loaded."
+    "demoError": "The demo artwork could not be loaded.",
+    "demoHintByType": {
+      "FOLDED": "Load an example: gusseted bag 140 + 90 × 370 mm (client example), brown paper 40 g/m² FSC, demo artwork on the walls (public/gusseted-bag)"
+    },
+    "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}"
   },
   "project": {
     "save": "Save project",
@@ -77,7 +81,24 @@
     "label": "Bag type",
     "BLOCK": "Block-bottom bag",
     "FOLDED": "Gusseted bag",
-    "comingSoon": "coming soon"
+    "comingSoon": "coming soon",
+    "description": {
+      "BLOCK": "Bag with a rectangular block bottom — stands on its own; optionally with a handle.",
+      "FOLDED": "Side-gusset bag with the bottom folded to the back (no block bottom, does not stand), e.g. for bread, fruit, sweets. No handles, 30–60 g/m² paper. Size written as W + F × H."
+    },
+    "adjusted": {
+      "intro": "The configuration was adjusted to the “{{type}}” type:",
+      "handle": "removed the handle “{{handle}}” (not available for this type)",
+      "dimension": "{{dimension}}: {{from}} → {{to}} mm (range of this type)",
+      "paperType": "paper type: {{from}} → {{to}}",
+      "grammage": "grammage: {{from}} → {{to}} g/m²",
+      "moistureBarrier": "moisture barrier switched off (not available for this type)",
+      "paperColor": "paper colour: {{from}} → {{to}}",
+      "packaging": "packaging: {{from}} → {{to}}",
+      "pantoneColors": "removed print colours above this type’s limit: {{removed}}",
+      "extendToBottom": "“Extend to bottom” switched off (the folded bottom strip is not printed)",
+      "glueFlap": "glue flap: {{from}} → {{to}} mm"
+    }
   },
   "dimensions": {
     "label": "Dimensions",
@@ -118,7 +139,23 @@
       "none": "There are no standard sizes for the selected handle — enter custom dimensions."
     },
     "warnings": {
-      "BOTTOM_TRAPEZOID_DEGENERATE": "Width below {{minWidth}} mm (depth + 30 mm): the front and back bottom flaps form a triangle instead of a trapezoid and the bottom sides overlap. Check feasibility with production."
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Width below {{minWidth}} mm (depth + 30 mm): the front and back bottom flaps form a triangle instead of a trapezoid and the bottom sides overlap. Check feasibility with production.",
+      "GUSSET_OUTSIDE_RECOMMENDED": "Gusset outside the recommended {{minGusset}}–{{maxGusset}} mm (0.4–0.7 × width). The maximum is the bag width."
+    },
+    "byType": {
+      "FOLDED": {
+        "depth": "Gusset",
+        "lock": {
+          "widthMin": "min. = gusset ({{value}} mm)",
+          "depthMax": "max. = width ({{value}} mm)"
+        },
+        "errors": {
+          "DEPTH_EXCEEDS_WIDTH": "The gusset cannot be larger than the width"
+        },
+        "standardSize": {
+          "none": "Gusseted bags have no standard sizes — enter your own dimensions."
+        }
+      }
     }
   },
   "handle": {
@@ -139,6 +176,14 @@
       "type": "paper type: {{from}} → {{to}} (the previous one is not available with this handle)",
       "grammage": "grammage: {{from}} → {{to}} g/m² (available range {{min}}–{{max}} g/m²)",
       "moistureBarrier": "moisture barrier switched off (not available with this handle)"
+    },
+    "noneAvailable": "This bag type is made without handles.",
+    "byType": {
+      "FOLDED": {
+        "description": {
+          "NONE": "Gusseted bag without a handle — kraft (white / brown), MG kraft, greaseproof or PE-coated paper, 30–60 g/m²."
+        }
+      }
     }
   },
   "artwork": {
@@ -211,7 +256,8 @@
       "RECYCLED": "Recycled",
       "COATED": "Coated",
       "FILM_COATED": "Film-coated",
-      "GREASEPROOF": "Greaseproof"
+      "GREASEPROOF": "Greaseproof",
+      "MG_KRAFT": "MG kraft (machine glazed)"
     },
     "grammageRange": "Range for the selected handle: {{min}}–{{max}} g/m², in steps of {{step}} g/m²",
     "moistureBarrier": "Moisture barrier",
@@ -314,7 +360,10 @@
     "copy": "Copy JSON",
     "copied": "Copied to clipboard.",
     "copyFailed": "Could not copy — select the text manually.",
-    "moistureBarrier": "moisture barrier"
+    "moistureBarrier": "moisture barrier",
+    "dimensionsValueByType": {
+      "FOLDED": "{{width}} + {{depth}} × {{height}} mm"
+    }
   },
   "preview": {
     "fold": "Assembly & fold",

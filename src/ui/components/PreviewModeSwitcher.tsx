@@ -1,15 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import { PREVIEW_VIEW_MODES, usePreviewStore } from '../../state/previewStore';
+import { useConfigurationStore } from '../../state/configurationStore';
+import { getPreviewViewModes, usePreviewStore } from '../../state/previewStore';
 
 /** Segmented control for the preview modes (docs/SPEC.md §4c). Writes view state only. */
 export function PreviewModeSwitcher() {
   const { t } = useTranslation();
   const viewMode = usePreviewStore((s) => s.viewMode);
   const setViewMode = usePreviewStore((s) => s.setViewMode);
+  const productType = useConfigurationStore((s) => s.configuration.productType);
 
   return (
     <div className="preview-modes" role="group" aria-label={t('preview.modesLabel')}>
-      {PREVIEW_VIEW_MODES.map((mode) => (
+      {getPreviewViewModes(productType).map((mode) => (
         <button
           key={mode}
           type="button"

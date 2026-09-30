@@ -22,9 +22,31 @@ describe('BagConfigurator step navigation', () => {
     expect(heading()).toHaveTextContent('Typ i wymiary');
     expect(stepButton('Typ i wymiary')).toHaveAttribute('aria-current', 'step');
     expect(screen.getByLabelText('Torba klockowa')).toBeChecked();
-    expect(screen.getByLabelText(/Torba fałdowa/)).toBeDisabled();
+    expect(screen.getByLabelText(/Torba fałdowa/)).toBeEnabled();
     expect(screen.getByLabelText('Szerokość')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Wstecz/ })).toBeDisabled();
+  });
+
+  it('switches to the gusseted bag and explains what had to be adjusted', () => {
+    render(<BagConfigurator />);
+    fireEvent.click(screen.getByLabelText(/Torba fałdowa/));
+    const { configuration } = useConfigurationStore.getState();
+    expect(configuration.productType).toBe('FOLDED');
+    // 200 × 400 × 150 fits the gusseted ranges (gusset ≤ width); only the grammage has to change.
+    expect(configuration.dimensions).toEqual({ width: 200, height: 400, depth: 150 });
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('gramatura: 80 → 60 g/m²');
+    // The depth field is the gusset ("Fałda"); the block-bottom depth wording is gone.
+    expect(screen.getByLabelText('Fałda')).toHaveValue(150);
+    expect(screen.queryByLabelText('Głębokość')).not.toBeInTheDocument();
+    // 150 > 0.7 × 200: outside the recommended gusset 80–140 mm [K] — a warning, not an error.
+    expect(screen.getByText(/Fałda poza zalecanym zakresem 80–140 mm/)).toBeInTheDocument();
+    fireEvent.click(stepButton('Papier i uchwyt'));
+    expect(screen.getAllByRole('radio', { name: /uchwyt/i })).toHaveLength(1);
+    expect(screen.getByText('Ten typ torby jest produkowany bez uchwytów.')).toBeInTheDocument();
+
+    // The summary writes the size in the client notation W + F × H.
+    fireEvent.click(stepButton('Podsumowanie'));
+    expect(screen.getByText('200 + 150 × 400 mm')).toBeInTheDocument();
   });
 
   it('moves with Next / Back and updates aria-current', () => {

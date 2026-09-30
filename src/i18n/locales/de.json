@@ -9,7 +9,11 @@
     "demo": "Demo",
     "demoBusy": "Wird geladen…",
     "demoHint": "Beispiel laden: Blockbodenbeutel 250 × 200 × 400 mm (B × T × H), weißes Papier 100 g/m² FSC, Papierkordelgriff (gedreht), „wave“-Motive auf allen Wänden, bis zum Boden verlängert",
-    "demoError": "Die Demo-Grafiken konnten nicht geladen werden."
+    "demoError": "Die Demo-Grafiken konnten nicht geladen werden.",
+    "demoHintByType": {
+      "FOLDED": "Beispiel laden: Seitenfaltenbeutel 140 + 90 × 370 mm (Kundenbeispiel), braunes Papier 40 g/m² FSC, Demo-Motive auf den Wänden (public/gusseted-bag)"
+    },
+    "demoMissing": "Demo-Konfiguration geladen, aber diese Bilder fehlen: {{files}}"
   },
   "project": {
     "save": "Projekt speichern",
@@ -77,7 +81,24 @@
     "label": "Beuteltyp",
     "BLOCK": "Blockbodenbeutel",
     "FOLDED": "Seitenfaltenbeutel",
-    "comingSoon": "demnächst"
+    "comingSoon": "demnächst",
+    "description": {
+      "BLOCK": "Beutel mit rechteckigem Klotzboden — steht von selbst; optional mit Griff.",
+      "FOLDED": "Seitenfaltenbeutel mit nach hinten umgelegtem Boden (kein Klotzboden, steht nicht), z. B. für Brot, Obst, Süßwaren. Ohne Griffe, Papier 30–60 g/m². Maßangabe W + F × H."
+    },
+    "adjusted": {
+      "intro": "Die Konfiguration wurde an den Typ „{{type}}“ angepasst:",
+      "handle": "Griff „{{handle}}“ entfernt (für diesen Typ nicht verfügbar)",
+      "dimension": "{{dimension}}: {{from}} → {{to}} mm (Bereich dieses Typs)",
+      "paperType": "Papiersorte: {{from}} → {{to}}",
+      "grammage": "Grammatur: {{from}} → {{to}} g/m²",
+      "moistureBarrier": "Feuchtigkeitsbarriere ausgeschaltet (für diesen Typ nicht verfügbar)",
+      "paperColor": "Papierfarbe: {{from}} → {{to}}",
+      "packaging": "Verpackung: {{from}} → {{to}}",
+      "pantoneColors": "Druckfarben über dem Limit dieses Typs entfernt: {{removed}}",
+      "extendToBottom": "„Auf den Boden ausdehnen“ ausgeschaltet (der umgelegte Bodenstreifen wird nicht bedruckt)",
+      "glueFlap": "Klebelasche: {{from}} → {{to}} mm"
+    }
   },
   "dimensions": {
     "label": "Abmessungen",
@@ -118,7 +139,23 @@
       "none": "Für den gewählten Griff gibt es keine Standardformate — bitte individuelle Abmessungen eingeben."
     },
     "warnings": {
-      "BOTTOM_TRAPEZOID_DEGENERATE": "Breite unter {{minWidth}} mm (Tiefe + 30 mm): Die vordere und hintere Bodenklappe bilden statt eines Trapezes ein Dreieck, und die Bodenseiten überlappen sich. Machbarkeit mit der Produktion klären."
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Breite unter {{minWidth}} mm (Tiefe + 30 mm): Die vordere und hintere Bodenklappe bilden statt eines Trapezes ein Dreieck, und die Bodenseiten überlappen sich. Machbarkeit mit der Produktion klären.",
+      "GUSSET_OUTSIDE_RECOMMENDED": "Seitenfalte außerhalb der Empfehlung {{minGusset}}–{{maxGusset}} mm (0,4–0,7 × Breite). Das Maximum ist die Beutelbreite."
+    },
+    "byType": {
+      "FOLDED": {
+        "depth": "Seitenfalte",
+        "lock": {
+          "widthMin": "min. = Seitenfalte ({{value}} mm)",
+          "depthMax": "max. = Breite ({{value}} mm)"
+        },
+        "errors": {
+          "DEPTH_EXCEEDS_WIDTH": "Die Seitenfalte darf nicht größer als die Breite sein"
+        },
+        "standardSize": {
+          "none": "Für Seitenfaltenbeutel gibt es keine Standardgrößen — geben Sie eigene Maße ein."
+        }
+      }
     }
   },
   "handle": {
@@ -139,6 +176,14 @@
       "type": "Papiersorte: {{from}} → {{to}} (die bisherige ist mit diesem Griff nicht verfügbar)",
       "grammage": "Grammatur: {{from}} → {{to}} g/m² (verfügbarer Bereich {{min}}–{{max}} g/m²)",
       "moistureBarrier": "Feuchtigkeitsbarriere deaktiviert (mit diesem Griff nicht verfügbar)"
+    },
+    "noneAvailable": "Dieser Beuteltyp wird ohne Griffe hergestellt.",
+    "byType": {
+      "FOLDED": {
+        "description": {
+          "NONE": "Seitenfaltenbeutel ohne Griff — Kraftpapier (weiß / braun), MG-Kraft, fettdichtes oder PE-beschichtetes Papier, 30–60 g/m²."
+        }
+      }
     }
   },
   "artwork": {
@@ -211,7 +256,8 @@
       "RECYCLED": "Recyclingpapier",
       "COATED": "Gestrichenes Papier",
       "FILM_COATED": "Folienkaschiertes Papier",
-      "GREASEPROOF": "Fettdichtes Papier"
+      "GREASEPROOF": "Fettdichtes Papier",
+      "MG_KRAFT": "MG-Kraftpapier (einseitig glatt)"
     },
     "grammageRange": "Bereich für den gewählten Griff: {{min}}–{{max}} g/m², in Schritten von {{step}} g/m²",
     "moistureBarrier": "Feuchtigkeitsbarriere",
@@ -314,7 +360,10 @@
     "copy": "JSON kopieren",
     "copied": "In die Zwischenablage kopiert.",
     "copyFailed": "Kopieren nicht möglich — bitte den Text manuell markieren.",
-    "moistureBarrier": "Feuchtigkeitsbarriere"
+    "moistureBarrier": "Feuchtigkeitsbarriere",
+    "dimensionsValueByType": {
+      "FOLDED": "{{width}} + {{depth}} × {{height}} mm"
+    }
   },
   "preview": {
     "fold": "Aufbau & Falten",

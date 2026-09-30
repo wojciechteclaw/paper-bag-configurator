@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useConfigurationStore } from './configurationStore';
 import {
   findTimelinePreset,
+  getPreviewViewModes,
+  getTimelineStart,
   getTimelineState,
   getTimelineStop,
+  getTimelineStateFor,
   PREVIEW_VIEW_MODES,
   TIMELINE_PLAY_DURATION_S,
   TIMELINE_PRESETS,
@@ -159,5 +162,49 @@ describe('chapter skip (previous / next stage)', () => {
     preview().setProgress(1);
     preview().skip(1);
     expect(preview().progress).toBe(1);
+  });
+
+  it('skips only the gusseted bag stops (no assembly): 0.4, 0.45, 1 — previous is disabled at 40 %', () => {
+    const start = getTimelineStart('FOLDED');
+    expect(getTimelineStop(start, -1, start)).toBeNull();
+    expect(getTimelineStop(start, 1, start)).toBe(0.45);
+    expect(getTimelineStop(0.45, 1, start)).toBe(1);
+    expect(getTimelineStop(1, -1, start)).toBe(0.45);
+    expect(getTimelineStop(0.2, -1, start)).toBeNull();
+    expect(getTimelineStop(0.2, 1, start)).toBe(0.4);
+    preview().setProgress(1);
+    preview().skip(-1, start);
+    preview().skip(-1, start);
+    expect(preview().progress).toBe(0.4);
+    preview().skip(-1, start);
+    expect(preview()).toMatchObject({ progress: 0.4, viewMode: 'BOX' });
+  });
+});
+
+describe('gusseted bag timeline (FOLDED, no sheet assembly)', () => {
+  it('shows the open bag up to BOX and closes it towards FLAT', () => {
+    expect(getTimelineStateFor('FOLDED', 0)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
+    expect(getTimelineStateFor('FOLDED', TIMELINE_PRESETS.BOX)).toEqual({ assemblyProgress: 1, foldProgress: 0, phase: 'FORMED' });
+    expect(getTimelineStateFor('FOLDED', 0.7)).toMatchObject({ assemblyProgress: 1, phase: 'FOLD' });
+    expect(getTimelineStateFor('FOLDED', 0.7).foldProgress).toBeCloseTo(0.5, 9);
+    expect(getTimelineStateFor('FOLDED', 1)).toEqual({ assemblyProgress: 1, foldProgress: 1, phase: 'FOLD' });
+    expect(getTimelineStateFor('BLOCK', 0.2)).toEqual(getTimelineState(0.2));
+  });
+
+  it('offers no SHEET preset and starts its timeline at BOX', () => {
+    expect(getPreviewViewModes('FOLDED')).toEqual(['DIELINE', 'BOX', 'STANDING', 'FLAT']);
+    expect(getPreviewViewModes('BLOCK')).toEqual(PREVIEW_VIEW_MODES);
+    expect(getTimelineStart('FOLDED')).toBe(TIMELINE_PRESETS.BOX);
+    expect(getTimelineStart('BLOCK')).toBe(0);
+  });
+
+  it('plays from the timeline start given by the caller', () => {
+    preview().setViewMode('FLAT');
+    preview().togglePlaying(getTimelineStart('FOLDED'));
+    expect(preview()).toMatchObject({ playing: true, progress: TIMELINE_PRESETS.BOX, viewMode: 'BOX' });
+    preview().togglePlaying();
+    preview().setProgress(0.1);
+    preview().togglePlaying(getTimelineStart('FOLDED'));
+    expect(preview().progress).toBe(TIMELINE_PRESETS.BOX);
   });
 });

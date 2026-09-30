@@ -10,8 +10,9 @@ import { getPanelSize } from '../domain/panels';
 import type { ArtworkPaletteResult, InkCoverageResult } from '../domain/printCoverage';
 import type { Artwork, ArtworkPlacement, BagConfiguration } from '../domain/types';
 import { exportFileBaseName, round, type ExportContext } from './format';
-import { buildParameterSections } from './parameters';
+import { buildParameterSections, parameterLabelKey } from './parameters';
 import { artworkPaletteNotes } from './productSheetData';
+import { keyForType } from '../i18n/keyForType';
 
 export type CellValue = string | number | null;
 /** A cell: plain value, or a value with a background fill (`#rrggbb`, e.g. a Pantone swatch) / bold text. */
@@ -301,7 +302,7 @@ export function buildWorkbookModel(
     rows: [
       [t('export.param.sheetWidth'), dieline.sheet.width, mm],
       [t('export.param.sheetHeight'), dieline.sheet.height, mm],
-      [t('export.param.bottomAllowance'), dieline.allowance, mm],
+      [t(parameterLabelKey(configuration.productType, 'bottomAllowance')), dieline.allowance, mm],
       [t('export.param.glueFlap'), dieline.glueFlapWidth, mm],
       [t('export.xlsx.bottomLineY'), dieline.bottomLineY, mm],
       [t('export.xlsx.bleed'), DIELINE_RULES.bleed, mm],
@@ -414,7 +415,7 @@ export function buildWorkbookModel(
 
   return {
     fileBaseName: exportFileBaseName(configuration, t),
-    title: t('export.pdf.subtitle', {
+    title: t(keyForType('export.pdf.subtitle', configuration.productType), {
       type: t(`productType.${configuration.productType}`),
       width: dimensions.width,
       height: dimensions.height,

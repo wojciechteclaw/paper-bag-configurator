@@ -17,6 +17,7 @@ import {
   type HorizontalAlignment,
   type VerticalAlignment,
 } from '../domain/artworkPlacement';
+import { BAG_TYPES } from '../domain/config/productCatalog';
 import { ARTWORK_PLACEMENT_RULES } from '../domain/config/productionRules';
 import { buildDieline, type DielineZoneKind } from '../domain/dieline';
 import { getGlueFlapWidth } from '../domain/glueFlap';
@@ -24,6 +25,8 @@ import type { ArtworkPlacement, ArtworkTarget, PaperColor } from '../domain/type
 import { useConfigurationStore } from '../state/configurationStore';
 import { useConfiguratorUiStore } from '../state/configuratorUiStore';
 import { buildDielineScene, DIELINE_STYLE, isPointOnSceneImage, matrixAttr, type SceneImage } from './scene';
+import { keyForType } from '../i18n/keyForType';
+import { dimensionsSlug } from '../export/format';
 import './dieline.css';
 
 type LayerKey = 'artwork' | 'creases' | 'zones' | 'annotations' | 'labels';
@@ -117,7 +120,12 @@ export function DielineView() {
   const dragRef = useRef<Drag | null>(null);
 
   const glueFlapWidth = useConfigurationStore((s) => getGlueFlapWidth(s.configuration));
-  const dieline = useMemo(() => buildDieline({ dimensions, handle, glueFlapWidth }), [dimensions, handle, glueFlapWidth]);
+  const { productType } = configuration;
+  const dieline = useMemo(
+    () => buildDieline({ dimensions, handle, glueFlapWidth, productType }),
+    [dimensions, handle, glueFlapWidth, productType],
+  );
+  const extendToBottomAvailable = BAG_TYPES[productType].extendToBottomAvailable;
   const scene = useMemo(
     () =>
       buildDielineScene(dieline, artworks, {
@@ -311,8 +319,8 @@ export function DielineView() {
   };
 
   // ——— Export ———
-  const baseName = `${t('dieline.export.fileName')}-${dimensions.width}x${dimensions.height}x${dimensions.depth}`;
-  const svgTitle = t('dieline.svgTitle', dimensions);
+  const baseName = `${t('dieline.export.fileName')}-${dimensionsSlug({ productType, dimensions })}`;
+  const svgTitle = t(keyForType('dieline.svgTitle', productType), dimensions);
   const runExport = async (kind: 'svg' | 'pdf') => {
     setBusy(kind);
     setExportError(false);
@@ -396,14 +404,16 @@ export function DielineView() {
                   rotation: selectedPlacement.rotation,
                 })}
           </span>
-          <label className="dieline-view__toggle dieline-view__extend" title={t('dieline.edit.extendToBottomHint')}>
-            <input
-              type="checkbox"
-              checked={selectedPlacement.extendToBottom}
-              onChange={(event) => setPanelExtendToBottom(activeSelection, event.target.checked)}
-            />
-            {t('dieline.edit.extendToBottom')}
-          </label>
+          {extendToBottomAvailable && (
+            <label className="dieline-view__toggle dieline-view__extend" title={t('dieline.edit.extendToBottomHint')}>
+              <input
+                type="checkbox"
+                checked={selectedPlacement.extendToBottom}
+                onChange={(event) => setPanelExtendToBottom(activeSelection, event.target.checked)}
+              />
+              {t('dieline.edit.extendToBottom')}
+            </label>
+          )}
           <button type="button" aria-pressed={selectedPlacement.mode === 'FILL'} onClick={() => fillPanelPlacement(activeSelection)}>
             {t('dieline.edit.fill')}
           </button>

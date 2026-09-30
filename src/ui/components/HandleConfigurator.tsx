@@ -1,7 +1,12 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BAG_TYPES } from '../../domain/config/productCatalog';
-import { getHandleVariant, getHandleVariantDefinition, type PaperAdjustment } from '../../domain/handleVariants';
+import {
+  getHandleVariant,
+  getHandleVariantDefinition,
+  getSupportedHandleTypes,
+  type PaperAdjustment,
+} from '../../domain/handleVariants';
 import type { HandleVariant } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
 
@@ -67,7 +72,7 @@ export function HandleConfigurator() {
                 {t(variant === 'NONE' ? 'handle.none' : `handle.${variant}`)}
               </span>
               <span id={`${id}-description`} className="variant-card__description">
-                {t(`handle.description.${variant}`)}
+                {t([`handle.byType.${productType}.description.${variant}`, `handle.description.${variant}`])}
                 {capacityLitres && <> {t('handle.capacity', capacityLitres)}</>}
               </span>
             </label>
@@ -75,6 +80,7 @@ export function HandleConfigurator() {
         })}
       </div>
       {current !== 'NONE' && <p className="note">{t('handle.placementNote')}</p>}
+      {getSupportedHandleTypes(definition).length === 0 && <p className="note">{t('handle.noneAvailable')}</p>}
       <div role="status" aria-live="polite">
         {adjustments.length > 0 && (
           <div className="warning">

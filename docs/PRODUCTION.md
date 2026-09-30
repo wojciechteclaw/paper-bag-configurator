@@ -2,7 +2,7 @@
 
 Dokument prowadzi agent `paper-bag-production-expert`. Opisuje, jak torba klockowa powstaje fizycznie,
 i przekłada to na geometrię dla `src/domain` (czyste funkcje 2D) i `src/renderer` (animacja złożenia).
-Kontekst: `docs/SPEC.md` (§2 zakres, §4a złożenie, §4b wykrój).
+Kontekst: `docs/SPEC.md` (§2 zakres, §4a złożenie, §4b wykrój). Torba fałdowa (typ `FOLDED`): §13.
 
 ## 0. Legenda wiarygodności
 
@@ -901,3 +901,116 @@ Każdy kawałek jest sztywny i ma zawiasy na bigach; `q ∈ [0, 1]` od płaskieg
 - Uchwyty (Ø sznurka, taśma, długość, rozstaw): <https://paperbagline.com/blog/twisted-handle-paper-bag-machine-vs-flat-handle/>, <https://cxgiae.com/blog/twisted-handle-vs-flat-handle-vs-rope-handle-choosing-the-right-paper-bag-handle/>
 - Wytyczne druku inline flexo (spad, marginesy, linie): <https://www.goodstartpackaging.com/paper-handle-bags-printing-guidelines/>
 - Pasowanie flexo: <https://www.ketegroup.com/printing-registration/>
+
+---
+
+## 13. Torba fałdowa (side-gusset bag, dno zaginane) — typ `FOLDED`
+
+Źródła: **wytyczne techniczne klienta „Torba fałdowa – wytyczne techniczne” (30.09.2026) [K]** — wiążące; tam, gdzie
+się różnią, zastępują wcześniejsze założenia z researchu `docs/research/promar-gusseted-bags.md` (oferta Promar,
+maszyny Garant; legenda znaczników tam §0). Wartości bez [K] to nadal założenia [Z] / wyprowadzenia [W].
+
+### 13.1 Oznaczenia i konstrukcja [K]
+
+| Symbol | Znaczenie |
+|---|---|
+| `W` | szerokość frontu (widziana na płasko) |
+| `F` | **pełna** głębokość fałdy (szerokość ścianki bocznej po otwarciu); w kodzie `dimensions.depth` |
+| `F/2` | wsunięcie fałdy z każdej strony, widziane na płasko |
+| `H` | wysokość gotowej torby od linii zagięcia dna do krawędzi wylotu |
+| `s` | zakładka szwu wzdłużnego |
+| `d` | wysokość paska dna (zagięcie + klej) |
+| `B` | szerokość wstęgi / wykroju, `B = 2W + 2F + s` |
+| `L` | długość odcinka przed formowaniem dna, `L = H + d` |
+
+- Wymiar zapisuje się **„W + F × H”**, np. „140 + 90 × 370” (dostawcy piszą też fałdę jako „2 × 45” = to samo F = 90)
+  [K]. Tak jest w podsumowaniu, tytule karty PDF / Excela, tytule wykroju i w nazwach plików (`140+90x370`).
+- Rękaw: FRONT (`W`), dwie fałdy (`F`, wsunięte do środka po osi `F/2`), BACK (`W`); **szew wzdłużny na środku
+  tylnej ścianki** [K] (wariant ze szwem na krawędzi fałdy istnieje, niepotrzebny).
+- **Dno:** pasek `d` z klejem, zagięty **na tył** (dno pojedyncze; podwójne = dwa zagięcia, ciaśniejsze) [K]. Fałdy
+  zaginają się razem z dnem (w narożnikach dna kilka warstw) [K]. Brak dna klockowego; torba nie stoi.
+- Wylot: cięcie proste lub ząbkowane, opcjonalnie wycięcie na kciuk [K] — **w MVP tylko proste** (pytanie w SPEC §8).
+- Kolejność produkcji (na przyszłą animację) [K]: rękaw + fałdy razem (płyta formująca, noże wsuwające boki po `F/2`),
+  zamknięcie szwu na tyle, cięcie na `L` (nóż prosty / ząbkowany, opcjonalnie wycięcie na kciuk), na końcu zagięcie dna.
+- Klej: dyspersyjny / skrobiowy (dopuszczony do żywności) [K]. Włókna wzdłuż `H` [K]. Brak uchwytów.
+
+### 13.2 Parametry (katalog `BAG_TYPES.FOLDED`, `GUSSETED_BAG_RULES` w `productCatalog.ts`)
+
+| Parametr | Wartość | Status |
+|---|---|---|
+| `W` | 100–300 mm, krok 5 | [K] zakres, krok [K] z torby klockowej |
+| `H` | 170–670 mm, krok 5 | [K] |
+| `F` | twarde maksimum **`F ≤ W`** (większa fałda się nie składa) — blokada w polach; zalecane **0,4–0,7·W** — ostrzeżenie `GUSSET_OUTSIDE_RECOMMENDED`; minimum 20 mm | [K]; min [Z] |
+| limit maszyny `F ≤ 140` (research, Garant) | **nie jest egzekwowany**, tylko informacja | [F-M] |
+| domyślnie | przykład klienta **140 + 90 × 370** | [K] |
+| `s` | 10–20 mm, domyślnie **15**; szew na środku BACK; ustawiane w konfiguratorze (pole zakładki klejowej, `BAG_TYPES.FOLDED.glueFlap`, `getGlueFlapWidth`) | [K] |
+| `d` | 15–30 mm, domyślnie **25**; dno pojedyncze | [K] |
+| papier | kraft biały / brązowy, **kraft MG** (satynowany, `MG_KRAFT`), tłuszczoszczelny, powlekany PE (`FILM_COATED`); FSC opcjonalnie | [K] |
+| gramatura | 30–60 g/m², krok 5 (domyślnie 40) | [K] zakres, [Z] krok |
+| uchwyty | brak | [K] / [F] |
+| nadruk | flekso do 8 Pantone; **pole nadruku `W × (H − d)` na stronę** (wiersz „Pole nadruku” w eksporcie) | [K] |
+| pakowanie | wiązki 100 / 250 / 500, karton / folia, paleta (w konfiguratorze: karton / folia) | [K] |
+| min. nakład z nadrukiem | Promar 30 000 szt. (tylko informacja) | [K] |
+| tolerancje (propozycja) | W, F ±2 mm; H ±3 mm; gramatura ±5 %; pasowanie druku ±1 mm; położenie druku względem krawędzi ±3 mm | [K] |
+| warianty poza MVP | torba płaska (`F = 0`), okno (folia PP / celulozowa, panoramiczne / prostokątne), rożek, dno podwójne, wylot ząbkowany / wycięcie na kciuk | [K] lista; decyzja MVP |
+
+`F = 0` nie jest dopuszczone (minimum 20 mm): zerowa fałda to osobny wariant (torba płaska) z inną geometrią 3D i
+wykrojem — nie jest „trywialne” w obecnym modelu.
+
+### 13.3 Kinematyka 3D (`src/domain/geometry/gussetedBag.ts`)
+
+Współrzędne jak w torbie klockowej (panel-local od zewnątrz, `y = 0` = linia zagięcia dna, pasek dna `y ∈ [−d, 0]`).
+`open ∈ [0, 1]` (0 = płasko, 1 = wylot otwarty `W × F`):
+
+- kąt połówek fałdy do płaszczyzny frontu / tyłu `α(y) = open · π/2 · smoothstep(d, d + y_r, y)`, `y_r = min(F, H/2)`
+  — przy dnie (`y ≤ d`, pasek przyklejony do tyłu) fałda jest zamknięta [W/Z, research §7.3];
+- FRONT / BACK płaskie w poprzek, odsunięte od środka o `(F/2)·sin α`; oś fałdy cofa się od `F/2` (płasko) do
+  krawędzi bocznej (otwarte); połówki fałdy zawsze mają szerokość `F/2` (test);
+- **pasek dna zagięty o 180° na BACK [K]**; kolejność warstw od tyłu: pasek BACK, paski fałd, pasek FRONT
+  (zewnętrzny — jego strona zadrukowana widoczna na tyle w `y ∈ [0, d]`);
+- linie: krawędzie rękawa, **szew na środku BACK** [K], krawędź wylotu, krawędź dna, górna krawędź paska; bigi osi fałd;
+- rozciągnięcie papieru w `y` przy wygięciu ścianek pominięte (pomijalne dla `F ≪ H`) [W].
+
+Oś czasu podglądu (MVP): bez składania z arkusza — suwak od 40 % (otwarta torba) do 100 % (płaska), brak presetu
+„Arkusz”. Szczegóły: `docs/SPEC.md` §4i.
+
+### 13.4 Wykrój (`buildGussetedDieline`, wybierany przez `buildDieline` dla `productType = 'FOLDED'`)
+
+Arkusz `B × L = (2W + 2F + s) × (H + d)` [K], `y = 0` = koniec rękawa, linia zagięcia dna na `y = d`. Szew na środku
+BACK [K], więc kolumny od lewej krawędzi arkusza: **BACK (połowa przy LEFT, `W/2`) | LEFT (`F`) | FRONT (`W`) |
+RIGHT (`F`) | BACK (połowa przy RIGHT, `W/2`) | zakładka `s`** — kolejne bigi pionowe po `W/2, F/2, F/2, W, F/2, F/2,
+W/2, s` [K]. Zakładka jest doczepiona do prawej połowy BACK i klejona od wewnątrz do lewej krawędzi arkusza (druga
+połowa BACK). Przykład klienta 140 + 90 × 370, `s = 15`, `d = 25`: **arkusz 475 × 395 mm, bigi na x = 70, 115, 160,
+300, 345, 390, 460** (test `buildGussetedDieline.test.ts`).
+
+- **Cięcie:** prostokąt; końce zakładki proste (zakładka przechodzi przez zagięcie dna) [Z].
+- **C2** (krawędzie rękawa: BACK|LEFT, LEFT|FRONT, FRONT|RIGHT, RIGHT|BACK) i **C3** (zawias zakładki): „na zewnątrz”
+  = **V** od strony druku [K]; na całej długości `y ∈ [0, L]` (spłaszczony rękaw jest zgięty wzdłuż nich także
+  w pasku dna) [W].
+- **C4** (osie fałd): „do środka” = **M** [K]; na całej długości [W].
+- **C1** (linia zagięcia dna, `y = d`; pasek zagina się **na tył** [K]): kierunek zależy od tego, w którą stronę patrzy
+  strona zadrukowana warstwy w spłaszczonej torbie [W]:
+
+| Część | V / M od strony druku |
+|---|---|
+| BACK (obie połowy) | **M** (druk do druku z tyłem) |
+| FRONT | **V** (druk na zewnątrz — widoczny na tyle) |
+| połówka fałdy przy FRONT (LEFT `x ∈ [F/2, F]`, RIGHT `x ∈ [0, F/2]`) | **M** |
+| połówka fałdy przy BACK (LEFT `x ∈ [0, F/2]`, RIGHT `x ∈ [F/2, F]`) | **V** |
+| zakładka (leży wewnątrz BACK) | **M** |
+
+- **Brak** bigów 45°, rombu, C8, C9 (nie ma dna klockowego ani płaskiego złożenia „Z”).
+- **Klej:** zakładka szwu; pasek dna `d` [K] — na wykroju na stronie zadrukowanej pasa BACK (styka się z tylną
+  ścianką po zagięciu) [W].
+- **Spad / strefa bezpieczna:** spad 3 mm jak §9.4; strefa bezpieczna 5 mm od bigów i szwu, 6 mm od cięcia; od dołu
+  zaczyna się nad pasem `d` nad linią dna (`y ≥ 2d + 6`), zgodnie z polem nadruku `W × (H − d)` [K].
+- Grafika na BACK jest ciągła mimo podziału na dwie kolumny (`localX0` kolumn; test mapowania).
+
+### 13.5 Nadruk
+
+- Grafika per ścianka (fałdy = LEFT / RIGHT, `F × H`) albo warstwy całej torby (WRAP, obszar `(2W + 2F) × H` od lewej
+  krawędzi frontu) — to samo mapowanie (`computePanelUvTransform`) w 2D, 3D, pokryciu farbą i eksporcie; na wykroju
+  obraz całej torby łamie się na krawędzi LEFT | FRONT (początek obszaru), a BACK jest rozdzielony szwem.
+- **Pasek dna `d` bez nadruku w MVP:** „Rozciągnij na dno” jest wyłączone dla tego typu
+  (`extendToBottomAvailable: false`; przy zmianie typu wyłączane na ściankach i na każdej warstwie, UI go nie pokazuje).
+  Pole nadruku `W × (H − d)` na stronę [K].

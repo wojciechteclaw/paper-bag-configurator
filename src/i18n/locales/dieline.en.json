@@ -91,6 +91,9 @@
       "handle": "Scale handle",
       "hint": "Drag the artwork to move it; a corner or the mouse wheel scales it. Drag the background to pan."
     },
-    "empty": "No artwork yet. Add it in the “Artwork” step — it shows up here right away."
+    "empty": "No artwork yet. Add it in the “Artwork” step — it shows up here right away.",
+    "svgTitleByType": {
+      "FOLDED": "Dieline of the gusseted bag {{width}} + {{depth}} × {{height}} mm"
+    }
   }
 }

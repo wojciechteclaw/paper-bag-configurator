@@ -2,7 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { legacyWrapLayerId } from '../artworkLayout';
 import { PROJECT_FILE_RULES } from '../config/productCatalog';
-import { createConfiguration } from '../factories';
+import { createConfiguration, createHandle, createWrapLayer } from '../factories';
 import {
   getProjectArtworks,
   getProjectFileName,
@@ -309,5 +309,79 @@ describe('project file: helpers', () => {
     const emptied = mapArtworks(configuration, () => null);
     expect(emptied.panels.FRONT.artwork).toBeNull();
     expect(configuration.panels.FRONT.artwork).not.toBeNull();
+  });
+});
+
+describe('project file: gusseted bag (FOLDED)', () => {
+  /** The client example 140 + 90 × 370 with seam s = 18, MG kraft 45 g/m², per-wall artwork and two wrap layers. */
+  function foldedProject() {
+    const front = fixtureArtwork('front.png', 'image/png', 700, 1850);
+    const wrap = fixtureArtwork('wrap.webp', 'image/webp', 2800, 800);
+    const configuration = createConfiguration('FOLDED');
+    configuration.glueFlapWidth = 18;
+    configuration.paper = { type: 'MG_KRAFT', color: 'WHITE', grammage: 45, fscCertified: true, moistureBarrier: false };
+    configuration.panels.FRONT = { ...configuration.panels.FRONT, artwork: front };
+    configuration.artworkLayout = 'WRAP';
+    configuration.wrapLayers = [
+      createWrapLayer(wrap, { mode: 'FILL', extendToBottom: false }),
+      createWrapLayer(front, { mode: 'CUSTOM', offsetX: 50, offsetY: 20, scale: 0.4, rotation: 0, extendToBottom: false }),
+    ];
+    const files = new Map<string, Uint8Array>([
+      [front.id, PNG_BYTES],
+      [wrap.id, WEBP_BYTES],
+    ]);
+    return { configuration, files };
+  }
+
+  it('round-trips a gusseted bag without adjustments', () => {
+    const { configuration, files } = foldedProject();
+    const project = parseProject(serializeProject({ configuration, files, exportedAt: EXPORTED_AT, appVersion: 'x' }));
+    expect(project.adjustments).toEqual([]);
+    expect(withoutFileUrls(project.configuration)).toEqual(withoutFileUrls(configuration));
+    expect(project.configuration).toMatchObject({ productType: 'FOLDED', glueFlapWidth: 18, handle: null });
+    expect(project.configuration.dimensions).toEqual({ width: 140, height: 370, depth: 90 });
+  });
+
+  it('constrains an invalid gusseted bag on load: F ≤ W, no handle, its papers, no "extend to bottom"', () => {
+    const { configuration, files } = foldedProject();
+    const exported = serializeProject({ configuration, files, exportedAt: EXPORTED_AT, appVersion: 'x' });
+    const bytes = repack(exported, (_entries, manifest) => {
+      const c = manifest.configuration as Record<string, unknown>;
+      const panels = c.panels as Record<string, Record<string, unknown>>;
+      const layers = c.wrapLayers as unknown as Record<string, unknown>[];
+      c.dimensions = { width: 120, height: 900, depth: 200 };
+      c.handle = createHandle('TWISTED_PAPER');
+      c.paper = { ...(c.paper as object), type: 'COATED', grammage: 100, moistureBarrier: true };
+      c.glueFlapWidth = 40;
+      panels.FRONT.placement = { mode: 'FILL', extendToBottom: true };
+      layers[0].placement = { mode: 'FILL', extendToBottom: true };
+    });
+    const { configuration: loaded, adjustments } = parseProject(bytes);
+    expect(loaded.productType).toBe('FOLDED');
+    expect(loaded.dimensions).toEqual({ width: 120, height: 670, depth: 120 });
+    expect(loaded.handle).toBeNull();
+    expect(loaded.paper).toMatchObject({ type: 'KRAFT', grammage: 60, moistureBarrier: false });
+    expect(loaded.glueFlapWidth).toBe(20);
+    expect(loaded.panels.FRONT.placement.extendToBottom).toBe(false);
+    expect(loaded.wrapLayers.map((layer) => layer.placement.extendToBottom)).toEqual([false, false]);
+    expect(loaded.wrapLayers).toHaveLength(2);
+    const fields = adjustments.map((a) => `${a.section}:${a.field}`);
+    expect(fields).toEqual(
+      expect.arrayContaining([
+        'dimensions:height',
+        'dimensions:depth',
+        'dimensions:glueFlapWidth',
+        'artwork:panels.FRONT.placement.extendToBottom',
+        `artwork:wrapLayers.${loaded.wrapLayers[0].id}.placement.extendToBottom`,
+      ]),
+    );
+    expect(adjustments.some((a) => a.section === 'handle')).toBe(true);
+    expect(adjustments.some((a) => a.section === 'paper')).toBe(true);
+  });
+
+  it('names the file with the gusseted-bag notation W + F × H', () => {
+    expect(getProjectFileName(foldedProject().configuration, new Date(2026, 8, 30), 'projekt-torby')).toBe(
+      'projekt-torby-folded-140+90x370-2026-09-30.bagproj',
+    );
   });
 });

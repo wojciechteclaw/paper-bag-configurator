@@ -1,6 +1,7 @@
 import { useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getTimelineState, getTimelineStop, usePreviewStore } from '../../state/previewStore';
+import { useConfigurationStore } from '../../state/configurationStore';
+import { getTimelineStart, getTimelineStateFor, getTimelineStop, usePreviewStore } from '../../state/previewStore';
 
 /** Drives a running playback: advances the preview timeline every animation frame while `playing`. */
 function usePlayback() {
@@ -33,9 +34,12 @@ export function FoldSlider() {
   const setProgress = usePreviewStore((s) => s.setProgress);
   const togglePlaying = usePreviewStore((s) => s.togglePlaying);
   const skip = usePreviewStore((s) => s.skip);
+  // The gusseted bag has no sheet assembly: its timeline (slider, playback, stage stops) starts at the formed open bag.
+  const productType = useConfigurationStore((s) => s.configuration.productType);
+  const timelineStart = getTimelineStart(productType);
   usePlayback();
   const percent = Math.round(progress * 100);
-  const phase = getTimelineState(progress).phase;
+  const phase = getTimelineStateFor(productType, progress).phase;
 
   return (
     <div className="fold-slider">
@@ -44,8 +48,8 @@ export function FoldSlider() {
         className="fold-slider__skip"
         aria-label={t('preview.previousStage')}
         title={t('preview.previousStage')}
-        disabled={getTimelineStop(progress, -1) === null}
-        onClick={() => skip(-1)}
+        disabled={getTimelineStop(progress, -1, timelineStart) === null}
+        onClick={() => skip(-1, timelineStart)}
       >
         <span aria-hidden="true">⏮</span>
       </button>
@@ -55,7 +59,7 @@ export function FoldSlider() {
         aria-pressed={playing}
         aria-label={playing ? t('preview.pause') : t('preview.play')}
         title={playing ? t('preview.pause') : t('preview.play')}
-        onClick={togglePlaying}
+        onClick={() => togglePlaying(timelineStart)}
       >
         <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
       </button>
@@ -64,8 +68,8 @@ export function FoldSlider() {
         className="fold-slider__skip"
         aria-label={t('preview.nextStage')}
         title={t('preview.nextStage')}
-        disabled={getTimelineStop(progress, 1) === null}
-        onClick={() => skip(1)}
+        disabled={getTimelineStop(progress, 1, timelineStart) === null}
+        onClick={() => skip(1, timelineStart)}
       >
         <span aria-hidden="true">⏭</span>
       </button>
@@ -73,7 +77,7 @@ export function FoldSlider() {
       <input
         id={id}
         type="range"
-        min={0}
+        min={Math.round(timelineStart * 100)}
         max={100}
         step={1}
         value={percent}

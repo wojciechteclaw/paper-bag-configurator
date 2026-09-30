@@ -6,6 +6,7 @@ import {
   splitPreviewTimeline,
   type AssemblyPhaseId,
 } from '../domain/geometry/assemblyKinematics';
+import type { BagType } from '../domain/types';
 
 // View state of the preview (docs/SPEC.md §4a, §4c). Deliberately NOT part of BagConfiguration.
 //
@@ -54,10 +55,14 @@ export const TIMELINE_STOPS: readonly number[] = [
   ),
 ].sort((a, b) => a - b);
 
-/** The next stop after `progress` (direction 1) or the previous one before it (−1); null at the end. */
-export function getTimelineStop(progress: number, direction: 1 | -1): number | null {
-  if (direction > 0) return TIMELINE_STOPS.find((stop) => stop > progress + PRESET_TOLERANCE) ?? null;
-  return [...TIMELINE_STOPS].reverse().find((stop) => stop < progress - PRESET_TOLERANCE) ?? null;
+/**
+ * The next stop after `progress` (direction 1) or the previous one before it (−1); null at the end. Only stops from
+ * `timelineStart` on count (the gusseted bag's timeline starts at BOX: no assembly stops).
+ */
+export function getTimelineStop(progress: number, direction: 1 | -1, timelineStart = 0): number | null {
+  const stops = TIMELINE_STOPS.filter((stop) => stop >= timelineStart - PRESET_TOLERANCE);
+  if (direction > 0) return stops.find((stop) => stop > progress + PRESET_TOLERANCE) ?? null;
+  return [...stops].reverse().find((stop) => stop < progress - PRESET_TOLERANCE) ?? null;
 }
 
 /** The 3D preset that equals `progress` exactly (within float noise), or null. */
@@ -94,6 +99,31 @@ export function getTimelineState(progress: number): TimelineState {
   return { assemblyProgress, foldProgress, phase };
 }
 
+// ——— Gusseted bag (FOLDED, docs/SPEC.md §4i) ———
+// It is not assembled from the sheet in the MVP: the timeline part before the formed bag (0 … BOX) shows the open bag,
+// the rest (BOX … 1) closes the gussets until the bag lies flat. So the SHEET preset is not offered and playback
+// starts at BOX.
+
+/** Where the timeline of `productType` starts (playback restarts here). */
+export function getTimelineStart(productType: BagType): number {
+  return productType === 'FOLDED' ? TIMELINE_PRESETS.BOX : 0;
+}
+
+/** Preview modes offered for `productType`: the gusseted-bag bag has no flat-sheet assembly (no SHEET preset). */
+export function getPreviewViewModes(productType: BagType): readonly PreviewViewMode[] {
+  return productType === 'FOLDED' ? PREVIEW_VIEW_MODES.filter((mode) => mode !== 'SHEET') : PREVIEW_VIEW_MODES;
+}
+
+/**
+ * `getTimelineState` for a bag type: the gusseted-bag bag is always assembled (assemblyProgress 1) and its phase is
+ * FORMED (open) or FOLD (closing towards flat); `foldProgress` 0 = open, 1 = flat, as for the block bottom.
+ */
+export function getTimelineStateFor(productType: BagType, progress: number): TimelineState {
+  if (productType !== 'FOLDED') return getTimelineState(progress);
+  const { foldProgress } = splitPreviewTimeline(progress);
+  return { assemblyProgress: 1, foldProgress, phase: foldProgress <= 0 ? 'FORMED' : 'FOLD' };
+}
+
 type PreviewState = {
   /** Selected mode; null = 3D with a custom slider position that matches no preset. */
   viewMode: PreviewViewMode | null;
@@ -108,10 +138,16 @@ type PreviewState = {
    * otherwise deselects the mode (null). In DIELINE only the stored progress changes.
    */
   setProgress: (progress: number) => void;
-  /** Play / pause; playing from the end (1) restarts from the flat sheet. */
-  togglePlaying: () => void;
-  /** Jumps to the next (1) or previous (−1) chapter stop (`TIMELINE_STOPS`); stops playback. No-op at the ends. */
-  skip: (direction: 1 | -1) => void;
+  /**
+   * Play / pause; playing from the end (1) restarts from `timelineStart` (default 0, the flat sheet; the gusseted bag
+   * passes `getTimelineStart('FOLDED')`), and playback never starts before it.
+   */
+  togglePlaying: (timelineStart?: number) => void;
+  /**
+   * Jumps to the next (1) or previous (−1) chapter stop (`TIMELINE_STOPS` from `timelineStart` on — the gusseted bag
+   * passes `getTimelineStart('FOLDED')`, so it only stops at 0.4, 0.45 and 1); stops playback. No-op at the ends.
+   */
+  skip: (direction: 1 | -1, timelineStart?: number) => void;
   /** Advances a running playback by `deltaSeconds`; stops at 1 (the FLAT preset). */
   tick: (deltaSeconds: number) => void;
 };
@@ -132,17 +168,18 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     if (get().viewMode === 'DIELINE') set({ progress: p, playing: false });
     else set({ progress: p, viewMode: findTimelinePreset(p), playing: false });
   },
-  togglePlaying: () => {
+  togglePlaying: (timelineStart = 0) => {
     const { playing, progress, viewMode } = get();
     if (playing) {
       set({ playing: false });
       return;
     }
-    const start = progress >= 1 ? 0 : progress;
+    const from = clamp01(Number.isFinite(timelineStart) ? timelineStart : 0);
+    const start = progress >= 1 ? from : Math.max(progress, from);
     set({ playing: true, progress: start, viewMode: viewMode === 'DIELINE' ? viewMode : findTimelinePreset(start) });
   },
-  skip: (direction) => {
-    const stop = getTimelineStop(get().progress, direction);
+  skip: (direction, timelineStart = 0) => {
+    const stop = getTimelineStop(get().progress, direction, timelineStart);
     if (stop !== null) get().setProgress(stop);
   },
   tick: (deltaSeconds) => {

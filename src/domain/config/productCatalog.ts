@@ -61,9 +61,14 @@ export type BagTypeDefinition = {
   packaging: PackagingType[];
   /** Width s of the longitudinal glue flap (seam overlap), mm — configurable per bag (client [K], 30.09.2026). */
   glueFlap: { min: number; max: number; default: number };
+  /**
+   * Whether artwork may be extended over the bottom allowance ("rozciągnij na dno", docs/SPEC.md §4f). The gusseted-bag
+   * bag's fold-over strip stays unprinted in the MVP (docs/PRODUCTION.md §13), so its placements never extend.
+   */
+  extendToBottomAvailable: boolean;
 };
 
-const size = (width: number, depth: number, height: number, sizeClass?: StandardSizeClass): StandardSize => ({
+const size =(width: number, depth: number, height: number, sizeClass?: StandardSizeClass): StandardSize => ({
   id: `${width}x${depth}x${height}`,
   dimensions: { width, depth, height },
   ...(sizeClass ? { sizeClass } : {}),
@@ -143,6 +148,20 @@ const BLOCK_HANDLE_VARIANTS: HandleVariantDefinition[] = [
   },
 ];
 
+// Gusseted bag ("torba fałdowa"): client guideline 30.09.2026 [K] — no handles; kraft white / brown, MG (machine
+// glazed), greaseproof, PE-coated (FILM_COATED); FSC optional; 30–60 g/m², grain along H. No standard sizes (the
+// published 180×180 … 280×280 list is ambiguous — client question). TODO: grammage list / step (5 g/m² assumed).
+const FOLDED_HANDLE_VARIANTS: HandleVariantDefinition[] = [
+  {
+    variant: 'NONE',
+    paperTypes: ['KRAFT', 'MG_KRAFT', 'GREASEPROOF', 'FILM_COATED'],
+    defaultPaperType: 'KRAFT',
+    grammage: { min: 30, max: 60, default: 40, step: 5 },
+    moistureBarrierAvailable: false,
+    standardSizes: [],
+  },
+];
+
 export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
   BLOCK: {
     type: 'BLOCK',
@@ -158,24 +177,53 @@ export const BAG_TYPES: Record<BagType, BagTypeDefinition> = {
     paperColors: ['BROWN', 'WHITE'],
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
+    extendToBottomAvailable: true,
   },
-  // Not available yet — placeholder data so the type is selectable once geometry exists.
+  // Gusseted bag with a fold-over bottom ("torba fałdowa"), client guideline "Torba fałdowa – wytyczne techniczne"
+  // (30.09.2026) [K] and docs/PRODUCTION.md §13. `depth` is the full gusset F ("fałda"): hard maximum F ≤ W (the shared
+  // cross-field rule; a larger gusset does not fold), recommended 0.4–0.7·W (a warning, GUSSETED_BAG_RULES). The
+  // machine note F ≤ 140 mm from the research is not enforced. F min 20 mm is an assumption [Z]; F = 0 (flat bag) is a
+  // separate variant, not in the MVP. Default = the client's example 140 + 90 × 370.
   FOLDED: {
     type: 'FOLDED',
-    available: false,
-    defaultDimensions: { width: 200, height: 400, depth: 150 },
+    available: true,
+    defaultDimensions: { width: 140, height: 370, depth: 90 },
+    // Seam overlap s [K]: 10–20 mm, default 15 (in the middle of BACK).
     glueFlap: { min: 10, max: 20, default: 15 },
     limits: {
-      width: { min: 75, max: 450 },
-      height: { min: 170, max: 470 },
-      depth: { min: 40, max: 300 },
+      width: { min: 100, max: 300 },
+      height: { min: 170, max: 670 },
+      depth: { min: 20, max: 300 },
     },
-    handleVariants: [{ ...BLOCK_HANDLE_VARIANTS[0], standardSizes: [] }],
+    handleVariants: FOLDED_HANDLE_VARIANTS,
     paperColors: ['BROWN', 'WHITE'],
     print: { technologies: ['FLEXO'], maxColors: 8 },
     packaging: ['CARTON', 'FOIL'],
+    extendToBottomAvailable: false,
   },
 };
+
+/**
+ * Construction constants of the gusseted-bag bag with a fold-over bottom (docs/PRODUCTION.md §13). Client guideline
+ * "Torba fałdowa – wytyczne techniczne" (30.09.2026) [K] unless marked otherwise.
+ */
+export const GUSSETED_BAG_RULES = {
+  /**
+   * Bottom strip `d` (fold + glue), mm [K]: range 15–30, default 25. The flattened tube end (all layers, gussets
+   * included) is folded 180° TO THE BACK and glued (single bottom; a double bottom is not in the MVP).
+   */
+  bottomFoldDepth: 25,
+  bottomFoldRange: { min: 15, max: 30 },
+  // The seam overlap `s` [K] (10–20, default 15, in the middle of BACK) is the bag's configurable glue flap:
+  // `BAG_TYPES.FOLDED.glueFlap`, read through `getGlueFlapWidth(configuration)`.
+  /** Recommended gusset F as a share of W [K]: 0.4–0.7 (outside → warning; hard maximum F ≤ W). */
+  recommendedGussetRatio: { min: 0.4, max: 0.7 },
+  /**
+   * Height above the bottom strip over which the gussets go from glued flat to fully open, as a multiple of F, capped
+   * at H / 2 [Z] (research §6.4: y_r ≈ min(F, H/2)); preview only.
+   */
+  openingRiseFactor: 1,
+} as const;
 
 /**
  * Per-type handle defaults (everything except the generated id), mm. Client rules [K] (docs/PRODUCTION.md §5): the

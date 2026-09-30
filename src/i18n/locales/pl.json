@@ -9,7 +9,11 @@
     "demo": "Demo",
     "demoBusy": "Wczytywanie…",
     "demoHint": "Wczytaj przykład: torba klockowa 250 × 200 × 400 mm (szer. × gł. × wys.), papier biały 100 g/m² FSC, uchwyt skręcany (sznurek), grafiki „wave” na wszystkich ściankach, rozciągnięte na dno",
-    "demoError": "Nie udało się wczytać grafik demo."
+    "demoError": "Nie udało się wczytać grafik demo.",
+    "demoHintByType": {
+      "FOLDED": "Wczytaj przykład: torba fałdowa 140 + 90 × 370 mm (przykład klienta), papier brązowy 40 g/m² FSC, grafiki demo na ściankach (public/gusseted-bag)"
+    },
+    "demoMissing": "Konfiguracja demo wczytana, ale brakuje grafik: {{files}}"
   },
   "project": {
     "save": "Zapisz projekt",
@@ -77,7 +81,24 @@
     "label": "Typ torby",
     "BLOCK": "Torba klockowa",
     "FOLDED": "Torba fałdowa",
-    "comingSoon": "wkrótce"
+    "comingSoon": "wkrótce",
+    "description": {
+      "BLOCK": "Torba z prostokątnym dnem klockowym — stoi samodzielnie; opcjonalnie z uchwytem.",
+      "FOLDED": "Torebka z fałdami bocznymi i dnem zaginanym na tył (bez dna klockowego, nie stoi), np. na pieczywo, owoce, słodycze. Bez uchwytów, papier 30–60 g/m². Wymiar zapisywany jako W + F × H."
+    },
+    "adjusted": {
+      "intro": "Dostosowano konfigurację do typu „{{type}}”:",
+      "handle": "usunięto uchwyt „{{handle}}” (niedostępny dla tego typu)",
+      "dimension": "{{dimension}}: {{from}} → {{to}} mm (zakres tego typu)",
+      "paperType": "rodzaj papieru: {{from}} → {{to}}",
+      "grammage": "gramatura: {{from}} → {{to}} g/m²",
+      "moistureBarrier": "wyłączono barierę na wilgoć (niedostępna dla tego typu)",
+      "paperColor": "kolor papieru: {{from}} → {{to}}",
+      "packaging": "pakowanie: {{from}} → {{to}}",
+      "pantoneColors": "usunięto kolory nadruku ponad limit tego typu: {{removed}}",
+      "extendToBottom": "wyłączono „Rozciągnij na dno” (pasek dna zaginanego jest bez nadruku)",
+      "glueFlap": "zakładka klejowa: {{from}} → {{to}} mm"
+    }
   },
   "dimensions": {
     "label": "Wymiary",
@@ -118,7 +139,23 @@
       "none": "Dla wybranego uchwytu nie ma rozmiarów standardowych — podaj wymiary własne."
     },
     "warnings": {
-      "BOTTOM_TRAPEZOID_DEGENERATE": "Szerokość poniżej {{minWidth}} mm (głębokość + 30 mm): klapy przodu i tyłu dna nie tworzą trapezu, tylko trójkąt, a boki dna nachodzą na siebie. Sprawdź wykonalność z produkcją."
+      "BOTTOM_TRAPEZOID_DEGENERATE": "Szerokość poniżej {{minWidth}} mm (głębokość + 30 mm): klapy przodu i tyłu dna nie tworzą trapezu, tylko trójkąt, a boki dna nachodzą na siebie. Sprawdź wykonalność z produkcją.",
+      "GUSSET_OUTSIDE_RECOMMENDED": "Fałda poza zalecanym zakresem {{minGusset}}–{{maxGusset}} mm (0,4–0,7 × szerokość). Maksimum to szerokość torby."
+    },
+    "byType": {
+      "FOLDED": {
+        "depth": "Fałda",
+        "lock": {
+          "widthMin": "min. = fałda ({{value}} mm)",
+          "depthMax": "maks. = szerokość ({{value}} mm)"
+        },
+        "errors": {
+          "DEPTH_EXCEEDS_WIDTH": "Fałda nie może być większa od szerokości"
+        },
+        "standardSize": {
+          "none": "Dla toreb fałdowych nie ma rozmiarów standardowych — podaj wymiary własne."
+        }
+      }
     }
   },
   "handle": {
@@ -139,6 +176,14 @@
       "type": "rodzaj papieru: {{from}} → {{to}} (poprzedni nie jest dostępny z tym uchwytem)",
       "grammage": "gramatura: {{from}} → {{to}} g/m² (dostępny zakres {{min}}–{{max}} g/m²)",
       "moistureBarrier": "wyłączono barierę na wilgoć (niedostępna z tym uchwytem)"
+    },
+    "noneAvailable": "Ten typ torby jest produkowany bez uchwytów.",
+    "byType": {
+      "FOLDED": {
+        "description": {
+          "NONE": "Torba fałdowa bez uchwytu — papier kraft (biały / brązowy), kraft MG, tłuszczoszczelny lub powlekany PE, 30–60 g/m²."
+        }
+      }
     }
   },
   "artwork": {
@@ -211,7 +256,8 @@
       "RECYCLED": "Z recyklingu",
       "COATED": "Kredowany",
       "FILM_COATED": "Powlekany folią",
-      "GREASEPROOF": "Tłuszczoszczelny"
+      "GREASEPROOF": "Tłuszczoszczelny",
+      "MG_KRAFT": "Kraft MG (satynowany)"
     },
     "grammageRange": "Zakres dla wybranego uchwytu: {{min}}–{{max}} g/m², co {{step}} g/m²",
     "moistureBarrier": "Bariera na wilgoć",
@@ -316,7 +362,10 @@
     "copy": "Kopiuj JSON",
     "copied": "Skopiowano do schowka.",
     "copyFailed": "Nie udało się skopiować — zaznacz tekst ręcznie.",
-    "moistureBarrier": "bariera na wilgoć"
+    "moistureBarrier": "bariera na wilgoć",
+    "dimensionsValueByType": {
+      "FOLDED": "{{width}} + {{depth}} × {{height}} mm"
+    }
   },
   "preview": {
     "fold": "Składanie",

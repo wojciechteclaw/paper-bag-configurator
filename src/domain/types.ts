@@ -142,9 +142,10 @@ export type PaperColor = 'WHITE' | 'BROWN';
  * - `RECYCLED` — recycled paper (papier z recyklingu),
  * - `COATED` — coated paper (papier kredowany),
  * - `FILM_COATED` — film-laminated paper (papier powlekany folią),
- * - `GREASEPROOF` — greaseproof paper (papier tłuszczoszczelny).
+ * - `GREASEPROOF` — greaseproof paper (papier tłuszczoszczelny),
+ * - `MG_KRAFT` — machine-glazed kraft (papier kraft MG, one side glossy; gusseted-bag bags, client guideline [K]).
  */
-export type PaperType = 'KRAFT' | 'RECYCLED' | 'COATED' | 'FILM_COATED' | 'GREASEPROOF';
+export type PaperType = 'KRAFT' | 'RECYCLED' | 'COATED' | 'FILM_COATED' | 'GREASEPROOF' | 'MG_KRAFT';
 
 export type Paper = {
   type: PaperType;
