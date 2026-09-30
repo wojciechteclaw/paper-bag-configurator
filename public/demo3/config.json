@@ -81,14 +81,14 @@
     }
   },
   "packaging": "CARTON",
-  "glueFlapWidth": 15,
-  "bottomFoldDepth": 25,
+  "glueFlapWidth": 20,
+  "bottomFoldDepth": 15,
   "window": {
     "type": "RECTANGLE",
     "material": "PP_PERFORATED",
     "width": 140,
-    "height": 185,
-    "bottomOffset": 110,
-    "filmOverlap": 10
+    "height": 190,
+    "bottomOffset": 105,
+    "filmOverlap": 20
   }
 }

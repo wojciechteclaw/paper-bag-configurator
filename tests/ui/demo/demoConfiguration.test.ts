@@ -68,7 +68,7 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo2/image-1.webp']);
   });
 
-  it('Demo 3: gusseted bag 250 + 100 × 320, greaseproof 50 g/m², rectangular window 140 × 185 mm from 110 mm, whole-bag layer', async () => {
+  it('Demo 3: gusseted bag 250 + 100 × 320, greaseproof 50 g/m², rectangular window 140 × 190 mm from 105 mm, whole-bag layer', async () => {
     await loadDemoConfiguration(3, '/');
     const c = config();
     expect(c.productType).toBe('FOLDED');
@@ -77,7 +77,9 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(c.dimensions).toEqual({ width: 250, height: 320, depth: 100 });
     expect(c.paper).toMatchObject({ type: 'GREASEPROOF', grammage: 50 });
     // Loaded exactly as written: the window fits the bag, so sanitizing clamps nothing.
-    expect(c.window).toEqual({ type: 'RECTANGLE', material: 'PP_PERFORATED', width: 140, height: 185, bottomOffset: 110, filmOverlap: 10 });
+    expect(c.window).toEqual({ type: 'RECTANGLE', material: 'PP_PERFORATED', width: 140, height: 190, bottomOffset: 105, filmOverlap: 20 });
+    expect(c.glueFlapWidth).toBe(20);
+    expect(c.bottomFoldDepth).toBe(15);
   });
 
   it('Demo 1: XL block-bottom bag 320 × 220 × 400, white kraft 70 g/m², twisted handle, whole-sheet layer', async () => {
