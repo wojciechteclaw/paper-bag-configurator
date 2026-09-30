@@ -1,55 +1,170 @@
 import { useThree } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { ClampToEdgeWrapping, SRGBColorSpace, TextureLoader, type Texture, type WebGLProgramParametersWithUniforms } from 'three';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  CanvasTexture,
+  ClampToEdgeWrapping,
+  SRGBColorSpace,
+  TextureLoader,
+  type Texture,
+  type WebGLProgramParametersWithUniforms,
+  type WebGLRenderer,
+} from 'three';
+import type { CompositePlan } from '../domain/artworkComposite';
 import { computePanelUvTransform, type PanelArtworkArea, type PanelUvTransform } from '../domain/artworkPlacement';
 import type { ArtworkPlacement } from '../domain/types';
 
 type Size = { width: number; height: number };
 
 /**
- * Loads the artwork image of one panel as a texture: sRGB, max anisotropy, `flipY = true` (UV (0,0) = image
- * bottom-left = panel bottom-left seen from outside). Returns null while loading, without a URL, or when loading
- * fails (the panel then falls back to plain paper — the Canvas never crashes). The texture is disposed when the URL
- * changes (artwork replaced/removed) or the panel unmounts.
+ * Artwork textures by URL: a URL present in the map has settled — its texture, or null when it could not be loaded
+ * (that artwork then shows as plain paper; the Canvas never crashes). A URL still loading is absent.
  */
-export function usePanelTexture(url: string | null | undefined): Texture | null {
+export type ArtworkTextures = ReadonlyMap<string, Texture | null>;
+
+function configureArtworkTexture(texture: Texture, gl: WebGLRenderer) {
+  texture.colorSpace = SRGBColorSpace;
+  texture.flipY = true;
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.anisotropy = gl.capabilities.getMaxAnisotropy();
+  texture.needsUpdate = true;
+}
+
+type TextureEntry = { texture: Texture | null; settled: boolean; cancelled: boolean };
+
+/**
+ * Loads every distinct artwork URL of the bag once, as a texture: sRGB, max anisotropy, `flipY = true` (UV (0,0) =
+ * image bottom-left = panel bottom-left seen from outside). Walls share these (one GPU upload per image, whatever the
+ * number of walls or layers using it). A texture is disposed as soon as its URL is no longer used (artwork replaced /
+ * removed / layout switched) and all of them when the bag unmounts.
+ */
+export function useArtworkTextures(urls: readonly string[]): ArtworkTextures {
   const gl = useThree((s) => s.gl);
-  const [loaded, setLoaded] = useState<{ url: string; texture: Texture } | null>(null);
+  const key = [...new Set(urls.filter(Boolean))].sort().join('\n');
+  // Entries live across renders (loads in flight); the snapshot in state is what renders read.
+  const entriesRef = useRef<Map<string, TextureEntry>>(new Map());
+  const [snapshot, setSnapshot] = useState<ArtworkTextures>(() => new Map());
 
   useEffect(() => {
-    if (!url) return;
-    let active = true;
-    let texture: Texture | null = null;
-    new TextureLoader().load(
-      url,
-      (t) => {
-        if (!active) {
-          t.dispose();
-          return;
-        }
-        t.colorSpace = SRGBColorSpace;
-        t.flipY = true;
-        t.wrapS = ClampToEdgeWrapping;
-        t.wrapT = ClampToEdgeWrapping;
-        t.anisotropy = gl.capabilities.getMaxAnisotropy();
-        t.needsUpdate = true;
-        texture = t;
-        setLoaded({ url, texture: t });
-      },
-      undefined,
-      () => {
-        if (!active) return;
-        console.warn(`Artwork texture could not be loaded, showing plain paper: ${url}`);
-        setLoaded(null);
-      },
-    );
-    return () => {
-      active = false;
-      texture?.dispose();
-    };
-  }, [url, gl]);
+    const entries = entriesRef.current;
+    const wanted = new Set(key ? key.split('\n') : []);
+    const publish = () =>
+      setSnapshot(
+        new Map([...entries].filter(([, entry]) => entry.settled).map(([url, entry]) => [url, entry.texture] as const)),
+      );
+    let removed = false;
+    for (const [url, entry] of entries) {
+      if (wanted.has(url)) continue;
+      releaseEntry(entry);
+      entries.delete(url);
+      removed = true;
+    }
+    for (const url of wanted) {
+      if (entries.has(url)) continue;
+      const entry: TextureEntry = { texture: null, settled: false, cancelled: false };
+      entries.set(url, entry);
+      new TextureLoader().load(
+        url,
+        (texture) => {
+          if (entry.cancelled) {
+            texture.dispose();
+            return;
+          }
+          configureArtworkTexture(texture, gl);
+          entry.texture = texture;
+          entry.settled = true;
+          publish();
+        },
+        undefined,
+        () => {
+          if (entry.cancelled) return;
+          console.warn(`Artwork texture could not be loaded, showing plain paper: ${url}`);
+          entry.settled = true;
+          publish();
+        },
+      );
+    }
+    if (removed) publish();
+  }, [key, gl]);
 
-  return url && loaded?.url === url ? loaded.texture : null;
+  useEffect(() => {
+    const entries = entriesRef.current;
+    return () => {
+      entries.forEach(releaseEntry);
+      entries.clear();
+    };
+  }, []);
+
+  return snapshot;
+}
+
+function releaseEntry(entry: TextureEntry) {
+  entry.cancelled = true;
+  entry.texture?.dispose();
+}
+
+/** Draws the layers of `plan` bottom → top into the composite's canvas (failed images are skipped). */
+function drawComposite(texture: CanvasTexture, plan: CompositePlan, textures: ArtworkTextures) {
+  const canvas = texture.image as HTMLCanvasElement;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  for (const layer of plan.layers) {
+    const image = textures.get(layer.artwork.fileUrl)?.image as CanvasImageSource | undefined;
+    if (!image) continue;
+    const { matrix: m, clip } = layer;
+    context.save();
+    context.beginPath();
+    context.rect(clip.x, clip.y, clip.width, clip.height);
+    context.clip();
+    context.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+    context.drawImage(image, 0, 0, layer.artwork.width, layer.artwork.height);
+    context.restore();
+  }
+  texture.needsUpdate = true;
+}
+
+/**
+ * A wall's composite of several artwork layers (docs/SPEC.md §3b): the layers of `plan` (`planArtworkComposite`)
+ * drawn bottom → top, each clipped to its artwork area, into one canvas texture. The canvas is kept while its size
+ * stays the same and redrawn in place when the plan or the images change (no new material per edit); it is disposed
+ * (and its pixel buffer released) when the size changes and on unmount. Returns null until every layer image has
+ * settled, so offscreen snapshots never capture a half-drawn composite.
+ */
+export function useCompositeTexture(plan: CompositePlan | null, textures: ArtworkTextures): Texture | null {
+  const gl = useThree((s) => s.gl);
+  const width = plan?.width ?? 0;
+  const height = plan?.height ?? 0;
+  const texture = useMemo(() => {
+    if (width <= 0 || height <= 0 || typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const composite = new CanvasTexture(canvas);
+    configureArtworkTexture(composite, gl);
+    return composite;
+  }, [width, height, gl]);
+
+  useEffect(
+    () => () => {
+      if (!texture) return;
+      texture.dispose();
+      const canvas = texture.image as HTMLCanvasElement;
+      // Release the pixel buffer now instead of at garbage collection.
+      canvas.width = 0;
+      canvas.height = 0;
+    },
+    [texture],
+  );
+
+  const ready = !!plan && plan.layers.every((layer) => textures.has(layer.artwork.fileUrl));
+  // Drawn before the browser paints (R3F renders the next frame after the commit).
+  useLayoutEffect(() => {
+    if (texture && plan && ready) drawComposite(texture, plan, textures);
+  }, [texture, plan, textures, ready]);
+
+  return ready ? texture : null;
 }
 
 /**

@@ -4,21 +4,19 @@
 
 import { resolvePanelArtworks } from '../../domain/artworkLayout';
 import { buildDieline, type Dieline } from '../../domain/dieline';
-import { PANEL_POSITIONS } from '../../domain/factories';
 import {
   computeArtworkPalette,
   computeInkCoverage,
   type ArtworkPaletteResult,
-  type CoveragePanelInput,
   type InkCoverageResult,
 } from '../../domain/printCoverage';
-import type { BagConfiguration, PanelPosition } from '../../domain/types';
+import type { BagConfiguration } from '../../domain/types';
 import { buildDielineScene } from '../../dieline/scene';
 import { downloadBlob } from '../../dieline/exportSvg';
 import type { ExportContext } from '../../export/format';
 import { buildProductSheetData } from '../../export/productSheetData';
 import { buildWorkbookModel } from '../../export/workbookModel';
-import { loadArtworkSample } from '../artwork/sampleArtworkPixels';
+import { loadCoverageInputs } from '../coverage/coverageInputs';
 
 export type ExportProgress =
   | { phase: 'coverage' }
@@ -34,21 +32,10 @@ export type PrintAnalysis = { coverage: InkCoverageResult; palette: ArtworkPalet
 export const PDF_SNAPSHOT_OPTIONS = { width: 1000, height: 750, mimeType: 'image/jpeg', quality: 0.85 } as const;
 
 export async function computePrintAnalysisForExport(configuration: BagConfiguration, dieline: Dieline): Promise<PrintAnalysis> {
-  const artworks = resolvePanelArtworks(configuration);
-  const entries = await Promise.all(
-    PANEL_POSITIONS.map(async (position) => {
-      const { artwork, placement, area } = artworks[position];
-      if (!artwork) return [position, null] as const;
-      const sample = await loadArtworkSample(artwork);
-      const input: CoveragePanelInput | null = sample
-        ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, sample }
-        : null;
-      return [position, input] as const;
-    }),
-  );
+  const { panels } = await loadCoverageInputs(resolvePanelArtworks(configuration));
   const input = {
     dieline,
-    panels: Object.fromEntries(entries) as Record<PanelPosition, CoveragePanelInput | null>,
+    panels,
     paperColor: configuration.paper.color,
     pantoneColors: configuration.print.pantoneColors,
   };

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot } from '../../domain/artworkLayout';
+import { getActiveArtworkTargets, getArtworkLayout, getArtworkSlot, getWrapLayers } from '../../domain/artworkLayout';
 import { normalizeColorAnalysis } from '../../domain/printCoverage/colorAnalysis';
 import { createNumberFormatter } from '../../i18n/numberFormat';
 import { useConfigurationStore } from '../../state/configurationStore';
@@ -61,11 +61,23 @@ export function ConfigurationSummary() {
           <dd>
             {t(`artwork.layout.${getArtworkLayout(configuration)}`)}
             <ul className="summary__list">
-              {getActiveArtworkTargets(configuration).map((target) => (
-                <li key={target}>
-                  {t(`artwork.${target}`)}: {getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork')}
-                </li>
-              ))}
+              {getArtworkLayout(configuration) === 'WRAP' ? (
+                getWrapLayers(configuration).length === 0 ? (
+                  <li>{t('artwork.layers.title')}: {t('summary.noArtwork')}</li>
+                ) : (
+                  getWrapLayers(configuration).map((layer, index) => (
+                    <li key={layer.id}>
+                      {t('artwork.layers.layerName', { index: index + 1 })}: {layer.artwork.fileName}
+                    </li>
+                  ))
+                )
+              ) : (
+                getActiveArtworkTargets(configuration).map((target) => (
+                  <li key={target}>
+                    {t(`artwork.${target}`)}: {getArtworkSlot(configuration, target).artwork?.fileName ?? t('summary.noArtwork')}
+                  </li>
+                ))
+              )}
             </ul>
           </dd>
 

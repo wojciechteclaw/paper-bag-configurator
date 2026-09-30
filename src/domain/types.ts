@@ -102,22 +102,37 @@ export type BagPanels = Record<PanelPosition, BagPanel>;
 /**
  * How artwork is supplied (docs/SPEC.md §3a):
  * - `PER_PANEL` — one artwork per wall (`BagPanel.artwork`); the default.
- * - `WRAP` — ONE artwork for the whole bag (`BagConfiguration.wrapArtwork`), laid over the wall row of the sheet in
- *   sheet order LEFT | FRONT | RIGHT | BACK (the glue flap stays unprinted). Panel artwork is kept but not used.
+ * - `WRAP` — whole-bag artwork (`BagConfiguration.wrapLayers`): an ordered list of layers, each laid over the wall
+ *   row of the sheet in sheet order LEFT | FRONT | RIGHT | BACK (the glue flap stays unprinted). Panel artwork is
+ *   kept but not used.
  */
 export type ArtworkLayout = 'PER_PANEL' | 'WRAP';
 
 /**
- * The whole-bag artwork. `placement` refers to the WRAP artwork area (`getWrapArtworkArea`): the four walls side by
- * side, (2W + 2D) × H, or with `extendToBottom` (2W + 2D) × (H + a) — the same placement model as a single wall.
+ * One layer of the whole-bag artwork (docs/SPEC.md §3b). `placement` refers to the WRAP artwork area
+ * (`getWrapArtworkArea`): the four walls side by side, (2W + 2D) × H, or with `extendToBottom` (2W + 2D) × (H + a) —
+ * the same placement model as a single wall, independent per layer. `id` is stable (reorder, replace, selection).
  */
-export type WrapArtwork = {
+export type WrapArtworkLayer = {
+  id: string;
+  artwork: Artwork;
+  placement: ArtworkPlacement;
+};
+
+/**
+ * The single whole-bag artwork slot of data saved before layers existed (30.09.2026). Read through `getWrapLayers`,
+ * which migrates it to a one-element layer list (or to none when it held no artwork).
+ */
+export type LegacyWrapArtwork = {
   artwork: Artwork | null;
   placement: ArtworkPlacement;
 };
 
-/** What an artwork (upload, placement edit) belongs to: one wall, or the whole-bag wrap. */
-export type ArtworkTarget = PanelPosition | 'WRAP';
+/** Artwork target of one whole-bag layer: `WRAP:<layer id>` (`wrapLayerTarget`, `getWrapLayerId`). */
+export type WrapLayerTarget = `WRAP:${string}`;
+
+/** What an artwork (upload, placement edit, dieline selection) belongs to: one wall, or one whole-bag layer. */
+export type ArtworkTarget = PanelPosition | WrapLayerTarget;
 
 export type PaperColor = 'WHITE' | 'BROWN';
 
@@ -183,8 +198,11 @@ export type BagConfiguration = {
   panels: BagPanels;
   /** Missing in data saved before 30.09.2026 — read it through `getArtworkLayout` (default `PER_PANEL`). */
   artworkLayout: ArtworkLayout;
-  /** Whole-bag artwork, used when `artworkLayout` is `WRAP`. Missing in older data — read it through `getWrapArtwork`. */
-  wrapArtwork: WrapArtwork;
+  /**
+   * Whole-bag artwork layers, bottom → top (later layers print over earlier ones), used when `artworkLayout` is
+   * `WRAP`. Missing in older data (which may carry a single `wrapArtwork` instead) — read it through `getWrapLayers`.
+   */
+  wrapLayers: WrapArtworkLayer[];
   print: PrintSpec;
   packaging: PackagingType;
 };

@@ -79,32 +79,80 @@ Wszystkie zakresy i listy opcji żyją w `src/domain/config/productCatalog.ts` �
   `computePanelUvTransform` (`src/domain/artworkPlacement.ts`) liczy transformację tekstury dla 3D i macierz obrazu
   dla wykroju 2D. Nowa grafika na ściance zaczyna od FILL. Poza ścianką grafika jest przycinana (w 3D: goły papier).
 
-### 3a. Jedna grafika na całą torbę (prośba klienta 30.09.2026)
+### 3a. Grafika na całą torbę (prośba klienta 30.09.2026)
 
-„Opcja dodania 1 grafiki reprezentującej całą torbę zamiast każdej ze ścian.”
+„Opcja dodania 1 grafiki reprezentującej całą torbę zamiast każdej ze ścian.” Rozszerzone o warstwy (§3b).
 
 - **Model:** `BagConfiguration.artworkLayout: 'PER_PANEL' | 'WRAP'` (lista w katalogu: `ARTWORK_LAYOUTS`, domyślnie
-  `PER_PANEL`) + `BagConfiguration.wrapArtwork: { artwork, placement }` — ten sam `Artwork` i ten sam `ArtworkPlacement`
-  (FILL / CUSTOM, `extendToBottom`) co na ściance. Brak pól w starszych danych = `PER_PANEL` (`getArtworkLayout`,
-  `getWrapArtwork`). Cel grafiki w akcjach store / edytorze: `ArtworkTarget = PanelPosition | 'WRAP'`.
-- **Mapowanie:** grafika leży na rzędzie ścianek w kolejności arkusza **LEFT | FRONT | RIGHT | BACK** — od wolnej
-  krawędzi LEFT (szew) do krawędzi BACK przy zakładce klejowej; **zakładka klejowa bez nadruku** (poza 2 mm
-  zachodzenia jak przy każdej ściance). Obszar grafiki = `(2W + 2D) × H` (`getWrapArtworkArea`); **góra** = górna
-  krawędź torby (+ spad 3 mm na wykroju); **dno**: przełącznik „Rozciągnij na dno” działa dla całej grafiki naraz —
-  obszar `(2W + 2D) × (H + a)`, grafika wchodzi w zapas na dno pod wszystkimi ściankami (klapy, trójkąty, uszy), jak
-  w §4f. FILL rozciąga obraz na cały obszar; CUSTOM (przesunięcie / skala / obrót / wyrównanie) liczy się względem
-  środka całego rzędu.
+  `PER_PANEL`) + `BagConfiguration.wrapLayers` — uporządkowana lista warstw (§3b), każda z tym samym `Artwork` i tym
+  samym `ArtworkPlacement` (FILL / CUSTOM, `extendToBottom`) co na ściance. Brak pól w starszych danych = `PER_PANEL`
+  (`getArtworkLayout`, `getWrapLayers`).
+- **Mapowanie (decyzja klienta [K] 30.09.2026):** grafika **zaczyna się na lewej krawędzi przodu** i biegnie dookoła
+  torby: **FRONT | RIGHT | BACK | LEFT** (x = 0 na lewej krawędzi przodu; LEFT jest ostatni i kończy się na narożniku
+  przód / lewy bok). **Zakładka klejowa bez nadruku [K]** (idzie pod spód; poza 2 mm zachodzenia jak przy każdej
+  ściance). Obszar grafiki = `(2W + 2D) × H` (`getWrapArtworkArea`); **góra** = górna krawędź torby (+ spad 3 mm na
+  wykroju); **dno**: przełącznik „Rozciągnij na dno” (osobno dla każdej warstwy) — obszar `(2W + 2D) × (H + a)`,
+  grafika wchodzi w zapas na dno pod wszystkimi ściankami (klapy, trójkąty, uszy), jak w §4f. FILL rozciąga obraz na
+  cały obszar; CUSTOM (przesunięcie / skala / obrót / wyrównanie) liczy się względem środka całego obszaru.
 - **Jedna ścieżka dla wszystkich odbiorców:** `resolvePanelArtwork(s)` (`src/domain/artworkLayout.ts`) zwraca dla
-  każdej ścianki grafikę, placement i obszar grafiki w jej współrzędnych; grafika całej torby to po prostu szerszy
-  obszar przesunięty o położenie ścianki w rzędzie (`getWrapPanelOffset`: 0, D, D + W, 2D + W). Renderer 3D (ścianki,
-  części dna, elementy arkusza), wykrój 2D, pokrycie farbą i eksport korzystają z tego samego
-  `computePanelUvTransform`, więc obraz jest ciągły na krawędziach ścianek i łamie się na bigach.
+  każdej ścianki listę warstw (od spodu) z grafiką, placementem i obszarem grafiki w jej współrzędnych; warstwa całej
+  torby to po prostu szerszy obszar przesunięty o położenie ścianki dookoła torby (`getWrapPanelOffset`: FRONT 0,
+  RIGHT W, BACK W + D, LEFT 2W + D). Renderer 3D (ścianki, części dna, elementy arkusza), wykrój 2D, pokrycie farbą i
+  eksport korzystają z tego samego `computePanelUvTransform`, więc obraz jest ciągły na krawędziach ścianek (także na
+  narożniku LEFT | FRONT) i łamie się na bigach.
+- **Wykrój 2D:** kolumny arkusza pozostają w kolejności **LEFT | FRONT | RIGHT | BACK | zakładka**, więc kolumna LEFT
+  pokazuje **koniec** grafiki. Każda warstwa jest rysowana najwyżej dwa razy (ten sam obraz): część FRONT…BACK (jedna
+  macierz, przycięta od lewej krawędzi przodu do zawiasu zakładki + 2 mm) oraz część LEFT (ten sam obraz przesunięty
+  o `2W + 2D`, przycięty do kolumny LEFT ze spadem). Część, której w danej kolumnie nie widać, jest pomijana.
+  Przeciąganie / skalowanie / klawisze działają na warstwie (współrzędne całej torby od lewej krawędzi przodu) —
+  obie części przesuwają się razem. Plik użyty dwa razy jest osadzany w SVG raz (`<image>` w `<defs>` + `<use>`).
 - **Przełączanie układu** nie usuwa grafik drugiego układu (wracają po przełączeniu; UI o tym informuje), ale
   drukowane / liczone / eksportowane są tylko grafiki aktywnego układu. JSON konfiguracji zawiera oba sloty.
-- **UI:** w kroku Grafiki przełącznik „Układ grafik” (osobno na każdą ściankę / jedna na całą torbę); w trybie całej
-  torby jeden uploader z wymiarem `(2W + 2D) × H` i ostrzeżeniem o proporcjach względem rzędu ścianek. Na wykroju
-  grafika całej torby to jeden obraz (jeden element `<image>` w SVG / PDF) edytowany jak grafika ścianki.
-- **3D:** obraz ładowany raz; każda ścianka ma własny klon tekstury (wspólne źródło obrazu, osobna transformacja UV).
+
+### 3b. Warstwy grafiki całej torby (decyzja klienta 30.09.2026)
+
+„Wiele grafik tylko w trybie całej torby; zachowują się jak warstwy z kolejnością (tło + logo + kod kreskowy…),
+każdą można osobno przesuwać / skalować / obracać / wyrównać na wykroju; FILL dostępny per warstwa.” Tryb per
+ścianka bez zmian (jedna grafika na ściankę).
+
+- **Model:** `BagConfiguration.wrapLayers: WrapArtworkLayer[]` — `{ id, artwork, placement }`, kolejność **od spodu
+  do wierzchu** (późniejsze drukowane na wierzchu). `id` stały (zmiana kolejności, podmiana, zaznaczenie). Limit
+  `MAX_WRAP_ARTWORK_LAYERS = 8` (katalog). Cel grafiki w akcjach store / edytorze: `ArtworkTarget = PanelPosition |
+  'WRAP:<id warstwy>'` (`wrapLayerTarget`, `getWrapLayerId`).
+- **Zgodność wstecz:** dane zapisane przed warstwami mają jedno pole `wrapArtwork: { artwork, placement }`.
+  `getWrapLayers` czyta je jako listę jednoelementową (id `wrap-<id grafiki>`, stałe dla tych samych danych; pusty
+  slot = brak warstw); `withWrapLayers` zamienia zapisaną konfigurację na bieżący kształt (usuwa stare pole, przycina
+  listę do limitu).
+- **Nowa warstwa:** pierwsza (zwykle tło) — FILL na całą torbę; kolejne (logo, kod…) — dopasowane (contain) do
+  **przodu** i wyśrodkowane na nim (`getNewWrapLayerPlacement`), żeby nie zasłoniły tła ani nie były rozciągnięte.
+  „Rozciągnij na dno” — wartość domyślna `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`.
+- **Store:** `addWrapLayer` (na wierzch; zwraca id albo `null` przy limicie — wtedy URL obiektu jest zwalniany),
+  `removeWrapLayer`, `moveWrapLayer(id, ±1)`, podmiana `setPanelArtwork('WRAP:<id>', artwork)` (to samo id, miejsce w
+  stosie i placement; stary URL zwalniany), edycja placementu tymi samymi akcjami co ścianki (`setPanelPlacement`,
+  `alignPanelArtwork`, `setPanelExtendToBottom`, `fillPanelPlacement`, `resetPanelPlacement`). Zaznaczenie do edycji
+  to stan widoku (`configuratorUiStore.selectedArtwork`), wspólny dla listy warstw i edytora wykroju.
+- **3D:** ścianka z jedną warstwą — jak dotąd (widok wspólnej tekstury obrazu z własną transformacją UV). Ścianka z
+  kilkoma warstwami — **jedna tekstura z płótna (canvas) na ściankę**: warstwy rysowane od spodu, każda przycięta do
+  swojego obszaru (bez „Rozciągnij na dno” nie wchodzi pod linię dna), plan kompozycji liczony w domenie
+  (`planArtworkComposite`, `src/domain/artworkComposite.ts`: ramka = ścianka + zapas na dno, jeśli któraś warstwa go
+  obejmuje; macierz i przycięcie każdej warstwy z `computePanelUvTransform`). Kompozyt mapowany jak jedna grafika FILL
+  na ramkę, więc części dna i arkusza działają bez zmian, bez nakładania siatek (brak z-fightingu). Rozdzielczość wg
+  najdokładniejszej warstwy, maks. 2048 px dłuższego boku (i limit GPU); każdy obraz ładowany raz dla całej torby;
+  płótno rysowane dopiero, gdy wszystkie obrazy są wczytane (zrzuty do PDF nie łapią połowicznych kompozytów),
+  zwalniane przy zmianie rozmiaru / odmontowaniu.
+- **Wykrój 2D:** każda warstwa to osobny element (osobne przycięcie), w kolejności od spodu; zaznaczenie, przeciąganie,
+  uchwyty skali, klawisze i pasek edycji działają na zaznaczonej warstwie. Kliknięcie w miejscu, gdzie zaznaczona
+  warstwa jest widoczna pod inną, dalej przesuwa zaznaczoną (tło wybrane z listy da się przesunąć „przez” logo).
+- **Pokrycie farbą:** liczone z **kompozytu** — w każdej komórce siatki warstwy składane jak na ekranie (alfa
+  „over”), więc logo na tle zastępuje farbę tła zamiast się do niej dodawać; półprzezroczysta warstwa miesza kolor z
+  warstwą pod spodem.
+- **Eksport:** PDF — w parametrach każda warstwa (od spodu) z plikiem i położeniem; Excel „Ścianki i grafiki” —
+  wiersz na warstwę (wymiar `(2W + 2D) × H`, plik, px, tryb, przesunięcia, skala, obrót, rozciągnięcie na dno).
+- **UI (krok Grafiki, tryb całej torby):** lista warstw od wierzchu (jak w programach graficznych): miniatura, nazwa
+  „Warstwa N”, plik, skrót położenia; przyciski wyżej / niżej, Zamień, Usuń, „Edytuj na wykroju” (dla zaznaczonej);
+  pole „Dodaj warstwę” (przeciągnij / wybierz plik, ta sama walidacja co przy ściankach); ostrzeżenie o proporcjach
+  dla warstw FILL; komunikat o limicie.
+
 
 ## 4. Podgląd 3D
 
@@ -168,7 +216,7 @@ Przełącznik trybów w panelu podglądu:
 4. **3D po zgięciu ścianek** — „naturalnie stojąca” torba: boki cofnięte na bigach względem krawędzi przodu/tyłu, dolny trójkąt ok. 45° do osi Z (preset kinematyki). Zdefiniowane jako `p`, przy którym dolny trójkąt boku (od środka podstawy do wierzchołka) jest odchylony o 45° od pionu; wyznaczone bisekcją ≈ 0,2497 niezależnie od wymiarów, zaokrąglone do **0,25** (na osi czasu: 0,4 + 0,6 · 0,25 = 55 %). **Przycisk „3D po zgięciu” ustawia jednak 45 %** (p = 1/12, decyzja klienta 30.09.2026). Uwaga: w tym stanie model jednoparametrowy unosi tylną krawędź dna o φ ≈ 8,4° (ok. 22 mm przy D = 150).
 5. **3D złożona na płasko** — foldProgress = 1 (100 %).
 
-Tryby 3D to **presety na osi czasu**; przełączenie animuje przejście przez wszystkie etapy pomiędzy (np. z „Złożona” do „Arkusz”). **Suwak** (tylko w trybach 3D) pozwala przejść całą oś płynnie; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane **per ścianka** albo jako **jedna grafika na całą torbę** (§3a).
+Tryby 3D to **presety na osi czasu**; przełączenie animuje przejście przez wszystkie etapy pomiędzy (np. z „Złożona” do „Arkusz”). **Suwak** (tylko w trybach 3D) pozwala przejść całą oś płynnie; jego przesunięcie odznacza tryb, chyba że wartość trafi dokładnie w preset. Grafiki w 3D widoczne na ściankach i łamią się na bigach. Grafiki dodawane **per ścianka** albo jako **grafika na całą torbę** w warstwach (§3a, §3b).
 
 ### 4d. Pokrycie farbą (wywiad 29.09.2026)
 
@@ -263,7 +311,7 @@ App
 │   ├── DimensionsForm
 │   ├── PaperConfigurator
 │   ├── HandleConfigurator
-│   ├── ArtworkConfigurator → układ grafik + PanelArtworkUploader × 4 (lub × 1 dla całej torby)
+│   ├── ArtworkConfigurator → układ grafik + PanelArtworkUploader × 4 (lub WrapLayerList dla całej torby)
 │   └── ProductionOptions (nadruk z kolorami podglądu Pantone, pakowanie)
 └── BagPreview3D
     ├── BagModel → BagPanel × N
@@ -317,12 +365,19 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Wykrój PDF: standardowe fonty jsPDF nie mają polskich znaków spoza WinAnsi — teksty w PDF są transliterowane
   (ł → l). Osadzić font Unicode?
 - Obrót grafiki tylko co 90° (dowolny kąt wymagałby własnego shadera UV w 3D). Wystarczy?
-- Grafika na całą torbę (§3a): czy początek grafiki w szwie (wolna krawędź lewego boku, kolejność arkusza
-  LEFT | FRONT | RIGHT | BACK) jest właściwy? Przy FILL środek obrazu wypada wtedy na narożniku przód / prawy bok —
-  alternatywa: grafika zaczynająca się od lewej krawędzi przodu albo wyśrodkowana na przodzie (zawinięta przez szew).
-  Obecnie kolejność arkusza, bo tak przygotowuje się pliki na wykrojniku.
-- Grafika na całą torbę: czy zakładka klejowa może być zadrukowana (np. dla ciągłości koloru na szwie), czy zawsze
-  bez nadruku? Obecnie bez nadruku (2 mm zachodzenia jak przy ściankach).
+- ~~Grafika na całą torbę (§3a): gdzie zaczyna się grafika (szew / kolejność arkusza czy przód)?~~ — rozstrzygnięte
+  [K] (30.09.2026): **od lewej krawędzi przodu**, dookoła torby FRONT | RIGHT | BACK | LEFT; na wykroju kolumna LEFT
+  pokazuje koniec grafiki (§3a).
+- ~~Grafika na całą torbę: czy zakładka klejowa może być zadrukowana?~~ — rozstrzygnięte [K] (30.09.2026): **nie**,
+  zakładka idzie pod spód i zostaje bez nadruku (dla wszystkich warstw; 2 mm zachodzenia jak przy ściankach).
+- Warstwy grafiki (§3b) — przyjęte założenia do potwierdzenia: (1) limit 8 warstw; (2) nowa warstwa po pierwszej
+  startuje dopasowana (contain) do przodu i wyśrodkowana na nim — czy logo ma startować mniejsze (np. 50 % przodu) albo
+  w innym miejscu?; (3) podmiana pliku warstwy zachowuje jej położenie (przy ściance podmiana wraca do FILL) — czy tak
+  ma zostać?; (4) pokrycie farbą liczone z kompozytu (warstwa kryjąca zastępuje farbę pod spodem) — w druku
+  fleksograficznym farby mogą się jednak nakładać (overprint / podkład) — czy liczyć farbę warstw osobno?; (5) na
+  wykroju kliknięcie w zaznaczoną warstwę przykrytą inną nadal przesuwa zaznaczoną — czy to czytelne dla użytkownika?
+- Warstwy w 3D: kompozyt ścianki ma maks. 2048 px dłuższego boku (~4 px/mm przy typowej ściance z zapasem na dno) —
+  wystarczy do podglądu? Drobny tekst / kod kreskowy może wyglądać miękko (wykrój i eksport mają pełną rozdzielczość).
 - Przełączanie układu grafik: czy grafiki nieaktywnego układu mają być zachowywane (obecnie tak, także w JSON), czy
   usuwane po przełączeniu?
 - Eksport JSON: `artwork.fileUrl` to lokalny `blob:` URL (ważny tylko w tej karcie) — do zastąpienia URL-em z backendu.

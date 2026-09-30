@@ -57,7 +57,9 @@
       "sheetArea": "Arkusz — powierzchnia",
       "colorMergeTolerance": "Łączenie podobnych kolorów grafik (ΔE00)",
       "colorMinAreaShare": "Minimalna plama koloru grafik (udział w farbie)",
-      "artworkLayout": "Układ grafik"
+      "artworkLayout": "Układ grafik",
+      "wrapLayer": "Cała torba — warstwa {{index}}",
+      "wrapLayers": "Cała torba — warstwy grafiki"
     },
     "handleMaterial": {
       "KRAFT": "mocny papier kraft"
@@ -205,6 +207,11 @@
       "percent": "% arkusza",
       "none": "Nie udało się wykryć kolorów grafik.",
       "empty": "Brak farby w grafikach."
+    },
+    "placementSummary": {
+      "FILL": "rozciągnięta na całą torbę",
+      "CUSTOM": "x {{x}} mm, y {{y}} mm od środka, skala {{scale}} %, obrót {{rotation}}°",
+      "extended": "z dnem"
     }
   }
 }

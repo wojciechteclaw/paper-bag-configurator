@@ -1,10 +1,16 @@
-// Shared sampling of the placed artwork (docs/SPEC.md §4d/§4f). Pure TS, no DOM.
+// Shared sampling of the placed artwork (docs/SPEC.md §4d/§4f, layers §3b). Pure TS, no DOM.
 //
-// Every artwork area of the dieline (the wall rect of each sheet column — plus its bottom allowance when the panel's
+// Every artwork area of the dieline (the wall rect of each sheet column — plus its bottom allowance when a layer's
 // placement has `extendToBottom` — never the glue flap or the bleed) is sampled on a regular grid in panel-local mm.
 // Each grid cell centre is mapped to texture coordinates with the same `computePanelUvTransform` the 3D renderer and
-// the 2D dieline use, so a cell carries ink exactly where the previews show the image. Cells outside the image
+// the 2D dieline use, so a cell carries ink exactly where the previews show the image. Cells outside every image
 // (after placement) are bare paper and are not visited. Used by `computeInkCoverage` and `computeArtworkPalette`.
+//
+// A wall may show several layers (whole-bag layers, bottom → top). Per cell the layers are composited like on screen
+// ("over", straight alpha): what counts is the COMPOSITE colour, so a logo covering the background replaces its ink
+// instead of adding to it. A cell where one layer's pixel alone is visible is reported with that layer's sample and
+// pixel (the consumers' per-pixel memo stays effective); a real blend is written once per distinct colour into a
+// per-walk blend sample and reported from there.
 
 import { computePanelUvTransform, getPanelArtworkArea, type PanelArtworkArea, type Size2 } from '../artworkPlacement';
 import type { Dieline } from '../dieline/types';
@@ -24,8 +30,8 @@ export type CoveragePanelInput = {
   imageSize: Size2;
   placement: ArtworkPlacement;
   /**
-   * Artwork area the placement refers to, panel-local mm (`resolvePanelArtwork(...).area` — e.g. the whole wall row
-   * for a wrap artwork, docs/SPEC.md §3a). Omitted: the panel's own area (`getPanelArtworkArea`).
+   * Artwork area the placement refers to, panel-local mm (`resolvePanelArtwork(...).layers[i].area` — e.g. the whole
+   * wall row for a whole-bag layer, docs/SPEC.md §3a). Omitted: the panel's own area (`getPanelArtworkArea`).
    */
   area?: PanelArtworkArea;
   sample: PixelSample;
@@ -33,69 +39,211 @@ export type CoveragePanelInput = {
 
 export type SamplingInput = {
   dieline: Pick<Dieline, 'sheet' | 'segments' | 'dimensions'>;
-  /** Panels without artwork (or without a decoded sample yet) are left out or null. */
-  panels: Partial<Record<PanelPosition, CoveragePanelInput | null>>;
+  /**
+   * Artwork of every wall: one input, or its layers bottom → top. Walls without artwork are left out, null or [];
+   * layers without a decoded sample (yet) are left out.
+   */
+  panels: Partial<Record<PanelPosition, CoveragePanelInput | readonly CoveragePanelInput[] | null>>;
 };
 
 export type ArtworkCellVisitor = {
   /** Every sheet column of a wall: its visible wall area and the sampled (printable) area, mm². */
   onSegment?: (position: PanelPosition, wallArea: number, printArea: number) => void;
-  /** A grid cell inside the placed image: `pixel` indexes `sample` (RGBA offset = pixel × 4). */
+  /**
+   * A grid cell inside the placed image(s): `pixel` indexes `sample` (RGBA offset = pixel × 4). `sample` is a layer's
+   * sample, or the walk's blend sample for a composite of several layers; either way a (sample, pixel) pair always
+   * denotes the same colour within one walk.
+   */
   onCell: (position: PanelPosition, sample: PixelSample, pixel: number, cellArea: number) => void;
 };
 
 const validSample = (sample: PixelSample | undefined): sample is PixelSample =>
   !!sample && sample.width > 0 && sample.height > 0 && sample.data.length >= sample.width * sample.height * 4;
 
+const layersOf = (input: CoveragePanelInput | readonly CoveragePanelInput[] | null | undefined): readonly CoveragePanelInput[] =>
+  !input ? [] : Array.isArray(input) ? input : [input as CoveragePanelInput];
+
+/** A layer prepared for the cell loop: texture transform, sample and area bounds (panel-local mm). */
+type PreparedLayer = {
+  sample: PixelSample;
+  c: number;
+  s: number;
+  rx: number;
+  ry: number;
+  ox: number;
+  oy: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+};
+
+function prepareLayer(
+  layer: CoveragePanelInput,
+  position: PanelPosition,
+  panelSize: Size2,
+  dimensions: Dieline['dimensions'],
+): PreparedLayer | null {
+  if (!validSample(layer.sample)) return null;
+  const area = layer.area ?? getPanelArtworkArea(position, dimensions, layer.placement);
+  const { repeat, offset, rotation } = computePanelUvTransform(panelSize, layer.imageSize, layer.placement, area);
+  return {
+    sample: layer.sample,
+    c: Math.round(Math.cos(rotation) * 1e12) / 1e12,
+    s: Math.round(Math.sin(rotation) * 1e12) / 1e12,
+    rx: repeat[0],
+    ry: repeat[1],
+    ox: offset[0],
+    oy: offset[1],
+    x0: area.x,
+    x1: area.x + area.width,
+    y0: area.y,
+    y1: area.y + area.height,
+  };
+}
+
+/** Pixel of `layer` at panel point (x, y) / panel UV (u, v), or −1 outside its area or image. */
+function pixelAt(layer: PreparedLayer, x: number, y: number, u: number, v: number): number {
+  if (x < layer.x0 || x > layer.x1 || y < layer.y0 || y > layer.y1) return -1;
+  // t = diag(repeat)·R(−θ)·uv + offset (three.js uv transform with centre (0, 0)).
+  const tx = layer.rx * (layer.c * u + layer.s * v) + layer.ox;
+  const ty = layer.ry * (-layer.s * u + layer.c * v) + layer.oy;
+  if (tx < 0 || tx > 1 || ty < 0 || ty > 1) return -1; // outside the image: bare paper
+  const { width: sw, height: sh } = layer.sample;
+  const px = Math.min(sw - 1, Math.floor(tx * sw));
+  const py = Math.min(sh - 1, Math.floor((1 - ty) * sh));
+  return py * sw + px;
+}
+
+/** Grid of one sheet column: cells across the column width × the vertical extent [bottom, H]. */
+function columnGrid(segmentWidth: number, panelSize: Size2, extentHeight: number, gridCellsLongSide: number) {
+  const cell = Math.max(panelSize.width, panelSize.height) / Math.max(1, gridCellsLongSide);
+  const nx = Math.max(1, Math.ceil(segmentWidth / cell));
+  const ny = Math.max(1, Math.ceil(extentHeight / cell));
+  return { nx, ny, cw: segmentWidth / nx, ch: extentHeight / ny };
+}
+
 /** Walks the sampling grid of every artwork area of the dieline (see the file comment). */
 export function walkArtworkCells(input: SamplingInput, gridCellsLongSide: number, visitor: ArtworkCellVisitor): void {
   const { dieline } = input;
   const height = dieline.dimensions.height;
 
-  for (const segment of dieline.segments) {
-    const segmentWidth = segment.x1 - segment.x0;
-    if (segmentWidth <= 0 || height <= 0) continue;
+  // Per column: the prepared layers and the vertical extent they cover (down to the lowest layer area).
+  const columns = dieline.segments.map((segment) => {
     const position = segment.panel;
     const panelSize = getPanelSize(position, dieline.dimensions);
-    const artwork = input.panels[position];
-    // Artwork area: the wall (y ∈ [0, H]) or, extended to the bottom, y ∈ [−a, H] (SPEC §4f — counted then). A wrap
-    // area is wider than the wall but has the same vertical extent; only this column (x ∈ the wall) is sampled.
-    const area = artwork
-      ? (artwork.area ?? getPanelArtworkArea(position, dieline.dimensions, artwork.placement))
-      : { x: 0, y: 0, width: panelSize.width, height };
-    visitor.onSegment?.(position, segmentWidth * height, segmentWidth * area.height);
-    const sample = artwork?.sample;
-    if (!artwork || !validSample(sample)) continue;
+    const layers = layersOf(input.panels[position]);
+    const bottom = Math.min(
+      0,
+      ...layers.map((layer) => (layer.area ?? getPanelArtworkArea(position, dieline.dimensions, layer.placement)).y),
+    );
+    const prepared = layers
+      .map((layer) => prepareLayer(layer, position, panelSize, dieline.dimensions))
+      .filter((layer): layer is PreparedLayer => layer !== null);
+    return { segment, position, panelSize, hasArtwork: layers.length > 0, bottom, prepared };
+  });
 
-    const { repeat, offset, rotation } = computePanelUvTransform(panelSize, artwork.imageSize, artwork.placement, area);
-    const c = Math.round(Math.cos(rotation) * 1e12) / 1e12;
-    const s = Math.round(Math.sin(rotation) * 1e12) / 1e12;
-    const [rx, ry] = repeat;
-    const [ox, oy] = offset;
+  // Blend sample for composites of several layers: one pixel per distinct blended colour (capacity = cells that may
+  // blend, so a pixel index is never reused within the walk).
+  let blend: { sample: PixelSample & { data: Uint8ClampedArray }; index: Map<number, number> } | null = null;
+  const blendCapacity = columns.reduce((sum, { segment, panelSize, bottom, prepared }) => {
+    const segmentWidth = segment.x1 - segment.x0;
+    if (prepared.length < 2 || segmentWidth <= 0 || height <= 0) return sum;
+    const { nx, ny } = columnGrid(segmentWidth, panelSize, height - bottom, gridCellsLongSide);
+    return sum + nx * ny;
+  }, 0);
+  if (blendCapacity > 0) {
+    blend = {
+      sample: { width: blendCapacity, height: 1, data: new Uint8ClampedArray(blendCapacity * 4) },
+      index: new Map(),
+    };
+  }
 
-    const cell = Math.max(panelSize.width, panelSize.height) / Math.max(1, gridCellsLongSide);
-    const nx = Math.max(1, Math.ceil(segmentWidth / cell));
-    const ny = Math.max(1, Math.ceil(area.height / cell));
-    const cw = segmentWidth / nx;
-    const ch = area.height / ny;
+  const hits: number[] = []; // layer index, pixel — top → bottom
+  for (const { segment, position, panelSize, hasArtwork, bottom, prepared } of columns) {
+    const segmentWidth = segment.x1 - segment.x0;
+    if (segmentWidth <= 0 || height <= 0) continue;
+    // Printable extent: the wall (y ∈ [0, H]) or, with a layer extended to the bottom, down to y = −a (SPEC §4f —
+    // counted then). A wrap area is wider than the wall but only this column (x ∈ the wall) is sampled.
+    const extentHeight = height - bottom;
+    visitor.onSegment?.(position, segmentWidth * height, segmentWidth * (hasArtwork ? extentHeight : height));
+    if (prepared.length === 0) continue;
+
+    const { nx, ny, cw, ch } = columnGrid(segmentWidth, panelSize, extentHeight, gridCellsLongSide);
     const cellArea = cw * ch;
-    const sw = sample.width;
-    const sh = sample.height;
+    const single = prepared.length === 1 ? prepared[0] : null;
 
     for (let iy = 0; iy < ny; iy++) {
-      const v = (area.y + (iy + 0.5) * ch) / panelSize.height;
+      const y = bottom + (iy + 0.5) * ch;
+      const v = y / panelSize.height;
       for (let ix = 0; ix < nx; ix++) {
-        const u = (segment.localX0 + (ix + 0.5) * cw) / panelSize.width;
-        // t = diag(repeat)·R(−θ)·uv + offset (three.js uv transform with centre (0, 0)).
-        const tx = rx * (c * u + s * v) + ox;
-        const ty = ry * (-s * u + c * v) + oy;
-        if (tx < 0 || tx > 1 || ty < 0 || ty > 1) continue; // outside the image: bare paper
-        const px = Math.min(sw - 1, Math.floor(tx * sw));
-        const py = Math.min(sh - 1, Math.floor((1 - ty) * sh));
-        visitor.onCell(position, sample, py * sw + px, cellArea);
+        const x = segment.localX0 + (ix + 0.5) * cw;
+        const u = x / panelSize.width;
+        if (single) {
+          const pixel = pixelAt(single, x, y, u, v);
+          if (pixel >= 0) visitor.onCell(position, single.sample, pixel, cellArea);
+          continue;
+        }
+        // Visible layer pixels, top → bottom, down to the first opaque one.
+        hits.length = 0;
+        for (let l = prepared.length - 1; l >= 0; l--) {
+          const pixel = pixelAt(prepared[l], x, y, u, v);
+          if (pixel < 0) continue;
+          const alpha = prepared[l].sample.data[pixel * 4 + 3];
+          if (alpha <= 0) continue;
+          hits.push(l, pixel);
+          if (alpha >= 255) break;
+        }
+        if (hits.length === 0) continue;
+        if (hits.length === 2) {
+          visitor.onCell(position, prepared[hits[0]].sample, hits[1], cellArea);
+          continue;
+        }
+        const blended = blendHits(prepared, hits, blend!);
+        visitor.onCell(position, blend!.sample, blended, cellArea);
       }
     }
   }
+}
+
+/**
+ * Composites the hit pixels ("over", straight alpha, bottom → top) and returns the blend-sample pixel of the result
+ * (one pixel per distinct colour).
+ */
+function blendHits(
+  prepared: readonly PreparedLayer[],
+  hits: readonly number[],
+  blend: { sample: PixelSample & { data: Uint8ClampedArray }; index: Map<number, number> },
+): number {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let a = 0; // premultiplied accumulators, 0–1 alpha
+  for (let h = hits.length - 2; h >= 0; h -= 2) {
+    const data = prepared[hits[h]].sample.data;
+    const o = hits[h + 1] * 4;
+    const alpha = data[o + 3] / 255;
+    r = data[o] * alpha + r * (1 - alpha);
+    g = data[o + 1] * alpha + g * (1 - alpha);
+    b = data[o + 2] * alpha + b * (1 - alpha);
+    a = alpha + a * (1 - alpha);
+  }
+  const rr = a > 0 ? Math.round(r / a) : 0;
+  const gg = a > 0 ? Math.round(g / a) : 0;
+  const bb = a > 0 ? Math.round(b / a) : 0;
+  const aa = Math.round(a * 255);
+  const key = ((rr << 24) | (gg << 16) | (bb << 8) | aa) >>> 0;
+  let pixel = blend.index.get(key);
+  if (pixel === undefined) {
+    pixel = blend.index.size;
+    blend.index.set(key, pixel);
+    const o = pixel * 4;
+    blend.sample.data[o] = rr;
+    blend.sample.data[o + 1] = gg;
+    blend.sample.data[o + 2] = bb;
+    blend.sample.data[o + 3] = aa;
+  }
+  return pixel;
 }
 
 export type InkPixelRules = { minAlpha: number; nearWhiteDeltaE: number };

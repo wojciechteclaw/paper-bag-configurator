@@ -3,7 +3,9 @@ import { DEFAULT_PLACEMENT } from '../domain/artworkPlacement';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createArtwork, createConfiguration } from '../domain/factories';
 import i18n from '../i18n';
+import { wrapLayerTarget } from '../domain/artworkLayout';
 import { useConfigurationStore } from '../state/configurationStore';
+import { useConfiguratorUiStore } from '../state/configuratorUiStore';
 import { DielineView } from './DielineView';
 
 const store = () => useConfigurationStore.getState();
@@ -18,6 +20,7 @@ const addArtwork = (position: 'FRONT' | 'BACK' | 'LEFT', url: string) =>
 beforeEach(async () => {
   await i18n.changeLanguage('pl');
   useConfigurationStore.setState({ configuration: createConfiguration('BLOCK') });
+  useConfiguratorUiStore.setState({ selectedArtwork: null });
   URL.revokeObjectURL = vi.fn();
 });
 
@@ -127,27 +130,49 @@ describe('DielineView', () => {
     expect(store().configuration.panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
   });
 
-  it('edits a whole-bag (wrap) artwork as one image over all walls', () => {
+  it('edits whole-bag layers one at a time, with the selection shared with the layer list', () => {
     const { container } = render(<DielineView />);
     addArtwork('FRONT', 'blob:front'); // per-wall artwork, kept but inactive after the switch
+    let bg = '';
+    let logo = '';
     act(() => {
       store().setArtworkLayout('WRAP');
-      store().setPanelArtwork(
-        'WRAP',
-        createArtwork({ fileName: 'wrap.png', fileUrl: 'blob:wrap', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 10 }),
-      );
+      bg = store().addWrapLayer(
+        createArtwork({ fileName: 'bg.png', fileUrl: 'blob:bg', mimeType: 'image/png', width: 1400, height: 800, sizeBytes: 10 }),
+      )!;
+      logo = store().addWrapLayer(
+        createArtwork({ fileName: 'logo.png', fileUrl: 'blob:logo', mimeType: 'image/png', width: 100, height: 100, sizeBytes: 10 }),
+      )!;
     });
-    expect(container.querySelectorAll('[data-layer="artwork"] image')).toHaveLength(1);
+    // Background: FRONT…BACK part + LEFT part (the end of the wrap); logo: on FRONT only. Drawn bottom → top.
+    const images = [...container.querySelectorAll('[data-layer="artwork"] image')].map((el) => el.getAttribute('href'));
+    expect(images).toEqual(['blob:bg', 'blob:bg', 'blob:logo']);
     expect(screen.queryByRole('button', { name: /Grafika: Przód/ })).not.toBeInTheDocument();
-    const artwork = screen.getByRole('button', { name: /Grafika: Cała torba/ });
-    fireEvent.focus(artwork);
-    expect(screen.getByRole('toolbar', { name: /Cała torba/ })).toBeInTheDocument();
-    fireEvent.keyDown(artwork, { key: 'ArrowRight', shiftKey: true });
-    expect(store().configuration.wrapArtwork.placement).toMatchObject({ mode: 'CUSTOM', offsetX: 10 });
+
+    const logoButton = screen.getByRole('button', { name: /Grafika: Cała torba, warstwa 2: logo\.png/ });
+    fireEvent.focus(logoButton);
+    expect(useConfiguratorUiStore.getState().selectedArtwork).toBe(wrapLayerTarget(logo));
+    expect(screen.getByRole('toolbar', { name: /warstwa 2: logo\.png/ })).toBeInTheDocument();
+    const logoBefore = store().configuration.wrapLayers[1].placement;
+    fireEvent.keyDown(logoButton, { key: 'ArrowRight', shiftKey: true });
+    expect(store().configuration.wrapLayers[1].placement).toMatchObject({
+      mode: 'CUSTOM',
+      offsetX: (logoBefore.mode === 'CUSTOM' ? logoBefore.offsetX : 0) + 10,
+    });
+    expect(store().configuration.wrapLayers[0].placement).toEqual(DEFAULT_PLACEMENT);
     expect(store().configuration.panels.FRONT.placement).toEqual(DEFAULT_PLACEMENT);
+
+    // Selecting in the layer list (shared view state) switches the edited layer.
+    act(() => useConfiguratorUiStore.getState().selectArtwork(wrapLayerTarget(bg)));
+    expect(screen.getByRole('toolbar', { name: /warstwa 1: bg\.png/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Rozciągnij na dno' }));
-    expect(store().configuration.wrapArtwork.placement.extendToBottom).toBe(true);
+    expect(store().configuration.wrapLayers[0].placement.extendToBottom).toBe(true);
+    expect(store().configuration.wrapLayers[1].placement.extendToBottom).toBe(false);
     expect(container.querySelectorAll('[data-zone="BOTTOM_ALLOWANCE"][data-printed="true"]')).toHaveLength(4);
+
+    // A removed layer's selection is ignored.
+    act(() => store().removeWrapLayer(bg));
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
   });
 
   it('switches labels with the language', async () => {

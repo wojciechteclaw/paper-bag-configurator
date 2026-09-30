@@ -113,17 +113,35 @@
       "FILE_TOO_LARGE": "The file is too large (max. {{maxMb}} MB).",
       "DECODE_FAILED": "The file could not be read as an image."
     },
-    "WRAP": "Whole bag",
-    "dropZoneLabelWrap": "Whole bag: add artwork",
-    "fileInputLabelWrap": "Whole bag: artwork file",
-    "aspectMismatchWrap": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the bag's unfolded walls ({{panelRatio}}) — the artwork will be distorted.",
+    "aspectMismatchWrap": "The artwork's aspect ratio ({{imageRatio}}) differs from that of the walls around the bag ({{panelRatio}}) — with “Stretch” the artwork will be distorted.",
     "layout": {
       "label": "Artwork layout",
       "PER_PANEL": "Separate artwork for each wall",
-      "WRAP": "One artwork for the whole bag",
-      "wrapNote": "The artwork is stretched across all walls in sheet order: {{order}} (starting at the seam; the glue flap stays unprinted). Set its position, scale and “Extend to bottom” in the Dieline view.",
+      "WRAP": "Whole-bag artwork (layers)",
+      "wrapNote": "The artwork runs around the bag: {{order}} — starting at the left edge of the front (the glue flap stays unprinted). Set each layer's position, scale and “Extend to bottom” in the Dieline view.",
       "keptPanels": "The per-wall artwork is kept and comes back when you switch the layout; it is not printed in this layout.",
-      "keptWrap": "The whole-bag artwork is kept and comes back when you switch the layout; it is not printed in this layout."
+      "keptWrap": "The whole-bag artwork layers are kept and come back when you switch the layout; they are not printed in this layout."
+    },
+    "layers": {
+      "title": "Artwork layers",
+      "count": "{{count}} of {{max}}",
+      "orderNote": "A layer higher in the list prints on top. The first layer (e.g. a background) fills the whole bag; further ones (logo, barcode…) start fitted to the front.",
+      "empty": "No layers yet — add the first artwork, e.g. a background.",
+      "listLabel": "Artwork layers, top first",
+      "layerName": "Layer {{index}}",
+      "select": "{{layer}}: {{name}} — select for editing on the dieline",
+      "moveUp": "{{layer}}: move up (towards the top)",
+      "moveDown": "{{layer}}: move down",
+      "placementFill": "Stretched over the whole bag",
+      "placementCustom": "Custom position, scale {{scale}} %",
+      "extended": "incl. bottom",
+      "editOnDieline": "Edit on the dieline",
+      "add": "Add a layer — drop a file here",
+      "addFirst": "Add the first layer — drop a file here",
+      "addDropLabel": "Add a whole-bag artwork layer",
+      "addFileInputLabel": "File of the new artwork layer",
+      "replaceFileInputLabel": "File replacing the layer's artwork",
+      "maxReached": "The limit of {{max}} layers is reached — remove a layer to add another."
     }
   },
   "paper": {

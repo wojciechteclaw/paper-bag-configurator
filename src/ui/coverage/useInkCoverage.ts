@@ -10,12 +10,12 @@ import {
   computeArtworkPalette,
   computeInkCoverage,
   type ArtworkPaletteResult,
-  type CoveragePanelInput,
   type InkCoverageResult,
 } from '../../domain/printCoverage';
 import type { PanelPosition } from '../../domain/types';
 import { useConfigurationStore } from '../../state/configurationStore';
-import { loadArtworkSample, pruneArtworkSamples } from '../artwork/sampleArtworkPixels';
+import { pruneArtworkSamples } from '../artwork/sampleArtworkPixels';
+import { loadCoverageInputs } from './coverageInputs';
 
 export const COVERAGE_DEBOUNCE_MS = 200;
 
@@ -42,16 +42,16 @@ export function useInkCoverage(): InkCoverageState {
   const handle = useConfigurationStore((s) => s.configuration.handle);
   const panels = useConfigurationStore((s) => s.configuration.panels);
   const artworkLayout = useConfigurationStore((s) => s.configuration.artworkLayout);
-  const wrapArtwork = useConfigurationStore((s) => s.configuration.wrapArtwork);
+  const wrapLayers = useConfigurationStore((s) => s.configuration.wrapLayers);
   const paperColor = useConfigurationStore((s) => s.configuration.paper.color);
   const pantoneColors = useConfigurationStore((s) => s.configuration.print.pantoneColors);
   const colorAnalysis = useConfigurationStore((s) => s.configuration.print.colorAnalysis);
-  // What every wall shows under the active layout (per wall, or the whole-bag wrap — docs/SPEC.md §3a).
+  // What every wall shows under the active layout (per wall, or the whole-bag layers — docs/SPEC.md §3a, §3b).
   const artworks = useMemo(
-    () => resolvePanelArtworks({ dimensions, panels, artworkLayout, wrapArtwork }),
-    [dimensions, panels, artworkLayout, wrapArtwork],
+    () => resolvePanelArtworks({ dimensions, panels, artworkLayout, wrapLayers }),
+    [dimensions, panels, artworkLayout, wrapLayers],
   );
-  const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].artwork);
+  const hasArtwork = PANEL_POSITIONS.some((position) => artworks[position].layers.length > 0);
   // Identity of the current inputs: a result is "ready" only for the request it was computed from.
   const coverageRequest = useMemo(
     () => ({ dieline: buildDieline({ dimensions, handle }), artworks, paperColor, pantoneColors }),
@@ -69,27 +69,14 @@ export function useInkCoverage(): InkCoverageState {
     const { coverageRequest: inputs } = request;
 
     const timer = setTimeout(async () => {
-      const used = new Set<string>();
-      const entries = await Promise.all(
-        PANEL_POSITIONS.map(async (position) => {
-          const { artwork, placement, area } = inputs.artworks[position];
-          if (!artwork) return [position, null] as const;
-          used.add(artwork.fileUrl);
-          const sample = await loadArtworkSample(artwork);
-          const input: CoveragePanelInput | null = sample
-            ? { imageSize: { width: artwork.width, height: artwork.height }, placement, area, sample }
-            : null;
-          return [position, input] as const;
-        }),
-      );
+      const loaded = await loadCoverageInputs(inputs.artworks);
       if (!active) return;
-      pruneArtworkSamples(used);
+      pruneArtworkSamples(loaded.usedUrls);
       idle = whenIdle(() => {
         if (!active) return;
-        const samples = Object.fromEntries(entries) as Record<PanelPosition, CoveragePanelInput | null>;
         const analysisInput = {
           dieline: inputs.dieline,
-          panels: samples,
+          panels: loaded.panels,
           paperColor: inputs.paperColor,
           pantoneColors: inputs.pantoneColors,
         };
@@ -97,8 +84,7 @@ export function useInkCoverage(): InkCoverageState {
           lastCoverage.current?.request === inputs ? lastCoverage.current.result : computeInkCoverage(analysisInput);
         lastCoverage.current = { request: inputs, result };
         const palette = computeArtworkPalette({ ...analysisInput, colorAnalysis: request.colorAnalysis });
-        const unavailablePanels = PANEL_POSITIONS.filter((p) => inputs.artworks[p].artwork && !samples[p]);
-        setComputed({ request, result, palette, unavailablePanels });
+        setComputed({ request, result, palette, unavailablePanels: loaded.unavailablePanels });
       });
     }, COVERAGE_DEBOUNCE_MS);
 

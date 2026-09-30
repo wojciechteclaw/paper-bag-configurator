@@ -60,7 +60,7 @@
       "BACK": "Rückseite",
       "LEFT": "Linke Seite",
       "RIGHT": "Rechte Seite",
-      "WRAP": "Ganze Tasche"
+      "wrapLayer": "Ganze Tasche, Ebene {{index}}: {{name}}"
     },
     "edit": {
       "artworkLabel": "Druckmotiv: {{panel}}. Klicken zum Bearbeiten; Pfeiltasten verschieben, + und − skalieren, R dreht, 0 setzt zurück.",

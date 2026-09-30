@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePanelArtworks, WRAP_PANEL_ORDER } from '../artworkLayout';
 import { buildDieline } from '../dieline';
-import { createArtwork, createConfiguration } from '../factories';
+import { createArtwork, createConfiguration, createWrapLayer } from '../factories';
 import type { ArtworkPlacement, Dimensions, PantoneColor, PanelPosition, PaperColor } from '../types';
 import { computeInkCoverage, type CoveragePanelInput, type PixelSample } from './computeInkCoverage';
 
@@ -186,39 +186,106 @@ describe('computeInkCoverage', () => {
     });
   });
 
-  describe('whole-bag (wrap) artwork (SPEC §3a)', () => {
-    /** One image over the wall row LEFT | FRONT | RIGHT | BACK (700 mm), fed per wall with its resolved area. */
-    const wrapInputs = (rows: Rgba[][], extendToBottom = false) => {
+  describe('whole-bag artwork layers (SPEC §3a, §3b)', () => {
+    type LayerSpec = { rows: Rgba[][]; placement?: ArtworkPlacement };
+    /**
+     * Layers (bottom → top) around the bag FRONT | RIGHT | BACK | LEFT (700 mm, from FRONT's left edge), fed per wall
+     * with their resolved areas — exactly what the UI passes.
+     */
+    const wrapInputs = (layers: LayerSpec[]) => {
       const configuration = createConfiguration('BLOCK');
       configuration.artworkLayout = 'WRAP';
-      const s = sample(rows);
-      configuration.wrapArtwork = {
-        artwork: createArtwork({ fileName: 'w.png', fileUrl: 'blob:w', mimeType: 'image/png', width: s.width, height: s.height, sizeBytes: 1 }),
-        placement: { mode: 'FILL', extendToBottom },
-      };
+      const samples = layers.map(({ rows }) => sample(rows));
+      configuration.wrapLayers = layers.map(({ placement = { mode: 'FILL', extendToBottom: false } }, i) =>
+        createWrapLayer(
+          createArtwork({
+            fileName: `l${i}.png`,
+            fileUrl: `blob:l${i}`,
+            mimeType: 'image/png',
+            width: samples[i].width,
+            height: samples[i].height,
+            sizeBytes: 1,
+          }),
+          placement,
+        ),
+      );
       const resolved = resolvePanelArtworks(configuration);
       return Object.fromEntries(
         WRAP_PANEL_ORDER.map((position) => [
           position,
-          { imageSize: { width: s.width, height: s.height }, placement: resolved[position].placement, area: resolved[position].area, sample: s },
+          resolved[position].layers.map(
+            (layer, i): CoveragePanelInput => ({
+              imageSize: { width: samples[i].width, height: samples[i].height },
+              placement: layer.placement,
+              area: layer.area,
+              sample: samples[i],
+            }),
+          ),
         ]),
-      ) as Record<PanelPosition, CoveragePanelInput>;
+      ) as Record<PanelPosition, CoveragePanelInput[]>;
     };
 
-    it('samples one continuous image across the walls: the left half of the row is LEFT + FRONT', () => {
-      // 2 px: red | transparent → ink on x ∈ [0, 350) = LEFT (150) + FRONT (200); RIGHT and BACK stay bare.
-      const result = compute(wrapInputs([[RED, CLEAR]]));
-      expect(result.panels.LEFT?.inkArea).toBeCloseTo(150 * 400, 6);
+    it('samples one continuous image around the bag: the first half of the wrap is FRONT + RIGHT', () => {
+      // 2 px: red | transparent → ink on wrap x ∈ [0, 350) = FRONT (200) + RIGHT (150); BACK and LEFT stay bare.
+      const result = computeInkCoverage({ dieline, panels: wrapInputs([{ rows: [[RED, CLEAR]] }]), paperColor: 'WHITE', pantoneColors: palette });
       expect(result.panels.FRONT?.inkArea).toBeCloseTo(FRONT_AREA, 6);
-      expect(result.panels.RIGHT?.inkArea).toBe(0);
+      expect(result.panels.RIGHT?.inkArea).toBeCloseTo(150 * 400, 6);
       expect(result.panels.BACK?.inkArea).toBe(0);
+      expect(result.panels.LEFT?.inkArea).toBe(0);
       expect(result.colors[0].area).toBeCloseTo(350 * 400, 6);
     });
 
-    it('prints on every bottom allowance when the wrap extends to the bottom', () => {
-      const result = compute(wrapInputs([[RED]], true));
+    it('prints on every bottom allowance when a layer extends to the bottom', () => {
+      const result = computeInkCoverage({
+        dieline,
+        panels: wrapInputs([{ rows: [[RED]], placement: { mode: 'FILL', extendToBottom: true } }]),
+        paperColor: 'WHITE',
+        pantoneColors: palette,
+      });
       expect(result.inkArea).toBeCloseTo(700 * 490, 3);
       expect(result.panels.BACK?.printArea).toBeCloseTo(200 * 490, 6);
+    });
+
+    it('counts the composite: an opaque upper layer replaces the ink below instead of adding to it', () => {
+      // Blue background everywhere, red over the first half of the wrap.
+      const result = computeInkCoverage({
+        dieline,
+        panels: wrapInputs([{ rows: [[BLUE]] }, { rows: [[RED, CLEAR]] }]),
+        paperColor: 'WHITE',
+        pantoneColors: palette,
+      });
+      expect(result.inkArea).toBeCloseTo(700 * 400, 3);
+      expect(result.colors[0].area).toBeCloseTo(350 * 400, 3); // red
+      expect(result.colors[1].area).toBeCloseTo(350 * 400, 3); // blue
+      expect(result.panels.FRONT?.colorAreas).toEqual([expect.closeTo(FRONT_AREA, 3), 0]);
+    });
+
+    it('blends a semi-transparent upper layer with the one below (alpha "over"), counting the area once', () => {
+      const HALF_RED: Rgba = [200, 16, 46, 128];
+      const result = computeInkCoverage({
+        dieline,
+        panels: wrapInputs([{ rows: [[WHITE]] }, { rows: [[HALF_RED]] }]),
+        paperColor: 'WHITE',
+        pantoneColors: palette,
+      });
+      // White background alone is bare paper on white; blended with half-red it is a pink ink, over the full wrap.
+      expect(result.inkArea).toBeCloseTo(700 * 400, 3);
+      expect(result.colors[0].area).toBeCloseTo(700 * 400, 3);
+    });
+
+    it('keeps a layer without "extend to bottom" off the allowance while an extended layer below prints there', () => {
+      const result = computeInkCoverage({
+        dieline,
+        panels: wrapInputs([
+          { rows: [[BLUE]], placement: { mode: 'FILL', extendToBottom: true } },
+          { rows: [[RED]], placement: { mode: 'FILL', extendToBottom: false } },
+        ]),
+        paperColor: 'WHITE',
+        pantoneColors: palette,
+      });
+      expect(result.colors[0].area).toBeCloseTo(700 * 400, -3); // red on the walls (grid cells straddle the bottom line)
+      expect(result.colors[1].area).toBeCloseTo(700 * 90, -3); // blue only on the bottom allowance
+      expect(result.panels.FRONT?.printArea).toBeCloseTo(200 * 490, 6);
     });
   });
 });

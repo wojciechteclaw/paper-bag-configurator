@@ -7,10 +7,18 @@ import {
   setPlacementExtendToBottom,
   type ArtworkAlignment,
 } from '../domain/artworkPlacement';
-import { getArtworkLayout, getArtworkSlot, getArtworkTargetArea, getWrapArtwork } from '../domain/artworkLayout';
-import { ARTWORK_LAYOUTS, BAG_TYPES } from '../domain/config/productCatalog';
+import {
+  getArtworkLayout,
+  getArtworkSlot,
+  getArtworkTargetArea,
+  getNewWrapLayerPlacement,
+  getWrapArtworkArea,
+  getWrapLayerId,
+  getWrapLayers,
+} from '../domain/artworkLayout';
+import { ARTWORK_LAYOUTS, BAG_TYPES, MAX_WRAP_ARTWORK_LAYERS } from '../domain/config/productCatalog';
 import { constrainDimension, constrainDimensions, constrainGrammage } from '../domain/constraints';
-import { createConfiguration, createHandle } from '../domain/factories';
+import { createConfiguration, createHandle, createWrapLayer } from '../domain/factories';
 import {
   constrainPaperToVariant,
   getHandleVariantDefinition,
@@ -32,6 +40,7 @@ import type {
   Dimensions,
   HandleType,
   PackagingType,
+  PanelPosition,
   PaperColor,
   PaperType,
 } from '../domain/types';
@@ -68,11 +77,22 @@ type ConfigurationState = {
    */
   setArtworkLayout: (layout: ArtworkLayout) => void;
   /**
-   * Replaces or removes the artwork of a wall or of the wrap (`'WRAP'`); the previous object URL is revoked and the
-   * placement resets to FILL. New and removed artwork get `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`; a replaced image keeps
-   * the target's "extend to bottom".
+   * Replaces or removes the artwork of a wall or of a whole-bag layer (`WRAP:<id>`); the previous object URL is
+   * revoked. Wall: the placement resets to FILL; new and removed artwork get `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`, a
+   * replaced image keeps the wall's "extend to bottom". Layer: `null` removes the layer; a replaced image keeps the
+   * layer's id, position in the stack and placement (a placed logo stays where it is). Unknown layers are ignored.
    */
   setPanelArtwork: (target: ArtworkTarget, artwork: Artwork | null) => void;
+  /**
+   * Adds a whole-bag layer on top of the others (docs/SPEC.md §3b). The first layer FILLs the wall row, later ones
+   * start fitted on the FRONT wall (`getNewWrapLayerPlacement`). Returns the new layer's id, or null when
+   * `MAX_WRAP_ARTWORK_LAYERS` is reached (the artwork's object URL is then revoked).
+   */
+  addWrapLayer: (artwork: Artwork) => string | null;
+  /** Removes a whole-bag layer and revokes its object URL. Unknown ids are ignored. */
+  removeWrapLayer: (layerId: string) => void;
+  /** Moves a whole-bag layer one step up (+1: printed later, on top) or down (−1); ignored at either end. */
+  moveWrapLayer: (layerId: string, direction: 1 | -1) => void;
   /** Sets how the artwork sits on its target (normalized against its artwork area: scale limits, centre kept inside, 90° steps). */
   setPanelPlacement: (target: ArtworkTarget, placement: ArtworkPlacement) => void;
   /** Back to the default placement (`DEFAULT_PLACEMENT`: FILL, extension per `ARTWORK_EXTEND_TO_BOTTOM_DEFAULT`). */
@@ -105,15 +125,28 @@ function revokeArtworkUrl(artwork: Artwork | null) {
   }
 }
 
-/** Configuration patch writing (part of) the artwork slot of a wall or of the whole-bag wrap. */
+/**
+ * Configuration patch writing (part of) the artwork slot of a wall or of a whole-bag layer. A layer's artwork is never
+ * null (removing a layer is `removeWrapLayer`); an unknown layer yields no change.
+ */
 function writeSlot(
   configuration: BagConfiguration,
   target: ArtworkTarget,
-  slot: Partial<{ artwork: Artwork | null; placement: ArtworkPlacement }>,
+  slot: Partial<{ artwork: Artwork; placement: ArtworkPlacement }> | Partial<{ artwork: Artwork | null; placement: ArtworkPlacement }>,
 ): Partial<BagConfiguration> {
-  if (target === 'WRAP') return { wrapArtwork: { ...getWrapArtwork(configuration), ...slot } };
+  const layerId = getWrapLayerId(target);
+  if (layerId !== null) {
+    const layers = getWrapLayers(configuration);
+    if (!layers.some((layer) => layer.id === layerId) || slot.artwork === null) return {};
+    return {
+      wrapLayers: layers.map((layer) =>
+        layer.id === layerId ? { ...layer, ...(slot as Partial<{ artwork: Artwork; placement: ArtworkPlacement }>) } : layer,
+      ),
+    };
+  }
   const { panels } = configuration;
-  return { panels: { ...panels, [target]: { ...panels[target], ...slot } } };
+  const position = target as PanelPosition;
+  return { panels: { ...panels, [position]: { ...panels[position], ...slot } } };
 }
 
 export const useConfigurationStore = create<ConfigurationState>((set, get) => {
@@ -130,7 +163,7 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       const { configuration } = get();
       if (type === configuration.productType || !BAG_TYPES[type].available) return;
       Object.values(configuration.panels).forEach((panel) => revokeArtworkUrl(panel.artwork));
-      revokeArtworkUrl(getWrapArtwork(configuration).artwork);
+      getWrapLayers(configuration).forEach((layer) => revokeArtworkUrl(layer.artwork));
       set({ configuration: createConfiguration(type) });
     },
 
@@ -183,6 +216,20 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
       update((c) => (ARTWORK_LAYOUTS.includes(layout) && getArtworkLayout(c) !== layout ? { artworkLayout: layout } : {})),
 
     setPanelArtwork: (target, artwork) => {
+      const layerId = getWrapLayerId(target);
+      if (layerId !== null) {
+        if (!artwork) {
+          get().removeWrapLayer(layerId);
+          return;
+        }
+        const { configuration } = get();
+        const { artwork: previous, placement } = getArtworkSlot(configuration, target);
+        if (!previous) return;
+        if (previous.fileUrl !== artwork.fileUrl) revokeArtworkUrl(previous);
+        const area = getWrapArtworkArea(configuration.dimensions, placement);
+        update((c) => writeSlot(c, target, { artwork, placement: normalizePlacement(placement, area) }));
+        return;
+      }
       const { artwork: previous, placement: current } = getArtworkSlot(get().configuration, target);
       if (previous && previous.fileUrl !== artwork?.fileUrl) revokeArtworkUrl(previous);
       const placement = !artwork || !previous
@@ -192,6 +239,41 @@ export const useConfigurationStore = create<ConfigurationState>((set, get) => {
           : fillPlacement(current.extendToBottom === true);
       update((c) => writeSlot(c, target, { artwork, placement }));
     },
+
+    addWrapLayer: (artwork) => {
+      const layers = getWrapLayers(get().configuration);
+      if (layers.length >= MAX_WRAP_ARTWORK_LAYERS) {
+        revokeArtworkUrl(artwork);
+        return null;
+      }
+      const placement = getNewWrapLayerPlacement(
+        get().configuration.dimensions,
+        artwork,
+        layers.length,
+        DEFAULT_PLACEMENT.extendToBottom,
+      );
+      const layer = createWrapLayer(artwork, placement);
+      update((c) => ({ wrapLayers: [...getWrapLayers(c), layer] }));
+      return layer.id;
+    },
+
+    removeWrapLayer: (layerId) => {
+      const layers = getWrapLayers(get().configuration);
+      const removed = layers.find((layer) => layer.id === layerId);
+      if (!removed) return;
+      revokeArtworkUrl(removed.artwork);
+      update((c) => ({ wrapLayers: getWrapLayers(c).filter((layer) => layer.id !== layerId) }));
+    },
+
+    moveWrapLayer: (layerId, direction) =>
+      update((c) => {
+        const layers = [...getWrapLayers(c)];
+        const from = layers.findIndex((layer) => layer.id === layerId);
+        const to = from + direction;
+        if (from < 0 || to < 0 || to >= layers.length) return {};
+        [layers[from], layers[to]] = [layers[to], layers[from]];
+        return { wrapLayers: layers };
+      }),
 
     setPanelPlacement: (target, placement) =>
       update((c) =>

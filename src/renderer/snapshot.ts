@@ -57,17 +57,26 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Resolves with the artwork URLs that can actually be decoded (failed ones render as plain paper). */
 async function loadableArtworkPanels(configuration: BagConfiguration): Promise<PanelPosition[]> {
-  // What the walls show under the active layout (a whole-bag wrap puts one image on all four walls).
-  const entries = Object.values(resolvePanelArtworks(configuration)).filter((panel) => panel.artwork);
+  // What the walls show under the active layout (whole-bag layers are on all four walls). A wall gets a texture when at
+  // least one of its layers can be decoded (a layer composite skips failed images).
+  const panels = Object.values(resolvePanelArtworks(configuration)).filter((panel) => panel.layers.length > 0);
+  const decodable = new Map<string, Promise<boolean>>();
+  const canDecode = (url: string) => {
+    let result = decodable.get(url);
+    if (!result) {
+      result = new Promise<boolean>((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve(true);
+        image.onerror = () => resolve(false);
+        image.src = url;
+      });
+      decodable.set(url, result);
+    }
+    return result;
+  };
   const results = await Promise.all(
-    entries.map(
-      (panel) =>
-        new Promise<PanelPosition | null>((resolve) => {
-          const image = new Image();
-          image.onload = () => resolve(panel.position);
-          image.onerror = () => resolve(null);
-          image.src = panel.artwork!.fileUrl;
-        }),
+    panels.map(async (panel) =>
+      (await Promise.all(panel.layers.map((layer) => canDecode(layer.artwork.fileUrl)))).some(Boolean) ? panel.position : null,
     ),
   );
   return results.filter((p): p is PanelPosition => p !== null);
