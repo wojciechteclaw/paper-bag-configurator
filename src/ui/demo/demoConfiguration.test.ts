@@ -31,7 +31,7 @@ describe('demo configuration', () => {
     expect(c.handle?.type).toBe(DEMO_CONFIGURATION.handle);
     for (const position of ['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const) {
       const panel = c.panels[position];
-      expect(panel.artwork?.fileUrl).toBe(`/sample-images/wave_${position.toLowerCase()}.webp`);
+      expect(panel.artwork?.fileUrl).toBe(`/carrier-bag/wave_${position.toLowerCase()}.webp`);
       expect(panel.artwork).toMatchObject({ width: 2953, height: 6083, sizeBytes: 1234, mimeType: 'image/webp' });
       expect(panel.placement).toMatchObject({ mode: 'FILL', extendToBottom: true });
     }
