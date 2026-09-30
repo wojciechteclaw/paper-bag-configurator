@@ -2,23 +2,23 @@
   "id": "demo-1",
   "productType": "BLOCK",
   "dimensions": {
-    "width": 250,
+    "width": 320,
     "height": 400,
-    "depth": 200
+    "depth": 220
   },
   "paper": {
     "type": "KRAFT",
     "color": "WHITE",
-    "grammage": 100,
+    "grammage": 70,
     "fscCertified": true,
     "moistureBarrier": false
   },
   "handle": {
-    "id": "5aeedc07-4abe-4b70-9c26-6f14a834d521",
-    "type": "FLAT_PAPER",
+    "id": "19cbd3f6-c800-4287-adb9-ada93285c05c",
+    "type": "TWISTED_PAPER",
     "material": "KRAFT",
     "color": "#c8a57a",
-    "width": 20,
+    "width": 5,
     "length": 180,
     "patch": {
       "width": 110,
@@ -27,77 +27,62 @@
   },
   "panels": {
     "FRONT": {
-      "id": "f15209dc-1cfe-40ad-9546-e77527a30701",
+      "id": "f86e4ad2-a27a-4944-bd76-128f5722892b",
       "position": "FRONT",
-      "artwork": {
-        "id": "6206c064-7b15-44d8-9af0-4f73c7ba473b",
-        "fileName": "image-1.webp",
-        "fileUrl": "image-1.webp",
-        "width": 2953,
-        "height": 6083,
-        "sizeBytes": 0,
-        "mimeType": "image/webp"
-      },
+      "artwork": null,
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     },
     "BACK": {
-      "id": "828d413f-296a-44d1-a4f2-a378dd5d90bc",
+      "id": "208ab54f-59e2-47ea-9de1-13a5ff27bee0",
       "position": "BACK",
-      "artwork": {
-        "id": "9e0072e5-4a02-439d-a310-abd7729116e4",
-        "fileName": "image-2.webp",
-        "fileUrl": "image-2.webp",
-        "width": 2953,
-        "height": 6083,
-        "sizeBytes": 0,
-        "mimeType": "image/webp"
-      },
+      "artwork": null,
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     },
     "LEFT": {
-      "id": "8324d6d3-a673-42da-82e5-8f591b88233a",
+      "id": "9e443691-0fb1-436e-bf9a-a62c9180208a",
       "position": "LEFT",
-      "artwork": {
-        "id": "bb628a59-1649-482d-9ca6-3b6108fd626e",
-        "fileName": "image-3.webp",
-        "fileUrl": "image-3.webp",
-        "width": 2362,
-        "height": 6083,
-        "sizeBytes": 0,
-        "mimeType": "image/webp"
-      },
+      "artwork": null,
       "placement": {
         "mode": "FILL",
-        "extendToBottom": true
+        "extendToBottom": false
       }
     },
     "RIGHT": {
-      "id": "2f81a935-ac65-4cf7-9c89-5329e322f224",
+      "id": "e977683f-81be-470d-8d93-fa8ff39b85b6",
       "position": "RIGHT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    }
+  },
+  "artworkLayout": "SHEET",
+  "wrapLayers": [],
+  "sheetLayers": [
+    {
+      "id": "cca171f1-3551-4b83-971a-5d46f5b22867",
       "artwork": {
-        "id": "5c4cdcdc-410e-4401-b46c-1e9bda523371",
-        "fileName": "image-4.webp",
-        "fileUrl": "image-4.webp",
-        "width": 2362,
-        "height": 6083,
-        "sizeBytes": 0,
-        "mimeType": "image/webp"
+        "id": "f3b350bd-9326-4438-815c-0200528bb9a9",
+        "fileName": "image-1.webp",
+        "fileUrl": "image-1.webp",
+        "mimeType": "image/webp",
+        "width": 7560,
+        "height": 2941,
+        "sizeBytes": 43514
       },
       "placement": {
         "mode": "FILL",
         "extendToBottom": true
       }
     }
-  },
-  "artworkLayout": "PER_PANEL",
-  "wrapLayers": [],
-  "sheetLayers": [],
+  ],
   "print": {
     "technology": "FLEXO",
     "pantoneColors": [],

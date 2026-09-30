@@ -11,10 +11,10 @@
     "demoError": "The demo could not be loaded: {{folder}}/config.json is missing or invalid.",
     "demoMissing": "Demo configuration loaded, but these images are missing: {{files}}",
     "demoHints": {
-      "1": "Demo 1 (public/demo1): block-bottom bag 250 × 200 × 400 mm, white paper 100 g/m² FSC, flat paper handle, “wave” artwork on the walls, extended to the bottom",
+      "1": "Demo 1 (public/demo1): XL block-bottom bag 320 × 220 × 400 mm, white kraft 70 g/m² FSC, twisted handle, whole-sheet artwork",
       "2": "Demo 2 (public/demo2): gusseted bag 150 + 60 × 250 mm, brown paper 40 g/m² FSC, whole-sheet artwork",
       "3": "Demo 3 (public/demo3): gusseted bag 150 + 60 × 250 mm with a panoramic window (perforated PP film), whole-bag artwork",
-      "4": "Demo 4 (public/demo4): XL block-bottom bag 320 × 220 × 400 mm, white kraft 70 g/m² FSC, twisted handle, whole-sheet artwork"
+      "4": "Demo 4 (public/demo4): block-bottom bag 250 × 200 × 400 mm, white paper 100 g/m² FSC, flat paper handle, “wave” artwork on the walls, extended to the bottom"
     },
     "demoHintGeneric": "Load the example from {{folder}} (config.json + images)"
   },
