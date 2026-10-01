@@ -42,8 +42,8 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     for (let i = 1; i <= DEMO_COUNT; i++) expect(CONFIGS[`/public/demo${i}/config.json`]).toBeDefined();
   });
 
-  it('Demo 4: block-bottom bag 250 × 180 × 420, brown recycled 80 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
-    const result = await loadDemoConfiguration(4, '/');
+  it('Demo 2: block-bottom bag 250 × 180 × 420, brown recycled 80 g/m² FSC, flat paper handle, wave artwork on all walls extended to the bottom', async () => {
+    const result = await loadDemoConfiguration(2, '/');
     expect(result).toEqual({ missing: [], total: 4 });
     const c = config();
     expect(c.productType).toBe('BLOCK');
@@ -55,22 +55,22 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     const files = { FRONT: 'image-4', BACK: 'image-2', LEFT: 'image-3', RIGHT: 'image-1' } as const;
     (['FRONT', 'BACK', 'LEFT', 'RIGHT'] as const).forEach((position) => {
       // Pixel size and bytes come from the loaded image (mocked here), not from config.json.
-      expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo4/${files[position]}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
+      expect(c.panels[position].artwork).toMatchObject({ fileUrl: `/demo2/${files[position]}.webp`, width: 2000, height: 1000, sizeBytes: 1234 });
       expect(c.panels[position].placement).toEqual({ mode: 'FILL', extendToBottom: true });
     });
   });
 
-  it('Demo 2: gusseted bag 150 + 60 × 250, one whole-sheet layer image-1', async () => {
-    await loadDemoConfiguration(2, '/');
+  it('Demo 4: gusseted bag 150 + 60 × 250, one whole-sheet layer image-1', async () => {
+    await loadDemoConfiguration(4, '/');
     const c = config();
     expect(c.productType).toBe('FOLDED');
     expect(c.dimensions).toEqual({ width: 150, height: 250, depth: 60 });
     expect(c.glueFlapWidth).toBe(15);
     expect(getArtworkLayout(c)).toBe('SHEET');
-    expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo2/image-1.webp']);
+    expect(getSheetLayers(c).map((layer) => layer.artwork.fileUrl)).toEqual(['/demo4/image-1.webp']);
     // The 5040 × 3000 px wall-row file lies 1:1 on the walls above the bottom strip — the placement the app computes
     // for it (getPrintFilePlacement) against the sheet area without the glue flap.
-    const config2 = JSON.parse(CONFIGS['/public/demo2/config.json']);
+    const config2 = JSON.parse(CONFIGS['/public/demo4/config.json']);
     expect(config2.sheetLayers[0].placement).toEqual(getPrintFilePlacement(c, { width: 5040, height: 3000 }));
   });
 
@@ -105,8 +105,8 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
 
   it('still loads the configuration when an image is missing, and lists it', async () => {
     failingImages = ['image-2.webp'];
-    const result = await loadDemoConfiguration(4, '/');
-    expect(result).toEqual({ missing: ['demo4/image-2.webp'], total: 4 });
+    const result = await loadDemoConfiguration(2, '/');
+    expect(result).toEqual({ missing: ['demo2/image-2.webp'], total: 4 });
     expect(config().panels.BACK.artwork).toBeNull();
     expect(config().panels.FRONT.artwork).not.toBeNull();
   });

@@ -232,7 +232,7 @@ każdą można osobno przesuwać / skalować / obracać / wyrównać na wykroju;
 ### 3c. Grafika na cały arkusz (wykrój) — zlecenie klienta [K] 30.09.2026
 
 Trzeci układ grafik: warstwy położone **1:1 na całym arkuszu wykroju**, tak jak przygotowuje się pliki do druku (np.
-plik Demo 2 `public/gusseted-bag/gussted.webp` ma docelowo 5220 × 3300 px = arkusz 435 × 275 mm przy ~305 dpi).
+plik Demo 4 (dawniej Demo 2, zamiana 01.10.2026) `public/gusseted-bag/gussted.webp` ma docelowo 5220 × 3300 px = arkusz 435 × 275 mm przy ~305 dpi).
 
 - **Model:** `ArtworkLayout = 'SHEET'` (katalog `ARTWORK_LAYOUTS`), osobna lista `BagConfiguration.sheetLayers` — ten sam
   model warstw co WRAP (`ArtworkLayer`: id, artwork, placement; te same akcje store `addArtworkLayer` /
@@ -256,7 +256,7 @@ plik Demo 2 `public/gusseted-bag/gussted.webp` ma docelowo 5220 × 3300 px = ark
   Geometria wyłącznie z `buildDieline` (kolumny, linia dna), więc zmiany konstrukcji (np. konfigurowalny pasek d) są
   uwzględniane automatycznie.
 - **Nowa warstwa:** pierwsza = FILL arkusza; kolejne dopasowane do przodu (jak WRAP). `getPrintFilePlacement`: plik o
-  proporcjach arkusza → FILL; plik o proporcjach rzędu ścianek (np. obecny 5040 × 3000 px pliku Demo 2 = 420 × 250 mm) →
+  proporcjach arkusza → FILL; plik o proporcjach rzędu ścianek (np. obecny 5040 × 3000 px pliku Demo 4 = 420 × 250 mm) →
   położony 1:1 na ściankach nad linią dna (bez deformacji); inaczej FILL z ostrzeżeniem.
 - **Wykrój 2D:** każda warstwa to jeden obraz (kolumny mają tę samą macierz), przycięty do kolumn ścianek ze spadem;
   zaznaczanie / przeciąganie / klawisze jak przy innych warstwach; w SVG / PDF każdy plik osadzony raz.
@@ -265,7 +265,7 @@ plik Demo 2 `public/gusseted-bag/gussted.webp` ma docelowo 5220 × 3300 px = ark
   wymiarem arkusza.
 - **UI:** radio „Grafika na cały arkusz (wykrój)”, podpowiedź z wymiarem arkusza w mm i w px przy 300 dpi
   (`ARTWORK_PRINT_DPI`), ostrzeżenie o proporcjach względem arkusza.
-- **Demo 2:** układ SHEET, jedna warstwa `gusseted-bag/gussted.webp` położona jako plik do druku
+- **Demo 4** (dawniej Demo 2): układ SHEET, jedna warstwa `gusseted-bag/gussted.webp` położona jako plik do druku
   (`getPrintFilePlacement`).
 
 ## 4. Podgląd 3D
@@ -658,8 +658,8 @@ produkcyjne, eksport do maszyn, pełny system materiałów, magazyn, ERP/MES, mo
 - Pokrycie farbą: ~~czy grafika w zapasie na dno ma być wliczana?~~ — rozstrzygnięte w §4f (liczona przy „Rozciągnij na dno”). Czy biały podkład pod kolorami na papierze brązowym liczyć osobno? Czy progi (ΔE bieli 8, alfa 8/255) są akceptowalne?
 - ~~Wykrój: rozmiar łatki uchwytu i rozstaw końców~~ — rozstrzygnięte [K] (29.09.2026): łatka 100 × 20 mm, 20 mm pod
   górną krawędzią (`y ∈ [H − 40, H − 20]`), rozstaw końców zawsze 80 mm, taśma płaska 20 mm (`docs/PRODUCTION.md` §5, §9.5).
-- Grafika na cały arkusz (§3c): plik Demo 2 w repozytorium ma 5040 × 3000 px (= rząd ścianek 420 × 250 mm, bez paska
-  d i zakładki), a nie 5220 × 3300 px (cały arkusz 435 × 275 mm). Dopóki klient nie dostarczy pliku całego arkusza, Demo 2
+- Grafika na cały arkusz (§3c): plik Demo 4 w repozytorium ma 5040 × 3000 px (= rząd ścianek 420 × 250 mm, bez paska
+  d i zakładki), a nie 5220 × 3300 px (cały arkusz 435 × 275 mm). Dopóki klient nie dostarczy pliku całego arkusza, Demo 4
   kładzie go 1:1 na ściankach (`getPrintFilePlacement`), pasek d zostaje bez nadruku. Czy plik arkusza ma zawierać spad
   3 mm (wtedy obszar = arkusz + spad)? Obecnie obszar = arkusz bez spadu.
 - Grafika cykliczna (§3a): obraz szerszy niż obwód torby (`2W + 2D`) jest przycinany do jednego obwodu wokół swojego

@@ -16,9 +16,9 @@
     "demoTooltip": "Demo {{index}} ({{folder}}): {{description}}",
     "demoHints": {
       "1": "torba klockowa XL 320 × 220 × 400 mm, papier kraft biały 70 g/m² FSC, uchwyt skręcany, grafika na cały arkusz",
-      "2": "torba fałdowa 150 + 60 × 250 mm, papier kraft biały 40 g/m² FSC, grafika na cały arkusz",
+      "2": "torba klockowa 250 × 180 × 420 mm, papier brązowy z recyklingu 80 g/m² FSC, uchwyt płaski papierowy, grafiki „wave” na ściankach, rozciągnięte na dno",
       "3": "torba fałdowa 250 + 100 × 320 mm, papier tłuszczoodporny brązowy 50 g/m² FSC, okienko prostokątne 140 × 190 mm, 105 mm nad dnem (folia PP perforowana), grafika na całą torbę",
-      "4": "torba klockowa 250 × 180 × 420 mm, papier brązowy z recyklingu 80 g/m² FSC, uchwyt płaski papierowy, grafiki „wave” na ściankach, rozciągnięte na dno"
+      "4": "torba fałdowa 150 + 60 × 250 mm, papier kraft biały 40 g/m² FSC, grafika na cały arkusz"
     },
     "demoHintGeneric": "Wczytaj przykład z folderu {{folder}} (config.json + obrazki)"
   },
