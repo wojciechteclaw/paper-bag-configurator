@@ -1,0 +1,202 @@
+{
+  "id": "demo-5",
+  "productType": "BLOCK",
+  "dimensions": {
+    "width": 200,
+    "height": 400,
+    "depth": 150
+  },
+  "paper": {
+    "type": "KRAFT",
+    "color": "BROWN",
+    "grammage": 80,
+    "fscCertified": false,
+    "moistureBarrier": false
+  },
+  "handle": null,
+  "panels": {
+    "FRONT": {
+      "id": "a3ba5902-1a60-4a3a-b0dc-34ad80490650",
+      "position": "FRONT",
+      "artwork": {
+        "id": "048b3ec0-e8c3-4f76-9a48-d8d3886c397c",
+        "fileName": "image-1.png",
+        "fileUrl": "image-1.png",
+        "mimeType": "image/png",
+        "width": 300,
+        "height": 305,
+        "sizeBytes": 46434
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": 0,
+        "offsetY": 0,
+        "scale": 1,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    "BACK": {
+      "id": "f331ac35-76a2-4e08-9c9d-e7328de1ad11",
+      "position": "BACK",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    },
+    "LEFT": {
+      "id": "4579b689-30c3-4eeb-a7ce-e9ee4ffa57f1",
+      "position": "LEFT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    },
+    "RIGHT": {
+      "id": "c60806b5-7ce0-4731-84b7-601d4966b369",
+      "position": "RIGHT",
+      "artwork": null,
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": false
+      }
+    }
+  },
+  "artworkLayout": "WRAP",
+  "wrapLayers": [
+    {
+      "id": "4037a2da-f6dd-4ba2-9b79-b0e0855653b1",
+      "artwork": {
+        "id": "23492397-5add-4946-b4a8-5b7b69c8c5b7",
+        "fileName": "image-1.png",
+        "fileUrl": "image-1.png",
+        "mimeType": "image/png",
+        "width": 300,
+        "height": 305,
+        "sizeBytes": 46434
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": -100.53858520900326,
+        "offsetY": 14.014469453376194,
+        "scale": 0.49934616891980094,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    {
+      "id": "4e601bae-c341-4133-8fe5-a50e2300dfb5",
+      "artwork": {
+        "id": "376ca56e-e7b8-4359-9fb9-39a69b32ac62",
+        "fileName": "image-1.png",
+        "fileUrl": "image-1.png",
+        "mimeType": "image/png",
+        "width": 300,
+        "height": 305,
+        "sizeBytes": 46434
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": 252.1708706265257,
+        "offsetY": 17.886086248982963,
+        "scale": 0.5083333333333333,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    {
+      "id": "95eec39d-0c8b-40fa-a455-f7fe25baea21",
+      "artwork": {
+        "id": "caaee92c-dd1a-4182-a168-acf95f0c80ab",
+        "fileName": "image-2.webp",
+        "fileUrl": "image-2.webp",
+        "mimeType": "image/webp",
+        "width": 360,
+        "height": 360,
+        "sizeBytes": 9946
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": 37.53783563873071,
+        "offsetY": 62.29292107404393,
+        "scale": 0.13926185404936547,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    {
+      "id": "25c09e48-f0e5-4361-9912-c7c99ea8349c",
+      "artwork": {
+        "id": "bd7941a2-0dba-4c5f-ad0e-3b22b13e1df8",
+        "fileName": "image-3.png",
+        "fileUrl": "image-3.png",
+        "mimeType": "image/png",
+        "width": 541,
+        "height": 713,
+        "sizeBytes": 316290
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": -275.160292921074,
+        "offsetY": -61.676159479251396,
+        "scale": 0.3556682309945712,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    {
+      "id": "d306b18b-4c1d-46fa-b7bb-acd74e128ab3",
+      "artwork": {
+        "id": "7e0516f0-60e8-481b-ad9e-f6b1bb14397b",
+        "fileName": "image-2.webp",
+        "fileUrl": "image-2.webp",
+        "mimeType": "image/webp",
+        "width": 360,
+        "height": 360,
+        "sizeBytes": 9946
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": -234.4540276647681,
+        "offsetY": 61.67615947925151,
+        "scale": 0.13878195415763547,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    },
+    {
+      "id": "c6471d21-17bb-45c9-b97e-682e79f73590",
+      "artwork": {
+        "id": "756771e3-3e30-4549-835e-a7fb388408b3",
+        "fileName": "image-3.png",
+        "fileUrl": "image-3.png",
+        "mimeType": "image/png",
+        "width": 541,
+        "height": 713,
+        "sizeBytes": 316290
+      },
+      "placement": {
+        "mode": "CUSTOM",
+        "offsetX": 112.16598860862484,
+        "offsetY": -64.75996745321402,
+        "scale": 0.31877451222877123,
+        "rotation": 0,
+        "extendToBottom": false
+      }
+    }
+  ],
+  "sheetLayers": [],
+  "print": {
+    "technology": "FLEXO",
+    "pantoneColors": [],
+    "colorAnalysis": {
+      "mergeTolerance": 10,
+      "minAreaShare": 0.005
+    }
+  },
+  "packaging": "CARTON",
+  "glueFlapWidth": 10,
+  "window": null
+}

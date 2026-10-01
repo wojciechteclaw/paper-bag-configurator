@@ -37,8 +37,8 @@ afterEach(() => vi.unstubAllGlobals());
 const config = () => useConfigurationStore.getState().configuration;
 
 describe('demo folders public/demo<N> (config.json + image-N)', () => {
-  it('has four demos, each with a config.json', () => {
-    expect(DEMO_COUNT).toBe(4);
+  it('has five demos, each with a config.json', () => {
+    expect(DEMO_COUNT).toBe(5);
     for (let i = 1; i <= DEMO_COUNT; i++) expect(CONFIGS[`/public/demo${i}/config.json`]).toBeDefined();
   });
 
@@ -109,6 +109,29 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(result).toEqual({ missing: ['demo2/image-2.webp'], total: 4 });
     expect(config().panels.BACK.artwork).toBeNull();
     expect(config().panels.FRONT.artwork).not.toBeNull();
+  });
+
+  it('Demo 5: block-bottom bag 200 × 150 × 400, brown kraft 80 g/m², no handle, six whole-bag layers (client)', async () => {
+    const result = await loadDemoConfiguration(5, '/');
+    expect(result).toEqual({ missing: [], total: 3 }); // three image files shared by the six layers
+    const c = config();
+    expect(c.productType).toBe('BLOCK');
+    expect(c.dimensions).toEqual({ width: 200, height: 400, depth: 150 });
+    expect(c.paper).toMatchObject({ type: 'KRAFT', color: 'BROWN', grammage: 80, fscCertified: false });
+    expect(c.handle).toBeNull();
+    expect(getArtworkLayout(c)).toBe('WRAP');
+    const layers = getWrapLayers(c);
+    expect(layers.map((layer) => layer.artwork.fileUrl)).toEqual([
+      '/demo5/image-1.png',
+      '/demo5/image-1.png',
+      '/demo5/image-2.webp',
+      '/demo5/image-3.png',
+      '/demo5/image-2.webp',
+      '/demo5/image-3.png',
+    ]);
+    // Client placements kept as written (logo 1 left of centre, about half size).
+    expect(layers[0].placement).toMatchObject({ mode: 'CUSTOM', rotation: 0, extendToBottom: false });
+    expect(layers[0].placement.mode === 'CUSTOM' && layers[0].placement.scale).toBeCloseTo(0.4993, 4);
   });
 
   it('throws when the demo folder has no config.json', async () => {
