@@ -414,7 +414,9 @@
       "BOX": "3D box",
       "STANDING": "3D standing",
       "FLAT": "Flat"
-    }
+    },
+    "fullscreen": "Full screen",
+    "fullscreenExit": "Exit full screen"
   },
   "window": {
     "label": "Window",

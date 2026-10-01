@@ -414,7 +414,9 @@
       "BOX": "3D-Quader",
       "STANDING": "3D stehend",
       "FLAT": "Flach"
-    }
+    },
+    "fullscreen": "Vollbild",
+    "fullscreenExit": "Vollbild beenden"
   },
   "window": {
     "label": "Sichtfenster",

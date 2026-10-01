@@ -354,6 +354,24 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
 .preview-orbit[aria-pressed='true'],
 .preview-orbit[aria-pressed='true']:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
 .preview-stage__view > .dieline-view { padding: 60px 16px 12px; }
+/* Full screen of the bag only (client, 01.10.2026): Fullscreen API on the stage, or a fixed overlay where the API is
+   not available on elements (iPhone Safari). */
+.preview-fullscreen {
+  position: absolute; top: 104px; right: 12px; z-index: 1;
+  display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 2px solid var(--accent); border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--accent);
+  font-size: 18px; line-height: 1; box-shadow: var(--shadow-overlay);
+}
+.preview-fullscreen:hover:not(:disabled) { background: var(--accent-soft); }
+.preview-stage.is-fullscreen { background: var(--bg, #f1f2f1); }
+.preview-stage.is-fullscreen .preview-orbit { top: 12px; }
+.preview-stage.is-fullscreen .preview-fullscreen { top: 56px; }
+.preview-stage.is-fullscreen-overlay { position: fixed; inset: 0; z-index: 1000; width: 100vw; height: 100dvh; }
+/* The overlay sits inside the preview column's stacking context, so the rest of the app is hidden while it is open. */
+:root:has(.preview-stage.is-fullscreen-overlay) .app-header,
+:root:has(.preview-stage.is-fullscreen-overlay) .config-panel { display: none; }
+:root:has(.preview-stage.is-fullscreen-overlay) body { overflow: hidden; }
 
 /* Preview mode switcher (segmented control, SPEC §4c) */
 .preview-stage__top {
@@ -601,6 +619,11 @@ input[type='radio'], input[type='checkbox'], input[type='range'] { accent-color:
   .preview-stage__view > .dieline-view { padding: 6px 8px 8px; overflow-y: auto; overscroll-behavior: contain; }
   .preview-stage__overlay { position: static; transform: none; max-width: none; padding: 0 8px 6px; }
   .preview-orbit { top: 8px; right: 8px; min-height: 44px; box-shadow: none; }
+  .preview-fullscreen { top: 60px; right: 8px; width: 44px; height: 44px; box-shadow: none; }
+  .preview-stage.is-fullscreen { display: flex; flex-direction: column; }
+  .preview-stage.is-fullscreen .preview-stage__view { flex: 1; min-height: 0; }
+  .preview-stage.is-fullscreen .preview-orbit { top: 8px; }
+  .preview-stage.is-fullscreen .preview-fullscreen { top: 60px; }
   /* Collapse / expand the preview (portrait only; rendered by PreviewPanel where COLLAPSIBLE_PREVIEW_QUERY matches). */
   .preview-collapse {
     position: absolute; right: 8px; bottom: 8px; z-index: 1; display: grid; place-items: center;

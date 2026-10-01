@@ -134,3 +134,25 @@ describe('PreviewPanel modes', () => {
     expect(usePreviewStore.getState().playing).toBe(false);
   });
 });
+
+describe('PreviewPanel full screen of the bag (client, 01.10.2026)', () => {
+  it('shows only the bag in full screen (overlay fallback without the Fullscreen API) and leaves it with the button or Escape', async () => {
+    const { container } = render(<PreviewPanel />);
+    const stage = () => container.querySelector('.preview-stage')!;
+    expect(screen.getByRole('group', { name: /Tryb podglądu/i })).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Pełny ekran' })));
+    expect(stage()).toHaveClass('is-fullscreen', 'is-fullscreen-overlay');
+    expect(screen.queryByRole('group', { name: /Tryb podglądu/i })).toBeNull(); // no mode switcher: just the bag
+    expect(screen.getByTestId('bag-3d')).toBeInTheDocument();
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Zamknij pełny ekran' })));
+    expect(stage()).not.toHaveClass('is-fullscreen');
+
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Pełny ekran' })));
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
+    expect(stage()).not.toHaveClass('is-fullscreen');
+  });
+});

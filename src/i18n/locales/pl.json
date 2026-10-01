@@ -416,7 +416,9 @@
       "BOX": "3D pełne",
       "STANDING": "3D po zgięciu",
       "FLAT": "Złożona"
-    }
+    },
+    "fullscreen": "Pełny ekran",
+    "fullscreenExit": "Zamknij pełny ekran"
   },
   "window": {
     "label": "Okienko",

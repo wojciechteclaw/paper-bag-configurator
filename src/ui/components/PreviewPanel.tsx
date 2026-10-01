@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DielineView } from '../../dieline/DielineView';
 import { BagPreview3D } from '../../renderer/BagPreview3D';
@@ -8,6 +8,7 @@ import { COLLAPSIBLE_PREVIEW_QUERY, useMediaQuery } from '../useMediaQuery';
 import { FoldSlider } from './FoldSlider';
 import { OrbitButton } from './OrbitButton';
 import { PreviewModeSwitcher } from './PreviewModeSwitcher';
+import { useFullscreen } from './useFullscreen';
 
 /**
  * Preview area: mode switcher (dieline / sheet / 3D box / 3D standing / flat), the 2D dieline or the 3D canvas, and —
@@ -28,6 +29,8 @@ export function PreviewPanel() {
   const collapsed = usePreviewStore((s) => s.collapsed) && collapsible;
   const toggleCollapsed = usePreviewStore((s) => s.toggleCollapsed);
   const viewId = useId();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(stageRef);
   const show3D = is3DViewMode(viewMode);
   const { assemblyProgress, foldProgress } = getTimelineStateFor(configuration.productType, progress);
 
@@ -41,8 +44,14 @@ export function PreviewPanel() {
     );
   }
 
+  // Full screen shows only the bag (3D canvas, fold slider, orbit): no mode switcher, no collapse button.
+  const fullscreenLabel = fullscreen.active ? t('preview.fullscreenExit') : t('preview.fullscreen');
+  const stageClass = ['preview-stage', fullscreen.active && 'is-fullscreen', fullscreen.overlay && 'is-fullscreen-overlay']
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="preview-stage">
+    <div className={stageClass} ref={stageRef}>
       {/* Desktop: fills the stage under the floating controls; narrow screens: between them (index.css). */}
       <div className="preview-stage__view" id={viewId}>
         {show3D ? (
@@ -55,11 +64,21 @@ export function PreviewPanel() {
               onAutoOrbitEnd={stopOrbiting}
             />
             <OrbitButton />
+            <button
+              type="button"
+              className="preview-fullscreen"
+              aria-pressed={fullscreen.active}
+              aria-label={fullscreenLabel}
+              title={fullscreenLabel}
+              onClick={() => void fullscreen.toggle()}
+            >
+              <span aria-hidden="true">{fullscreen.active ? '✕' : '⛶'}</span>
+            </button>
           </>
         ) : (
           <DielineView />
         )}
-        {collapsible && (
+        {collapsible && !fullscreen.active && (
           <button
             type="button"
             className="preview-collapse"
@@ -73,9 +92,11 @@ export function PreviewPanel() {
           </button>
         )}
       </div>
-      <div className="preview-stage__top">
-        <PreviewModeSwitcher />
-      </div>
+      {!fullscreen.active && (
+        <div className="preview-stage__top">
+          <PreviewModeSwitcher />
+        </div>
+      )}
       {show3D && (
         <div className="preview-stage__overlay">
           <FoldSlider />
