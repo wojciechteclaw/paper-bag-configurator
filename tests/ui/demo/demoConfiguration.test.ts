@@ -111,27 +111,22 @@ describe('demo folders public/demo<N> (config.json + image-N)', () => {
     expect(config().panels.FRONT.artwork).not.toBeNull();
   });
 
-  it('Demo 5: block-bottom bag 200 × 150 × 400, brown kraft 80 g/m², no handle, six whole-bag layers (client)', async () => {
+  it('Demo 5: block-bottom bag 220 × 110 × 300, brown recycled 100 g/m² FSC, flat handle, background + 2 logos (client)', async () => {
     const result = await loadDemoConfiguration(5, '/');
-    expect(result).toEqual({ missing: [], total: 3 }); // three image files shared by the six layers
+    expect(result).toEqual({ missing: [], total: 2 }); // background + one logo file used by two layers
     const c = config();
     expect(c.productType).toBe('BLOCK');
-    expect(c.dimensions).toEqual({ width: 200, height: 400, depth: 150 });
-    expect(c.paper).toMatchObject({ type: 'KRAFT', color: 'BROWN', grammage: 80, fscCertified: false });
-    expect(c.handle).toBeNull();
+    expect(c.dimensions).toEqual({ width: 220, height: 300, depth: 110 });
+    expect(c.paper).toMatchObject({ type: 'RECYCLED', color: 'BROWN', grammage: 100, fscCertified: true });
+    expect(c.handle?.type).toBe('FLAT_PAPER');
     expect(getArtworkLayout(c)).toBe('WRAP');
     const layers = getWrapLayers(c);
-    expect(layers.map((layer) => layer.artwork.fileUrl)).toEqual([
-      '/demo5/image-1.png',
-      '/demo5/image-1.png',
-      '/demo5/image-2.webp',
-      '/demo5/image-3.png',
-      '/demo5/image-2.webp',
-      '/demo5/image-3.png',
-    ]);
-    // Client placements kept as written (logo 1 left of centre, about half size).
-    expect(layers[0].placement).toMatchObject({ mode: 'CUSTOM', rotation: 0, extendToBottom: false });
-    expect(layers[0].placement.mode === 'CUSTOM' && layers[0].placement.scale).toBeCloseTo(0.4993, 4);
+    expect(layers.map((layer) => layer.artwork.fileUrl)).toEqual(['/demo5/image-1.webp', '/demo5/image-2.png', '/demo5/image-2.png']);
+    // Background stretched around the bag and onto the bottom; the two logos placed by hand (kept as written).
+    expect(layers[0].placement).toEqual({ mode: 'FILL', extendToBottom: true });
+    expect(layers[1].placement).toMatchObject({ mode: 'CUSTOM', rotation: 0, extendToBottom: false });
+    expect(layers[1].placement.mode === 'CUSTOM' && layers[1].placement.scale).toBeCloseTo(0.4509, 4);
+    expect(layers[2].placement.mode === 'CUSTOM' && layers[2].placement.offsetX).toBeCloseTo(219.497, 3);
   });
 
   it('throws when the demo folder has no config.json', async () => {

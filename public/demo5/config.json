@@ -2,42 +2,41 @@
   "id": "demo-5",
   "productType": "BLOCK",
   "dimensions": {
-    "width": 200,
-    "height": 400,
-    "depth": 150
+    "width": 220,
+    "height": 300,
+    "depth": 110
   },
   "paper": {
-    "type": "KRAFT",
+    "type": "RECYCLED",
     "color": "BROWN",
-    "grammage": 80,
-    "fscCertified": false,
+    "grammage": 100,
+    "fscCertified": true,
     "moistureBarrier": false
   },
-  "handle": null,
+  "handle": {
+    "id": "53ed840b-73da-4996-9164-25ba38fd9559",
+    "type": "FLAT_PAPER",
+    "material": "KRAFT",
+    "color": "#c8a57a",
+    "width": 20,
+    "length": 180,
+    "patch": {
+      "width": 110,
+      "height": 20
+    }
+  },
   "panels": {
     "FRONT": {
-      "id": "a3ba5902-1a60-4a3a-b0dc-34ad80490650",
+      "id": "7ddaf3f0-7279-495b-bee3-37a88f1d4443",
       "position": "FRONT",
-      "artwork": {
-        "id": "048b3ec0-e8c3-4f76-9a48-d8d3886c397c",
-        "fileName": "image-1.png",
-        "fileUrl": "image-1.png",
-        "mimeType": "image/png",
-        "width": 300,
-        "height": 305,
-        "sizeBytes": 46434
-      },
+      "artwork": null,
       "placement": {
-        "mode": "CUSTOM",
-        "offsetX": 0,
-        "offsetY": 0,
-        "scale": 1,
-        "rotation": 0,
+        "mode": "FILL",
         "extendToBottom": false
       }
     },
     "BACK": {
-      "id": "f331ac35-76a2-4e08-9c9d-e7328de1ad11",
+      "id": "6a26d4de-d5d5-458c-a98f-ab5b12bebcbf",
       "position": "BACK",
       "artwork": null,
       "placement": {
@@ -46,7 +45,7 @@
       }
     },
     "LEFT": {
-      "id": "4579b689-30c3-4eeb-a7ce-e9ee4ffa57f1",
+      "id": "a90e4427-2988-44cd-a08a-c55a79a55263",
       "position": "LEFT",
       "artwork": null,
       "placement": {
@@ -55,7 +54,7 @@
       }
     },
     "RIGHT": {
-      "id": "c60806b5-7ce0-4731-84b7-601d4966b369",
+      "id": "406f33eb-6b27-47b6-bd84-a6fa01265f17",
       "position": "RIGHT",
       "artwork": null,
       "placement": {
@@ -67,11 +66,27 @@
   "artworkLayout": "WRAP",
   "wrapLayers": [
     {
-      "id": "4037a2da-f6dd-4ba2-9b79-b0e0855653b1",
+      "id": "a237cb8c-08e8-4216-9f84-518952419fb7",
       "artwork": {
-        "id": "23492397-5add-4946-b4a8-5b7b69c8c5b7",
-        "fileName": "image-1.png",
-        "fileUrl": "image-1.png",
+        "id": "88229d21-2887-4269-ae13-c56839e0a06e",
+        "fileName": "image-1.webp",
+        "fileUrl": "image-1.webp",
+        "mimeType": "image/webp",
+        "width": 7200,
+        "height": 3700,
+        "sizeBytes": 74804
+      },
+      "placement": {
+        "mode": "FILL",
+        "extendToBottom": true
+      }
+    },
+    {
+      "id": "2be282e5-6586-40e5-85ad-040a197aa614",
+      "artwork": {
+        "id": "315eadca-943f-4da7-a2e0-00863c62d229",
+        "fileName": "image-2.png",
+        "fileUrl": "image-2.png",
         "mimeType": "image/png",
         "width": 300,
         "height": 305,
@@ -79,19 +94,19 @@
       },
       "placement": {
         "mode": "CUSTOM",
-        "offsetX": -100.53858520900326,
-        "offsetY": 14.014469453376194,
-        "scale": 0.49934616891980094,
+        "offsetX": -117.01057770545162,
+        "offsetY": 8.179007323026838,
+        "scale": 0.45088388414837793,
         "rotation": 0,
         "extendToBottom": false
       }
     },
     {
-      "id": "4e601bae-c341-4133-8fe5-a50e2300dfb5",
+      "id": "dba79338-a008-4ca8-bd31-3faed30fd9b7",
       "artwork": {
-        "id": "376ca56e-e7b8-4359-9fb9-39a69b32ac62",
-        "fileName": "image-1.png",
-        "fileUrl": "image-1.png",
+        "id": "476c2370-3252-47c2-b8af-7d84267a0a91",
+        "fileName": "image-2.png",
+        "fileUrl": "image-2.png",
         "mimeType": "image/png",
         "width": 300,
         "height": 305,
@@ -99,89 +114,9 @@
       },
       "placement": {
         "mode": "CUSTOM",
-        "offsetX": 252.1708706265257,
-        "offsetY": 17.886086248982963,
-        "scale": 0.5083333333333333,
-        "rotation": 0,
-        "extendToBottom": false
-      }
-    },
-    {
-      "id": "95eec39d-0c8b-40fa-a455-f7fe25baea21",
-      "artwork": {
-        "id": "caaee92c-dd1a-4182-a168-acf95f0c80ab",
-        "fileName": "image-2.webp",
-        "fileUrl": "image-2.webp",
-        "mimeType": "image/webp",
-        "width": 360,
-        "height": 360,
-        "sizeBytes": 9946
-      },
-      "placement": {
-        "mode": "CUSTOM",
-        "offsetX": 37.53783563873071,
-        "offsetY": 62.29292107404393,
-        "scale": 0.13926185404936547,
-        "rotation": 0,
-        "extendToBottom": false
-      }
-    },
-    {
-      "id": "25c09e48-f0e5-4361-9912-c7c99ea8349c",
-      "artwork": {
-        "id": "bd7941a2-0dba-4c5f-ad0e-3b22b13e1df8",
-        "fileName": "image-3.png",
-        "fileUrl": "image-3.png",
-        "mimeType": "image/png",
-        "width": 541,
-        "height": 713,
-        "sizeBytes": 316290
-      },
-      "placement": {
-        "mode": "CUSTOM",
-        "offsetX": -275.160292921074,
-        "offsetY": -61.676159479251396,
-        "scale": 0.3556682309945712,
-        "rotation": 0,
-        "extendToBottom": false
-      }
-    },
-    {
-      "id": "d306b18b-4c1d-46fa-b7bb-acd74e128ab3",
-      "artwork": {
-        "id": "7e0516f0-60e8-481b-ad9e-f6b1bb14397b",
-        "fileName": "image-2.webp",
-        "fileUrl": "image-2.webp",
-        "mimeType": "image/webp",
-        "width": 360,
-        "height": 360,
-        "sizeBytes": 9946
-      },
-      "placement": {
-        "mode": "CUSTOM",
-        "offsetX": -234.4540276647681,
-        "offsetY": 61.67615947925151,
-        "scale": 0.13878195415763547,
-        "rotation": 0,
-        "extendToBottom": false
-      }
-    },
-    {
-      "id": "c6471d21-17bb-45c9-b97e-682e79f73590",
-      "artwork": {
-        "id": "756771e3-3e30-4549-835e-a7fb388408b3",
-        "fileName": "image-3.png",
-        "fileUrl": "image-3.png",
-        "mimeType": "image/png",
-        "width": 541,
-        "height": 713,
-        "sizeBytes": 316290
-      },
-      "placement": {
-        "mode": "CUSTOM",
-        "offsetX": 112.16598860862484,
-        "offsetY": -64.75996745321402,
-        "scale": 0.31877451222877123,
+        "offsetX": 219.49715215622467,
+        "offsetY": 7.594792514239259,
+        "scale": 0.4476204348499336,
         "rotation": 0,
         "extendToBottom": false
       }
